@@ -1,8 +1,8 @@
 services:
-  neuraxcrm-platform:
+  allassist-platform:
     build:
       context: .
-    image: neuraxcrm-platform:local
+    image: allassist-platform:local
     env_file:
       - .env
     ports:
