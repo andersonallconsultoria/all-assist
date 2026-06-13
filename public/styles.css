@@ -3658,6 +3658,42 @@ nav a.active::after {
   font-weight: 700;
 }
 
+/* ===== Painel: distribuição de tickets ===== */
+.dist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+}
+.dist-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 32px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.dist-label {
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dist-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--panel-soft);
+  overflow: hidden;
+}
+.dist-bar > div {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+  min-width: 4px;
+}
+.dist-row strong {
+  text-align: right;
+}
+
 /* ===== Tickets ===== */
 .ticket-filters {
   display: flex;

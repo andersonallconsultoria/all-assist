@@ -138,23 +138,9 @@ document.querySelectorAll("nav a").forEach((link) => {
     link.classList.add("active");
     document.querySelector(link.getAttribute("href")).classList.add("active");
     document.getElementById("pageTitle").textContent = link.textContent.trim();
-    if (link.getAttribute("href") === "#sellers") renderSellers();
     if (link.getAttribute("href") === "#whatsapp-chat") renderWhatsAppChat();
     if (link.getAttribute("href") === "#tickets") renderTickets();
   });
-});
-
-document.getElementById("syncButton").addEventListener("click", async () => {
-  setStatus("Sincronizando ERP...");
-  try {
-    const stats = await api("/api/erp/sync/run", { method: "POST" });
-    setStatus(`Sincronizacao concluida: ${stats.upserted || 0} atualizados, ${stats.skipped || 0} sem alteracao, ${stats.failed || 0} erros`);
-    await loadAll();
-    setTimeout(() => setStatus("Online"), 6000);
-  } catch (error) {
-    setStatus(`Erro na sincronizacao: ${error.message}`);
-    setTimeout(() => setStatus("Online"), 8000);
-  }
 });
 
 document.getElementById("logoutButton").addEventListener("click", async () => {
@@ -171,89 +157,12 @@ document.getElementById("notifButton")?.addEventListener("click", () => {
   setTimeout(() => setStatus("Online"), 2500);
 });
 
-document.getElementById("erpSettingsForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await saveErpSettings(event.currentTarget);
-});
-
-document.getElementById("erpTestButton").addEventListener("click", async () => {
-  await testErpSettings(document.getElementById("erpSettingsForm"));
-});
-
-document.getElementById("erpClearButton").addEventListener("click", async () => {
-  await clearErpSettings(document.getElementById("erpSettingsForm"));
-});
-
-document.getElementById("dealSearch").addEventListener("input", () => {
-  renderDeals();
-});
-
-document.getElementById("pipelineSelect").addEventListener("change", (event) => {
-  state.selectedPipelineId = event.target.value;
-  hidePipelineForm();
-  renderDeals();
-});
-
-document.getElementById("newPipelineButton").addEventListener("click", () => {
-  showPipelineForm("create");
-});
-
-document.getElementById("editStagesButton").addEventListener("click", () => {
-  showPipelineForm("edit");
-});
-
-document.getElementById("cancelPipelineButton").addEventListener("click", hidePipelineForm);
-document.getElementById("pipelineDrawerClose").addEventListener("click", hidePipelineForm);
-document.getElementById("pipelineOverlay").addEventListener("click", (event) => {
-  if (event.target.id === "pipelineOverlay") hidePipelineForm();
-});
-
-document.getElementById("pipelineForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  await savePipeline(event.currentTarget);
-});
-
 document.getElementById("themeToggle").addEventListener("click", () => {
   const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
   setTheme(nextTheme);
 });
 
-document.querySelectorAll("#dashboard .segmented-control button").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const control = btn.closest(".segmented-control");
-    control.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    const isCount = btn.textContent.trim().toLowerCase().includes("quantidade");
-    const model = buildDashboardModel();
-    document.getElementById("pipelineChart").innerHTML = renderPipelineArea(model.monthly, isCount);
-  });
-});
-
-document.getElementById("rptSegControl")?.querySelectorAll("button").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.getElementById("rptSegControl").querySelectorAll("button").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    const isCount = btn.textContent.trim().toLowerCase().includes("quantidade");
-    const model = buildDashboardModel();
-    document.getElementById("rptChart").innerHTML = renderPipelineArea(model.monthly, isCount);
-  });
-});
-
-document.getElementById("ordersSearch")?.addEventListener("input", renderOrdersTable);
-document.getElementById("quotesSearch")?.addEventListener("input", renderQuotesTable);
-
-document.querySelectorAll(".commercial-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".commercial-tab").forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-    const isQuotes = tab.dataset.commercialTab === "quotes";
-    document.getElementById("commercialQuotes").style.display = isQuotes ? "" : "none";
-    document.getElementById("commercialOrders").style.display = isQuotes ? "none" : "";
-    if (isQuotes) renderQuotesTable(); else renderOrdersTable();
-  });
-});
 document.getElementById("contactSearch")?.addEventListener("input", renderContactsTable);
-document.getElementById("productsSearch")?.addEventListener("input", renderProducts);
 document.getElementById("convSearch")?.addEventListener("input", renderConversations);
 document.querySelectorAll(".conv-filter-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -272,11 +181,8 @@ document.querySelectorAll(".conv-provider-btn").forEach((btn) => {
   });
 });
 
-setupFilterTabs("ordersFilterTabs", (f) => { state.ordersFilter = f; renderOrdersTable(); });
-setupFilterTabs("quotesFilterTabs", (f) => { state.quotesFilter = f; renderQuotesTable(); });
 setupFilterTabs("contactsFilterTabs", (f) => { state.contactsFilter = f; renderContactsTable(); });
 setupFilterTabs("usersFilterTabs", (f) => { state.usersFilter = f; renderUsersTable(); });
-setupFilterTabs("productsFilterTabs", (f) => { state.productsFilter = f; renderProducts(); });
 
 document.getElementById("inviteUserBtn")?.addEventListener("click", () => {
   openInviteModal();
@@ -354,11 +260,6 @@ document.querySelectorAll(".settings-tab").forEach((tab) => {
     tab.classList.add("active");
     renderSettingsContent(tab.dataset.tab);
   });
-});
-
-document.getElementById("dealDrawerClose").addEventListener("click", closeDealDrawer);
-document.getElementById("dealOverlay").addEventListener("click", (event) => {
-  if (event.target.id === "dealOverlay") closeDealDrawer();
 });
 
 document.getElementById("tenantForm")?.addEventListener("submit", async (event) => {
@@ -865,53 +766,34 @@ async function loadAll() {
   state.context = me.context;
   renderNavigationPermissions();
 
-  const [dashboard, deals, pipelines, contacts, conversations, users, roles, products, erpIntegration, integrationSchedules, support, waSettings] = await Promise.all([
-    api("/api/dashboard"),
-    api("/api/deals"),
-    api("/api/pipelines"),
+  const [dashboard, contacts, conversations, users, roles, support, waSettings] = await Promise.all([
+    api("/api/dashboard").catch(() => null),
     api("/api/contacts"),
     api("/api/conversations"),
     api("/api/users").catch(() => ({ data: [] })),
     api("/api/roles").catch(() => ({ data: [] })),
-    api("/api/products").catch(() => ({ data: [] })),
-    hasPermission("settings:manage") ? api("/api/integrations/erp").catch(() => null) : Promise.resolve(null),
-    hasPermission("settings:manage") ? api("/api/integrations/schedules").catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
     hasPermission("support:view") ? loadSupportData() : Promise.resolve(null),
     hasPermission("settings:manage") ? api("/api/whatsapp/settings").catch(() => null) : Promise.resolve(null)
   ]);
 
   state.dashboard = dashboard;
-  state.deals = deals.data || [];
-  state.pipelines = pipelines.data || [];
-  if (!state.selectedPipelineId || !state.pipelines.some((pipeline) => pipeline.id === state.selectedPipelineId)) {
-    state.selectedPipelineId = state.pipelines[0]?.id || "";
-  }
   state.contacts = contacts.data || [];
   state.conversations = conversations.data || [];
   state.users = users.data || [];
   state.roles = roles.data || [];
-  state.products = products.data || [];
-  state.erpIntegration = erpIntegration;
-  state.integrationSchedules = integrationSchedules.data || [];
   state.support = support;
   state.waSettings = waSettings;
 
   renderCurrentUser();
   renderDashboard();
-  renderReports();
-  renderDeals();
-  renderQuotesTable();
   renderContactsTable();
   renderConversations();
   renderUsersTable();
-  renderProducts();
   renderSettings();
-  renderErpSettings();
-  renderIntegrationSchedules();
   renderSupport();
-  renderAiInsights();
   renderAutomations();
   renderWaTemplatesSection();
+  if (document.querySelector("#tickets")) renderTickets();
   setStatus("Online");
 }
 
@@ -931,35 +813,40 @@ function renderNavigationPermissions() {
 }
 
 function renderDashboard() {
-  const model = buildDashboardModel();
+  const d = state.dashboard || {};
+  const t = d.tickets || {};
+  const c = d.conversations || {};
+  const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
-  document.getElementById("metricPipelineValue").textContent = compactMoney.format(model.totalPipeline);
-  document.getElementById("metricPipelineChange").innerHTML = renderTrendBadge(model.pipelineChange, "variacao no periodo");
-  document.getElementById("metricWonThisMonth").textContent = compactMoney.format(model.wonAmount);
-  document.getElementById("metricWonChange").innerHTML = model.wonDeals.length
-    ? `<span class="trend-badge up">↑ ${model.wonDeals.length} convertidos</span>`
-    : `<span class="trend-badge neutral">→ 0 convertidos</span>`;
-  document.getElementById("metricWinRate").textContent = `${model.winRate.toFixed(1)}%`;
-  document.getElementById("metricWinRateDetail").textContent = `${model.wonDeals.length} de ${model.deals.length} negocios`;
-  document.getElementById("metricAvgDealSize").textContent = compactMoney.format(model.avgDealSize);
-  document.getElementById("metricAvgDealDetail").textContent = `${model.deals.length} negocios analisados`;
+  setText("dashTicketsOpen", t.open ?? 0);
+  setText("dashTicketsSla", `${t.slaAtRisk ?? 0} perto do SLA`);
+  setText("dashTicketsUnassigned", t.unassigned ?? 0);
+  setText("dashClosedToday", t.closedToday ?? 0);
+  setText("dashAvgResponse", t.avgFirstResponseMins != null ? `${t.avgFirstResponseMins} min` : "—");
+  setText("dashConversationsOpen", c.open ?? 0);
+  setText("dashUnread", `${c.unread ?? 0} nao lidas`);
+  setText("dashContacts", d.contacts?.total ?? 0);
 
-  document.getElementById("metricPipelineSpark").innerHTML = renderSparkline(model.monthly.values, CHART_COLORS[0]);
-  document.getElementById("metricWonSpark").innerHTML = renderSparkline(model.monthly.wonValues, CHART_COLORS[1]);
-  document.getElementById("metricRateSpark").innerHTML = renderSparkline(model.monthly.countValues, CHART_COLORS[2]);
-  document.getElementById("metricAvgSpark").innerHTML = renderSparkline(model.monthly.avgValues, CHART_COLORS[3]);
+  setHtml("dashByCategory", renderDistribution(t.byCategory, TICKET_CATEGORY_LABELS));
+  setHtml("dashByPriority", renderDistribution(t.byPriority, TICKET_PRIORITY_LABELS));
+}
 
-  document.getElementById("pipelineChart").innerHTML = renderPipelineArea(model.monthly);
-  document.getElementById("stageDonut").innerHTML = renderStageDonut(model.stageRows);
-  document.getElementById("stageLegend").innerHTML = renderStageLegend(model.stageRows);
-  document.getElementById("topSalesReps").innerHTML = renderTopSalesReps(model.sellerRows);
-  document.getElementById("leadSources").innerHTML = renderLeadSources(model.leadSources);
-  document.getElementById("recentDeals").innerHTML = renderRecentDeals(model.recentDeals);
-  document.getElementById("quarterlyTargets").innerHTML = renderTargets(model.targets);
-
-  document.querySelectorAll("[data-dashboard-deal-id]").forEach((item) => {
-    item.addEventListener("click", () => openDealDetail(item.dataset.dashboardDealId));
-  });
+function renderDistribution(map, labels) {
+  const entries = Object.entries(map || {});
+  if (!entries.length) return `<div class="empty-state compact">Sem tickets abertos.</div>`;
+  const total = entries.reduce((sum, [, n]) => sum + n, 0);
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, n]) => {
+      const pct = total ? Math.round((n / total) * 100) : 0;
+      return `<div class="dist-row">
+        <span class="dist-label">${escapeHtml(labels[key] || key)}</span>
+        <div class="dist-bar"><div style="width:${pct}%"></div></div>
+        <strong>${n}</strong>
+      </div>`;
+    })
+    .join("");
 }
 
 function renderSummary(targetId, data) {
