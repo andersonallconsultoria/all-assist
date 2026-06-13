@@ -1,0 +1,13 @@
+.git
+.env
+data
+logs
+node_modules
+references
+npm-debug.log*
+flycrm-main.js
+flycrm-vendor.js
+payload-*.json
+k8s
+docs
+test

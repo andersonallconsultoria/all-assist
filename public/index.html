@@ -1,0 +1,1202 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Neurax CRM</title>
+    <meta name="theme-color" content="#00b894">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="/styles.css">
+    <!-- APEX THEME: remova esta linha para voltar ao layout original -->
+    <link rel="stylesheet" href="/apex-theme.css">
+  </head>
+  <body data-theme="dark">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">n</span>
+        <div>
+          <strong>Neurax CRM</strong>
+          <small>Controle de vendas</small>
+        </div>
+      </div>
+      <nav>
+        <div class="nav-section-label">Principal</div>
+        <a href="#dashboard" class="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
+          Painel
+        </a>
+        <a href="#reports">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Relatorios
+        </a>
+        <div class="nav-section-label">Comercial</div>
+        <a href="#deals">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="6" height="6" rx="1"></rect><rect x="9" y="3" width="6" height="6" rx="1"></rect><rect x="16" y="3" width="6" height="6" rx="1"></rect><path d="M5 9v3M12 9v3M19 9v3M5 12h14"></path></svg>
+          Negocios
+        </a>
+        <a href="#orders-list">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          Análise Comercial
+        </a>
+        <a href="#products">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+          Produtos
+        </a>
+        <a href="#contacts">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          Clientes
+        </a>
+        <a href="#sellers">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="7" r="4"></circle><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"></path><path d="M19 8v6M22 11h-6"></path></svg>
+          Vendedores
+        </a>
+        <div class="nav-section-label">WhatsApp</div>
+        <a href="#conversations">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          Conversas
+          <span id="convBadge" class="nav-badge" style="display:none">0</span>
+        </a>
+        <a href="#wa-templates">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          Templates
+        </a>
+        <a href="#whatsapp-chat" data-permission="settings:manage">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.18h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l1.14-1.14a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          WhatsApp Chat
+        </a>
+        <a href="#automation">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+          Automacoes
+        </a>
+        <div class="nav-section-label">Analise</div>
+        <a href="#ai-insights" class="nav-link-ai">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"></path></svg>
+          IA Insights
+          <span class="nav-badge nav-badge-ai">BETA</span>
+        </a>
+        <div class="nav-section-label">Sistema</div>
+        <a href="#users">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          Usuarios
+        </a>
+        <a href="#erp-settings" data-permission="settings:manage">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"></path></svg>
+          Integracao ERP
+        </a>
+        <a href="#settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          Configuracoes
+        </a>
+        <a href="#support" data-permission="support:view">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          Suporte Master
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="syncButton" class="sync-button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline;vertical-align:-2px;margin-right:6px"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Sincronizar ERP
+        </button>
+        <button id="logoutButton" class="logout-button">Sair</button>
+      </div>
+    </aside>
+
+    <main class="app">
+      <header class="topbar">
+        <div class="title-group">
+          <button class="menu-button" type="button" aria-label="Menu">&#9776;</button>
+          <div>
+            <p class="eyebrow">Neurax CRM integrado ao ERP</p>
+            <h1 id="pageTitle">Painel</h1>
+          </div>
+        </div>
+        <div class="top-actions">
+          <label class="global-search">
+            <span>Buscar</span>
+            <input type="search" placeholder="Pesquisar no CRM...">
+          </label>
+          <button id="notifButton" class="notif-btn" type="button" title="Notificacoes" aria-label="Notificacoes">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          </button>
+          <button id="themeToggle" class="theme-toggle" type="button">Tema escuro</button>
+          <div class="tenant-pill" id="tenantPill">Empresa</div>
+          <div class="user-pill" id="userPill">U</div>
+          <div class="status-pill" id="statusPill">Carregando</div>
+        </div>
+      </header>
+
+      <section id="dashboard" class="view active">
+        <div class="dashboard-hero">
+          <div>
+            <h2>Gestao Comercial</h2>
+            <p>Analise executiva dos orcamentos, pedidos, vendedores e sincronizacao com o ERP.</p>
+          </div>
+        </div>
+
+        <div class="cards dashboard-kpis">
+          <article class="metric-card metric-accent">
+            <span>Valor em aberto</span>
+            <strong id="metricPipelineValue">R$ 0</strong>
+            <small id="metricPipelineChange">+0,0% no periodo</small>
+            <div id="metricPipelineSpark" class="metric-sparkline"></div>
+          </article>
+          <article class="metric-card metric-cyan">
+            <span>Valor convertido</span>
+            <strong id="metricWonThisMonth">R$ 0</strong>
+            <small id="metricWonChange">+0,0% no periodo</small>
+            <div id="metricWonSpark" class="metric-sparkline"></div>
+          </article>
+          <article class="metric-card metric-blue">
+            <span>Taxa de conversao</span>
+            <strong id="metricWinRate">0%</strong>
+            <small id="metricWinRateDetail">0 negocios convertidos</small>
+            <div id="metricRateSpark" class="metric-sparkline"></div>
+          </article>
+          <article class="metric-card metric-amber">
+            <span>Ticket medio</span>
+            <strong id="metricAvgDealSize">R$ 0</strong>
+            <small id="metricAvgDealDetail">0 negocios analisados</small>
+            <div id="metricAvgSpark" class="metric-sparkline"></div>
+          </article>
+        </div>
+
+        <div class="dashboard-main-grid">
+          <section class="panel dashboard-panel-wide">
+            <div class="panel-title">
+              <div>
+                <h2>Evolucao do Funil</h2>
+                <span>Analise mensal do valor de orcamentos e pedidos</span>
+              </div>
+              <div class="segmented-control">
+                <button type="button" class="active">Valor</button>
+                <button type="button">Quantidade</button>
+              </div>
+            </div>
+            <div id="pipelineChart" class="pipeline-chart"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Etapas dos Negocios</h2>
+                <span>Distribuicao atual dos orcamentos e pedidos</span>
+              </div>
+            </div>
+            <div id="stageDonut" class="stage-donut-wrap"></div>
+            <div id="stageLegend" class="stage-legend"></div>
+          </section>
+        </div>
+
+        <div class="dashboard-main-grid dashboard-lower-grid">
+          <section class="panel dashboard-panel-wide">
+            <div class="panel-title">
+              <div>
+                <h2>Ranking de Vendedores</h2>
+                <span>Desempenho comercial por vendedor</span>
+              </div>
+              <button type="button" class="link-button">Ver todos</button>
+            </div>
+            <div id="topSalesReps" class="sales-table"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Origem dos Clientes</h2>
+                <span>De onde os contatos chegaram ao CRM</span>
+              </div>
+            </div>
+            <div id="leadSources" class="lead-source-chart"></div>
+          </section>
+        </div>
+
+        <div class="dashboard-main-grid dashboard-lower-grid">
+          <section class="panel dashboard-panel-wide">
+            <div class="panel-title">
+              <div>
+                <h2>Negocios Recentes</h2>
+                <span>Ultimas movimentacoes de orcamentos e pedidos</span>
+              </div>
+              <button type="button" class="link-button">Ver todos</button>
+            </div>
+            <div id="recentDeals" class="recent-deals-table"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Metas Comerciais</h2>
+                <span>Acompanhamento do periodo atual</span>
+              </div>
+            </div>
+            <div id="quarterlyTargets" class="target-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="deals" class="view">
+        <div class="kanban-shell">
+          <div class="kanban-toolbar">
+            <label class="pipeline-select pipeline-picker">
+              <span>Funil</span>
+              <select id="pipelineSelect"></select>
+            </label>
+            <button id="newPipelineButton" class="secondary-button" type="button">+ Pipeline</button>
+            <button id="editStagesButton" class="secondary-button" type="button">Etapas</button>
+            <button class="filter-button" type="button">Filtrar</button>
+            <label class="kanban-search">
+              <span>Buscar</span>
+              <input id="dealSearch" placeholder="Cliente, telefone, orcamento ou pedido">
+            </label>
+          </div>
+          <div id="dealBoard" class="kanban-board"></div>
+        </div>
+      </section>
+
+      <section id="conversations" class="view">
+        <div class="conversation-layout">
+          <section class="panel conversation-list">
+            <div class="panel-title">
+              <h2>Conversas</h2>
+              <span>WhatsApp Meta API</span>
+            </div>
+            <div class="conv-search-wrap">
+              <input id="convSearch" class="search-input" type="text" placeholder="Buscar por nome ou telefone..." />
+            </div>
+            <div class="conv-filter-tabs">
+              <button class="conv-filter-btn active" data-filter="all">Todas</button>
+              <button class="conv-filter-btn" data-filter="waiting">Aguardando</button>
+              <button class="conv-filter-btn" data-filter="open">Abertas</button>
+              <button class="conv-filter-btn" data-filter="closed">Encerradas</button>
+            </div>
+            <div class="conv-provider-tabs">
+              <button class="conv-provider-btn active" data-provider="all">
+                <span class="cpb-dot cpb-dot-all"></span>Todas
+              </button>
+              <button class="conv-provider-btn" data-provider="meta">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M12 2C6.477 2 2 6.477 2 12c0 2.09.598 4.042 1.636 5.682L2 22l4.482-1.612A9.954 9.954 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm.02 15.4c-1.48 0-2.93-.4-4.2-1.14l-.3-.18-3.1 1.12.93-3-.2-.32A8.36 8.36 0 013.62 12c0-4.62 3.76-8.38 8.4-8.38 4.64 0 8.38 3.76 8.38 8.4 0 4.62-3.74 8.38-8.38 8.38zm4.6-6.28c-.25-.12-1.48-.73-1.71-.81-.23-.08-.4-.12-.56.12-.16.24-.64.81-.78.97-.14.16-.29.18-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.38.1-.5.12-.12.25-.29.38-.44.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.56-1.35-.77-1.85-.2-.48-.4-.42-.56-.42-.14 0-.3-.02-.46-.02s-.42.06-.64.3c-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.65.58.25 1.03.4 1.38.51.58.18 1.1.16 1.52.1.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.47-.28z"/></svg>Meta API
+              </button>
+              <button class="conv-provider-btn" data-provider="evolution">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp Chat
+              </button>
+            </div>
+            <div id="conversationList"></div>
+          </section>
+          <section class="panel conversation-detail">
+            <div id="conversationDetail" class="empty-state">Selecione uma conversa para visualizar o historico.</div>
+            <div id="conversationReplyBox" class="conversation-reply-box hidden">
+              <textarea id="conversationReplyText" class="conversation-reply-input" placeholder="Digite sua mensagem..." rows="2"></textarea>
+              <button id="conversationReplyBtn" class="btn btn-primary">Enviar</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="wa-templates" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Templates WhatsApp</h1>
+          </div>
+          <div class="view-header-actions">
+            <button class="secondary-button" type="button" id="waTemplatesRefresh">Atualizar</button>
+          </div>
+        </div>
+
+        <div class="settings-layout" style="grid-template-columns:1fr">
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Configuracoes padrao</h2>
+                <span>variaveis fixas enviadas em todos os templates</span>
+              </div>
+              <span id="waSettingsStatus" class="settings-status"></span>
+            </div>
+            <form id="waSettingsForm" class="settings-form compact-form" autocomplete="off">
+              <div class="form-grid">
+                <label>
+                  <span>Nome da empresa (company_name)</span>
+                  <input name="company_name" placeholder="Ex: Distribuidora Lobato">
+                </label>
+                <label>
+                  <span>Telefone da empresa (company_phone)</span>
+                  <input name="company_phone" placeholder="Ex: (11) 99999-9999">
+                </label>
+              </div>
+              <div class="form-actions">
+                <div class="form-buttons">
+                  <button type="submit" class="filter-button">Salvar configuracoes</button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Templates aprovados</h2>
+                <span>templates disponiveis no WABA para envio</span>
+              </div>
+            </div>
+            <div id="waTemplatesList"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="whatsapp-chat" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>WhatsApp Chat</h1>
+          </div>
+        </div>
+
+        <div class="settings-layout" style="grid-template-columns:1fr 1fr">
+
+          <!-- [ADMIN] Servidor Evolution — URL + API Key (configura 1x) -->
+          <section class="panel" id="evoServerPanel" style="display:none">
+            <div class="panel-title">
+              <div>
+                <h2>Servidor Evolution API</h2>
+                <span>configure uma vez — todos os usuarios usam este servidor</span>
+              </div>
+              <span id="evoServerStatus" class="status-chip status-chip-paused">Nao configurado</span>
+            </div>
+            <form id="evoServerForm" class="settings-form compact-form" autocomplete="off">
+              <div class="form-grid" style="grid-template-columns:1fr">
+                <label>
+                  <span>URL da Evolution API</span>
+                  <input name="apiUrl" placeholder="https://evo.suaempresa.com" autocomplete="off">
+                </label>
+                <label>
+                  <span>API Key</span>
+                  <input name="apiKey" type="password" placeholder="Chave de acesso" autocomplete="new-password">
+                </label>
+              </div>
+              <div class="form-actions">
+                <div class="form-buttons">
+                  <button type="submit" class="filter-button">Salvar servidor</button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <!-- Meu Numero — cada usuario conecta o proprio celular -->
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Meu numero</h2>
+                <span id="evoMyInstanceName" style="font-family:monospace;font-size:11px"></span>
+              </div>
+              <span id="evoStatusBadge" class="status-chip status-chip-paused">Nao configurado</span>
+            </div>
+            <div id="evoServerNotice" style="display:none;padding:12px;background:var(--panel-alt);border-radius:10px;font-size:13px;color:var(--muted);margin-bottom:12px">
+              O administrador ainda nao configurou o servidor Evolution. Aguarde a configuracao.
+            </div>
+            <div id="evoConnectActions" style="display:flex;gap:8px;margin-bottom:12px">
+              <button class="btn btn-sm" type="button" id="evoRefreshStatus">Verificar status</button>
+              <button class="btn btn-sm" type="button" id="evoConnectBtn">Conectar meu numero</button>
+              <button class="btn btn-sm btn-danger" type="button" id="evoDisconnectBtn" style="display:none">Desconectar</button>
+            </div>
+            <!-- QR Code -->
+            <div id="evoQrPanel" style="display:none;text-align:center;padding:16px 0">
+              <p style="margin-bottom:12px;font-size:13px;color:var(--muted)">Abra o WhatsApp no seu celular → Aparelhos Conectados → Conectar um aparelho</p>
+              <img id="evoQrImage" src="" alt="QR Code" style="width:220px;height:220px;border-radius:12px;border:2px solid var(--accent)">
+              <p style="margin-top:10px;font-size:12px;color:var(--muted)">O QR code expira em 60 segundos. Se expirar, clique em Conectar novamente.</p>
+            </div>
+            <!-- Warmup status -->
+            <div id="evoWarmupStatus" style="display:none;margin-top:12px"></div>
+          </section>
+
+          <!-- Anti-ban do meu numero -->
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Protecao anti-ban</h2>
+                <span>configuracoes para proteger o seu numero</span>
+              </div>
+            </div>
+            <form id="evoAntiBanForm" class="settings-form compact-form">
+              <div class="form-grid">
+                <label>
+                  <span>Max msgs por hora</span>
+                  <input name="maxPerHour" type="number" min="1" max="200" placeholder="60">
+                </label>
+                <label>
+                  <span>Max msgs por dia</span>
+                  <input name="maxPerDay" type="number" min="1" max="1000" placeholder="300">
+                </label>
+                <label>
+                  <span>Delay minimo (ms)</span>
+                  <input name="minDelayMs" type="number" min="500" max="30000" placeholder="2000">
+                </label>
+                <label>
+                  <span>Delay maximo (ms)</span>
+                  <input name="maxDelayMs" type="number" min="1000" max="30000" placeholder="8000">
+                </label>
+                <label>
+                  <span>Inicio do horario comercial</span>
+                  <input name="hoursStart" type="number" min="0" max="23" placeholder="8">
+                </label>
+                <label>
+                  <span>Fim do horario comercial</span>
+                  <input name="hoursEnd" type="number" min="1" max="24" placeholder="20">
+                </label>
+              </div>
+              <div style="display:flex;gap:16px;margin:12px 0">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input name="warmupEnabled" type="checkbox" checked>
+                  <span style="font-size:13px">Modo aquecimento (novos numeros)</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                  <input name="blockOptedOut" type="checkbox" checked>
+                  <span style="font-size:13px">Bloquear opt-out</span>
+                </label>
+              </div>
+              <div class="form-actions">
+                <div class="form-buttons">
+                  <button type="submit" class="filter-button">Salvar protecao</button>
+                </div>
+              </div>
+            </form>
+          </section>
+
+          <!-- [ADMIN] Instâncias ativas de todos os usuarios -->
+          <section class="panel" id="evoAllInstancesPanel" style="display:none;grid-column:1/-1">
+            <div class="panel-title">
+              <div>
+                <h2>Instancias ativas</h2>
+                <span>numeros conectados pelos usuarios do tenant</span>
+              </div>
+            </div>
+            <div id="evoAllInstancesList"></div>
+          </section>
+
+          <!-- Dicas anti-ban -->
+          <section class="panel" style="grid-column:1/-1">
+            <div class="panel-title">
+              <div>
+                <h2>Boas praticas — evite o banimento</h2>
+                <span>siga essas orientacoes para proteger o numero</span>
+              </div>
+            </div>
+            <ul id="evoBanTips" class="ban-tips-list"></ul>
+          </section>
+
+        </div>
+      </section>
+
+      <section id="contacts" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Clientes</h1>
+          </div>
+        </div>
+        <div class="table-toolbar">
+          <div class="filter-tabs" id="contactsFilterTabs">
+            <button class="filter-tab active" data-filter="all" type="button">Todos</button>
+            <button class="filter-tab" data-filter="withdeals" type="button">Com negocios</button>
+            <button class="filter-tab" data-filter="withphone" type="button">Com telefone</button>
+          </div>
+          <div class="table-toolbar-right">
+            <label class="kanban-search" style="min-width:260px">
+              <span>Buscar</span>
+              <input id="contactSearch" placeholder="Nome, telefone, cidade...">
+            </label>
+          </div>
+        </div>
+        <div class="data-table-wrap">
+          <div id="contactTableContent"></div>
+        </div>
+      </section>
+
+      <section id="sellers" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Vendedores</h1>
+          </div>
+          <div class="view-header-actions">
+            <button class="btn btn-sm" type="button" onclick="renderSellers()">Atualizar</button>
+          </div>
+        </div>
+        <div id="sellersContent"></div>
+      </section>
+
+      <section id="users" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Usuarios</h1>
+          </div>
+          <div class="view-header-actions">
+            <button class="btn-primary" type="button" id="inviteUserBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Convidar usuario
+            </button>
+          </div>
+        </div>
+        <div class="table-toolbar">
+          <div class="filter-tabs" id="usersFilterTabs">
+            <button class="filter-tab active" data-filter="all" type="button">Todos</button>
+            <button class="filter-tab" data-filter="active" type="button">Ativos</button>
+            <button class="filter-tab" data-filter="inactive" type="button">Inativos</button>
+          </div>
+        </div>
+        <div class="data-table-wrap" style="margin-bottom:20px">
+          <div id="userTableContent"></div>
+        </div>
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Perfis de acesso</h2>
+            <span>permissoes por cargo</span>
+          </div>
+          <div id="roleList" class="summary-list"></div>
+        </section>
+      </section>
+
+      <section id="erp-settings" class="view">
+        <div class="settings-layout">
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Integracoes disponiveis</h2>
+                <span>conectores ERP habilitados</span>
+              </div>
+            </div>
+            <div class="integration-catalog">
+              <button class="integration-option active" type="button">
+                <span class="integration-badge">CISS</span>
+                <strong>ERP CISS</strong>
+                <small>Autenticacao OAuth por usuario, senha, client ID e client secret.</small>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Configuracao CISS</h2>
+                <span>dados usados para gerar o token de acesso</span>
+              </div>
+              <span id="erpSettingsStatus" class="settings-status">Carregando</span>
+            </div>
+            <form id="erpSettingsForm" class="settings-form" autocomplete="off">
+              <div class="form-grid">
+                <label>
+                  <span>Tipo de ERP</span>
+                  <select name="provider">
+                    <option value="ciss">CISS</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Protocolo</span>
+                  <select name="protocol">
+                    <option value="http">HTTP</option>
+                    <option value="https">HTTPS</option>
+                  </select>
+                </label>
+                <label>
+                  <span>IP ou host do ERP</span>
+                  <input name="host" placeholder="Informe o IP ou host do ERP">
+                </label>
+                <label>
+                  <span>Porta</span>
+                  <input name="port" inputmode="numeric" placeholder="Ex: 4664">
+                </label>
+                <label>
+                  <span>Usuario</span>
+                  <input name="username" autocomplete="off" placeholder="Informe o usuario do ERP">
+                </label>
+                <label>
+                  <span>Senha</span>
+                  <input name="password" type="password" autocomplete="new-password" placeholder="Deixe em branco para manter">
+                </label>
+                <label>
+                  <span>Client ID</span>
+                  <input name="clientId" placeholder="cisspoder-oauth">
+                </label>
+                <label>
+                  <span>Client secret</span>
+                  <input name="clientSecret" type="password" autocomplete="new-password" placeholder="Deixe em branco para manter">
+                </label>
+              </div>
+              <div id="erpTestResult" class="test-result hidden"></div>
+              <div class="form-actions">
+                <p id="erpSettingsHint">A senha e o client secret nao sao exibidos apos salvar.</p>
+                <div class="form-buttons">
+                  <button id="erpClearButton" type="button" class="secondary-button">Limpar dados</button>
+                  <button id="erpTestButton" type="button" class="secondary-button">Testar conexao</button>
+                  <button type="submit" class="filter-button">Salvar integracao</button>
+                </div>
+              </div>
+            </form>
+            <div class="settings-help">
+              <div>
+                <strong>1. Autenticacao</strong>
+                <p>O Neurax CRM usa usuario, senha, client ID e client secret para obter o token do ERP.</p>
+              </div>
+              <div>
+                <strong>2. Teste de conexao</strong>
+                <p>O botao de teste valida se o token e retornado antes de salvar ou sincronizar pedidos.</p>
+              </div>
+              <div>
+                <strong>3. Sincronizacao</strong>
+                <p>Depois de salvar, o botao Sincronizar ERP e o agendador automatico usam esta conexao.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel integration-schedules-panel">
+            <div class="panel-title">
+              <div>
+                <h2>Agenda das sincronizacoes</h2>
+                <span>frequencia por tipo de dado integrado</span>
+              </div>
+            </div>
+            <div id="integrationScheduleList" class="schedule-grid"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="support" class="view">
+        <div class="support-stack">
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Cadastro de Cliente SaaS</h2>
+                <span>cria o tenant e reserva o subdominio do cliente</span>
+              </div>
+            </div>
+            <form id="tenantForm" class="settings-form compact-form" autocomplete="off">
+              <div class="form-grid">
+                <label>
+                  <span>Nome da empresa</span>
+                  <input name="name" placeholder="Ex: Materiais Lobato">
+                </label>
+                <label>
+                  <span>Subdominio</span>
+                  <input name="slug" placeholder="materiaislobato">
+                </label>
+                <label>
+                  <span>Plano</span>
+                  <select name="plan">
+                    <option value="starter">Starter</option>
+                    <option value="business">Business</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Status</span>
+                  <select name="status">
+                    <option value="active">Ativo</option>
+                    <option value="trial">Teste</option>
+                    <option value="paused">Pausado</option>
+                    <option value="blocked">Bloqueado</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Responsavel</span>
+                  <input name="contactName" placeholder="Nome do contato">
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input name="contactEmail" type="email" placeholder="email@empresa.com.br">
+                </label>
+              </div>
+              <div class="form-actions">
+                <p id="tenantFormResult">O subdominio final ficara no formato cliente.crm.neurax.com.br.</p>
+                <button type="submit" class="filter-button">Cadastrar cliente</button>
+              </div>
+            </form>
+          </section>
+
+          <div class="support-grid">
+            <article class="support-card">
+              <span>Clientes SaaS</span>
+              <strong id="supportTenants">0</strong>
+              <small>tenants cadastrados</small>
+            </article>
+            <article class="support-card">
+              <span>Falhas integracao</span>
+              <strong id="supportFailures">0</strong>
+              <small>eventos recentes</small>
+            </article>
+            <article class="support-card">
+              <span>Requisicoes lentas</span>
+              <strong id="supportSlowRequests">0</strong>
+              <small>acima do limite</small>
+            </article>
+            <article class="support-card">
+              <span>Usuarios</span>
+              <strong id="supportUsers">0</strong>
+              <small>ativos e suporte</small>
+            </article>
+          </div>
+
+          <div class="support-layout">
+            <section class="panel">
+              <div class="panel-title">
+                <h2>Historico de Integracao</h2>
+                <span>ERP e automacoes</span>
+              </div>
+              <div id="supportIntegrationEvents" class="support-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-title">
+                <h2>Performance</h2>
+                <span>rotas mais lentas</span>
+              </div>
+              <div id="supportRequestStats" class="support-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-title">
+                <h2>Tenants</h2>
+                <span>clientes SaaS</span>
+              </div>
+              <div id="supportTenantList" class="support-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-title">
+                <h2>Logs Recentes</h2>
+                <span>arquivo da aplicacao</span>
+              </div>
+              <div id="supportLogs" class="support-list"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+      <!-- ═══ RELATÓRIOS ═══ -->
+      <section id="reports" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Relatorios</h1>
+          </div>
+          <div class="view-header-actions">
+            <span class="date-range-pill">Ultimos 12 meses</span>
+          </div>
+        </div>
+        <div class="cards dashboard-kpis">
+          <article class="metric-card metric-accent">
+            <span>Total de negocios</span>
+            <strong id="rptTotalDeals">0</strong>
+            <small id="rptTotalDealsChg"></small>
+            <div id="rptSpark1" class="metric-sparkline"></div>
+          </article>
+          <article class="metric-card metric-cyan">
+            <span>Valor total</span>
+            <strong id="rptTotalValue">R$ 0</strong>
+            <small id="rptTotalValueChg"></small>
+            <div id="rptSpark2" class="metric-sparkline"></div>
+          </article>
+          <article class="metric-card metric-blue">
+            <span>Taxa de conversao</span>
+            <strong id="rptWinRate">0%</strong>
+            <small id="rptWinRateChg"></small>
+            <div id="rptSpark3" class="metric-sparkline"></div>
+          </article>
+          <article class="metric-card metric-amber">
+            <span>Ticket medio</span>
+            <strong id="rptAvgDeal">R$ 0</strong>
+            <small id="rptAvgDealChg"></small>
+            <div id="rptSpark4" class="metric-sparkline"></div>
+          </article>
+        </div>
+        <div class="dashboard-main-grid">
+          <section class="panel dashboard-panel-wide">
+            <div class="panel-title">
+              <div><h2>Evolucao Mensal</h2><span>Valor e quantidade de negocios</span></div>
+              <div class="segmented-control" id="rptSegControl">
+                <button type="button" class="active">Valor</button>
+                <button type="button">Quantidade</button>
+              </div>
+            </div>
+            <div id="rptChart" class="pipeline-chart"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title"><div><h2>Por Etapa</h2><span>Distribuicao atual</span></div></div>
+            <div id="rptDonut" class="stage-donut-wrap"></div>
+            <div id="rptLegend" class="stage-legend"></div>
+          </section>
+        </div>
+        <div class="dashboard-main-grid dashboard-lower-grid">
+          <section class="panel dashboard-panel-wide">
+            <div class="panel-title">
+              <div><h2>Top Vendedores</h2><span>Desempenho comercial</span></div>
+              <button type="button" class="link-button" onclick="document.querySelector('[href=\'#users\']').click()">Ver todos</button>
+            </div>
+            <div id="rptSellers" class="sales-table"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title"><div><h2>Origem dos Clientes</h2><span>Canal de aquisicao</span></div></div>
+            <div id="rptLeadSources" class="lead-source-chart"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ═══ PEDIDOS (tabela) ═══ -->
+      <section id="orders-list" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Análise Comercial</h1>
+          </div>
+        </div>
+        <div class="commercial-tabs">
+          <button class="commercial-tab active" data-commercial-tab="quotes" type="button">Orçamentos</button>
+          <button class="commercial-tab" data-commercial-tab="orders" type="button">Pedidos</button>
+        </div>
+        <div id="commercialQuotes">
+          <div class="table-toolbar">
+            <div class="filter-tabs" id="quotesFilterTabs">
+              <button class="filter-tab active" data-filter="all" type="button">Todos</button>
+              <button class="filter-tab" data-filter="open" type="button">Em aberto</button>
+              <button class="filter-tab" data-filter="won" type="button">Convertidos</button>
+              <button class="filter-tab" data-filter="lost" type="button">Negados</button>
+              <button class="filter-tab" data-filter="expired" type="button">Vencidos</button>
+            </div>
+            <div class="table-toolbar-right">
+              <label class="kanban-search" style="min-width:260px">
+                <span>Buscar</span>
+                <input id="quotesSearch" placeholder="Cliente, orçamento, vendedor...">
+              </label>
+            </div>
+          </div>
+          <div class="data-table-wrap">
+            <div id="quotesTableContent"></div>
+          </div>
+        </div>
+        <div id="commercialOrders" style="display:none">
+          <div class="table-toolbar">
+            <div class="filter-tabs" id="ordersFilterTabs">
+              <button class="filter-tab active" data-filter="all" type="button">Todos</button>
+              <button class="filter-tab" data-filter="open" type="button">Em aberto</button>
+              <button class="filter-tab" data-filter="won" type="button">Convertidos</button>
+              <button class="filter-tab" data-filter="lost" type="button">Negados</button>
+            </div>
+            <div class="table-toolbar-right">
+              <label class="kanban-search" style="min-width:260px">
+                <span>Buscar</span>
+                <input id="ordersSearch" placeholder="Cliente, pedido, vendedor...">
+              </label>
+            </div>
+          </div>
+          <div class="data-table-wrap">
+            <div id="ordersTableContent"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ PRODUTOS ═══ -->
+      <section id="products" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Produtos</h1>
+          </div>
+        </div>
+        <div class="table-toolbar">
+          <div class="filter-tabs" id="productsFilterTabs">
+            <button class="filter-tab active" data-filter="all" type="button">Todos</button>
+            <button class="filter-tab" data-filter="active" type="button">Ativos</button>
+          </div>
+          <div class="table-toolbar-right">
+            <label class="kanban-search" style="min-width:260px">
+              <span>Buscar</span>
+              <input id="productsSearch" placeholder="Nome, codigo, categoria...">
+            </label>
+          </div>
+        </div>
+        <div class="data-table-wrap">
+          <div id="productsTableContent"></div>
+        </div>
+      </section>
+
+      <!-- ═══ AUTOMAÇÕES WHATSAPP ═══ -->
+      <section id="automation" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Automacoes WhatsApp</h1>
+          </div>
+          <div class="view-header-actions">
+            <button class="btn-primary" type="button" id="newAutomationBtn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Nova regra
+            </button>
+          </div>
+        </div>
+        <div class="automation-kpis" id="automationKpis"></div>
+        <div class="dashboard-main-grid" style="margin-top:24px">
+          <section class="panel">
+            <div class="panel-title">
+              <div><h2>Regras ativas</h2><span>Disparos e fluxos configurados</span></div>
+            </div>
+            <div id="automationRulesList"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title">
+              <div><h2>Templates de mensagem</h2><span>Mensagens pre-aprovadas</span></div>
+              <button type="button" class="link-button" id="newTemplateBtn">+ Template</button>
+            </div>
+            <div id="automationTemplatesList"></div>
+          </section>
+        </div>
+        <section class="panel" style="margin-top:0">
+          <div class="panel-title">
+            <div><h2>Historico de disparos</h2><span>Ultimas mensagens automatizadas</span></div>
+          </div>
+          <div id="automationHistoryList"></div>
+        </section>
+      </section>
+
+      <!-- ═══ IA INSIGHTS ═══ -->
+      <section id="ai-insights" class="view">
+        <div class="view-header ai-insights-header">
+          <div>
+            <p class="eyebrow">Modulo de Inteligencia Artificial</p>
+            <h1>IA Insights</h1>
+          </div>
+          <div class="view-header-actions">
+            <span class="badge badge-warning">BETA</span>
+            <span class="badge badge-neutral">Analise em tempo real</span>
+          </div>
+        </div>
+        <div class="ai-alert-banner" id="aiAlertBanner"></div>
+        <div class="ai-insights-kpis" id="aiInsightsKpis"></div>
+        <div class="dashboard-main-grid" style="margin-top:24px">
+          <section class="panel ai-panel">
+            <div class="panel-title">
+              <div><h2>Negocios em risco</h2><span>Sem atividade nos ultimos 30 dias</span></div>
+              <span class="badge badge-danger" id="aiRiskCount">0</span>
+            </div>
+            <div id="aiRiskDeals"></div>
+          </section>
+          <section class="panel ai-panel">
+            <div class="panel-title">
+              <div><h2>Oportunidades quentes</h2><span>Alta probabilidade de conversao</span></div>
+              <span class="badge badge-success" id="aiHotCount">0</span>
+            </div>
+            <div id="aiHotDeals"></div>
+          </section>
+        </div>
+        <div class="dashboard-main-grid dashboard-lower-grid">
+          <section class="panel ai-panel">
+            <div class="panel-title">
+              <div><h2>Sugestoes de follow-up</h2><span>Proximas acoes recomendadas</span></div>
+            </div>
+            <div id="aiFollowupList"></div>
+          </section>
+          <section class="panel ai-panel">
+            <div class="panel-title">
+              <div><h2>Analise preditiva</h2><span>Previsao do periodo atual</span></div>
+            </div>
+            <div id="aiPredictions"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ═══ CONFIGURAÇÕES ═══ -->
+      <section id="settings" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">Neurax CRM</p>
+            <h1>Configuracoes</h1>
+          </div>
+        </div>
+        <div class="settings-page">
+          <div class="settings-tabs">
+            <button class="settings-tab active" data-tab="profile" type="button">Perfil</button>
+            <button class="settings-tab" data-tab="appearance" type="button">Aparencia</button>
+            <button class="settings-tab" data-tab="deals" type="button">Negócios</button>
+          </div>
+          <div id="settingsContent" class="settings-content"></div>
+        </div>
+      </section>
+    </main>
+
+    <div id="dealOverlay" class="deal-overlay hidden">
+      <aside class="deal-drawer">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">Detalhes do ERP</p>
+            <h2 id="dealDrawerTitle">Pedido</h2>
+          </div>
+          <button id="dealDrawerClose" class="drawer-close" type="button">Fechar</button>
+        </div>
+        <div id="dealDetail" class="deal-detail"></div>
+      </aside>
+    </div>
+
+    <div id="pipelineOverlay" class="deal-overlay hidden">
+      <aside class="deal-drawer pipeline-drawer">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow" id="pipelineDrawerEyebrow">Pipeline</p>
+            <h2 id="pipelineDrawerTitle">Nova pipeline</h2>
+          </div>
+          <button id="pipelineDrawerClose" class="drawer-close" type="button">Fechar</button>
+        </div>
+        <form id="pipelineForm" class="pipeline-form" autocomplete="off">
+          <label>
+            <span>Nome da pipeline</span>
+            <input name="name" placeholder="Ex: Pos-venda">
+          </label>
+          <label>
+            <span>Estagios da pipeline</span>
+            <textarea name="stages" rows="9" placeholder="Um estagio por linha"></textarea>
+          </label>
+          <p id="pipelineFormHint">Crie ou ajuste os estagios que aparecem no kanban.</p>
+          <div class="pipeline-form-actions">
+            <button id="cancelPipelineButton" class="secondary-button" type="button">Cancelar</button>
+            <button class="filter-button" type="submit">Salvar pipeline</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+
+    <!-- Modal: Convidar usuário -->
+    <div id="inviteOverlay" class="deal-overlay hidden">
+      <aside class="deal-drawer pipeline-drawer">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">Gestao de usuarios</p>
+            <h2>Convidar usuario</h2>
+          </div>
+          <button id="inviteDrawerClose" class="drawer-close" type="button">Fechar</button>
+        </div>
+        <form id="inviteUserForm" class="pipeline-form" autocomplete="off">
+          <label>
+            <span>Nome completo</span>
+            <input name="name" placeholder="Ex: Maria Silva" required>
+          </label>
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" placeholder="maria@empresa.com.br" required>
+          </label>
+          <label>
+            <span>Perfil de acesso</span>
+            <select name="roleId" id="inviteRoleSelect">
+              <option value="">Carregando perfis...</option>
+            </select>
+          </label>
+          <p id="inviteFormHint" style="color:var(--muted);font-size:13px">Um email com o link de acesso sera enviado ao usuario.</p>
+          <div class="pipeline-form-actions">
+            <button id="cancelInviteButton" class="secondary-button" type="button">Cancelar</button>
+            <button class="filter-button" type="submit">Enviar convite</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+
+    <!-- Modal: Enviar mensagem WhatsApp via template -->
+    <div id="waModalOverlay" class="deal-overlay hidden">
+      <aside class="deal-drawer pipeline-drawer">
+        <div class="drawer-header">
+          <div>
+            <p class="eyebrow">WhatsApp</p>
+            <h2>Enviar mensagem</h2>
+          </div>
+          <button id="waModalClose" class="drawer-close" type="button">Fechar</button>
+        </div>
+        <form id="waModalForm" class="pipeline-form" autocomplete="off">
+          <label>
+            <span>Numero de destino</span>
+            <input id="waModalTo" name="to" placeholder="Ex: 11999999999" inputmode="tel">
+          </label>
+          <label>
+            <span>Template</span>
+            <select id="waModalTemplate" name="templateName">
+              <option value="">Carregando templates...</option>
+            </select>
+          </label>
+          <label>
+            <span>Idioma</span>
+            <input id="waModalLanguage" name="language" value="pt_BR" placeholder="pt_BR">
+          </label>
+          <div id="waModalVarsSection" style="display:none">
+            <p style="margin:12px 0 8px;font-size:13px;color:var(--muted)">Variaveis do template</p>
+            <div id="waModalVarFields"></div>
+          </div>
+          <div id="waModalPreview" style="background:var(--surface2,#1e1e2e);border-radius:8px;padding:12px;margin:12px 0;font-size:13px;color:var(--text);display:none">
+            <p style="margin:0 0 4px;font-size:11px;color:var(--muted)">PREVIEW</p>
+            <div id="waModalPreviewText"></div>
+          </div>
+          <div id="waModalError" style="color:var(--danger,#dc3d6a);font-size:13px;margin:8px 0;display:none"></div>
+          <div class="pipeline-form-actions">
+            <button id="cancelWaModal" class="secondary-button" type="button">Cancelar</button>
+            <button class="filter-button" type="submit" id="waModalSend">Enviar</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+
+    <!-- Modal: Editar contato completo -->
+    <div id="contactEditOverlay" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
+      <div style="background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#2a2a3e);border-radius:14px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+        <h3 style="margin:0 0 16px;font-size:16px">Editar cliente</h3>
+        <div class="form-grid" style="gap:12px">
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Nome *</span>
+            <input id="contactEditName" type="text" placeholder="Nome completo" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Telefone</span>
+            <input id="contactEditPhone" type="tel" inputmode="numeric" placeholder="Ex: 92999999999" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">E-mail</span>
+            <input id="contactEditEmail" type="email" placeholder="email@exemplo.com" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">CPF / CNPJ</span>
+            <input id="contactEditDocument" type="text" placeholder="Documento" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Cidade</span>
+            <input id="contactEditCity" type="text" placeholder="Cidade" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Estado (UF)</span>
+            <input id="contactEditState" type="text" maxlength="2" placeholder="Ex: AM" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block;grid-column:1/-1">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Observacoes</span>
+            <textarea id="contactEditNotes" rows="3" placeholder="Anotacoes internas..." style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px;resize:vertical"></textarea>
+          </label>
+        </div>
+        <p id="contactEditError" style="color:#e74c3c;font-size:12px;margin:12px 0 0;display:none"></p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button id="contactEditCancel" type="button" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:transparent;color:inherit;cursor:pointer">Cancelar</button>
+          <button id="contactEditSave" type="button" style="padding:8px 16px;border-radius:8px;border:none;background:var(--accent,#00d4a0);color:#000;font-weight:600;cursor:pointer">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Editar telefone do contato -->
+    <div id="phoneEditOverlay" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
+      <div style="background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#2a2a3e);border-radius:14px;padding:24px;width:340px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+        <h3 style="margin:0 0 4px;font-size:16px">Editar telefone</h3>
+        <p id="phoneEditContactName" style="margin:0 0 16px;font-size:13px;color:var(--muted)"></p>
+        <label style="display:block;margin-bottom:16px">
+          <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">Telefone (somente números com DDD)</span>
+          <input id="phoneEditInput" type="tel" inputmode="numeric" placeholder="Ex: 92999999999"
+            style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+        </label>
+        <p id="phoneEditError" style="color:#e74c3c;font-size:12px;margin:0 0 12px;display:none"></p>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="phoneEditCancel" type="button" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:transparent;color:inherit;cursor:pointer">Cancelar</button>
+          <button id="phoneEditSave" type="button" style="padding:8px 16px;border-radius:8px;border:none;background:var(--accent,#00d4a0);color:#000;font-weight:600;cursor:pointer">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/service-worker.js").catch(() => {});
+      }
+    </script>
+  </body>
+</html>

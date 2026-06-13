@@ -1,0 +1,19 @@
+{
+  "name": "Neurax CRM",
+  "short_name": "Neurax CRM",
+  "description": "CRM inteligente integrado ao ERP, WhatsApp e gestao de vendas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#001b18",
+  "theme_color": "#00b894",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

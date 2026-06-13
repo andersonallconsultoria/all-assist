@@ -1,0 +1,13 @@
+services:
+  neuraxcrm-platform:
+    build:
+      context: .
+    image: neuraxcrm-platform:local
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped

@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Neurax CRM Master</title>
+    <meta name="theme-color" content="#00b894">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="/master.css">
+    <!-- APEX THEME: remova esta linha para voltar ao layout original -->
+    <link rel="stylesheet" href="/apex-theme.css">
+  </head>
+  <body data-theme="dark">
+    <aside class="master-sidebar">
+      <div class="brand">
+        <span>n</span>
+        <div>
+          <strong>Neurax CRM</strong>
+          <small>Central SaaS</small>
+        </div>
+      </div>
+      <nav>
+        <div class="nav-section-label">Visão geral</div>
+        <a href="#overview" class="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
+          Visão geral
+        </a>
+        <a href="#tenants">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          Clientes e planos
+        </a>
+        <div class="nav-section-label">Administração</div>
+        <a href="#structure">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="6" height="6" rx="1"></rect><rect x="9" y="3" width="6" height="6" rx="1"></rect><rect x="16" y="3" width="6" height="6" rx="1"></rect><path d="M5 9v3M12 9v3M19 9v3M5 12h14"></path></svg>
+          Empresas e acessos
+        </a>
+        <a href="#billing">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+          Financeiro
+        </a>
+        <a href="#usage">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Uso do sistema
+        </a>
+        <div class="nav-section-label">Operação</div>
+        <a href="#integrations">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"></path></svg>
+          Integrações
+        </a>
+        <a href="#lgpd">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          LGPD
+        </a>
+        <a href="#whatsapp">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          WhatsApp
+        </a>
+      </nav>
+      <a class="secondary-link" href="/">Ir para CRM</a>
+      <button id="logoutButton" type="button">Sair</button>
+    </aside>
+
+    <main class="master-app">
+      <header class="master-topbar">
+        <div>
+          <p>Backoffice SaaS Neurax CRM</p>
+          <h1>Controle de clientes e operação</h1>
+        </div>
+        <div class="top-actions">
+          <label>
+            <span>Pesquisar</span>
+            <input id="tenantSearch" type="search" placeholder="Buscar cliente, domínio, plano, cobrança ou status">
+          </label>
+          <button id="refreshButton" type="button">Atualizar</button>
+          <strong id="masterUser">Master</strong>
+        </div>
+      </header>
+
+      <section id="overview" class="master-section active">
+        <div class="kpi-grid">
+          <article>
+            <span>Receita mensal prevista</span>
+            <strong id="kpiRevenue">R$ 0,00</strong>
+            <small>mensalidade base + usuários ativos</small>
+          </article>
+          <article>
+            <span>Clientes ativos</span>
+            <strong id="kpiActiveTenants">0</strong>
+            <small id="kpiTenantTotal">0 cadastrados</small>
+          </article>
+          <article>
+            <span>Clientes em atenção</span>
+            <strong id="kpiOverdue">0</strong>
+            <small>atrasados, suspensos ou bloqueados</small>
+          </article>
+          <article>
+            <span>Acessos registrados</span>
+            <strong id="kpiAccesses">0</strong>
+            <small>logins e auditoria por cliente</small>
+          </article>
+        </div>
+
+        <div class="grid two-columns">
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Clientes por plano</h2>
+                <span>como a carteira está distribuída</span>
+              </div>
+            </div>
+            <div id="planChart" class="bar-list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Saúde operacional</h2>
+                <span>pontos que precisam de acompanhamento</span>
+              </div>
+            </div>
+            <div id="healthList" class="health-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="tenants" class="master-section">
+        <div class="grid tenant-grid">
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Novo cliente SaaS</h2>
+                <span>cadastro comercial, limites, WhatsApp e governança</span>
+              </div>
+            </div>
+            <form id="tenantForm" class="tenant-form" autocomplete="off">
+              <div class="form-grid">
+                <label><span>Empresa / razão social</span><input name="name" placeholder="Materiais Lobato"></label>
+                <label><span>Subdomínio do cliente</span><input name="slug" placeholder="materiaislobato"></label>
+                <label><span>Documento</span><input name="document" placeholder="CNPJ ou CPF para controle"></label>
+                <label><span>Situação do cliente</span><select name="status"><option value="implantacao">Implantação</option><option value="producao">Produção</option><option value="active">Ativo</option><option value="trial">Teste</option><option value="paused">Pausado</option><option value="blocked">Bloqueado</option></select></label>
+                <label><span>Plano</span><select name="plan"><option value="starter">Starter</option><option value="business">Business</option><option value="enterprise">Enterprise</option></select></label>
+                <label><span>Status da cobrança</span><select name="billingStatus"><option value="active">Em dia</option><option value="trial">Teste</option><option value="overdue">Em atraso</option><option value="suspended">Suspenso</option><option value="canceled">Cancelado</option></select></label>
+                <label><span>Mensalidade base</span><input name="monthlyBasePrice" inputmode="decimal" placeholder="299"></label>
+                <label><span>Valor por usuário ativo</span><input name="pricePerUser" inputmode="decimal" placeholder="49"></label>
+                <label><span>Limite de usuários</span><input name="userLimit" inputmode="numeric" placeholder="5"></label>
+                <label><span>Dia de vencimento</span><input name="billingDay" inputmode="numeric" placeholder="10"></label>
+                <label><span>Responsável pelo cliente</span><input name="contactName" placeholder="Nome do responsável"></label>
+                <label><span>Email de cobrança</span><input name="billingEmail" type="email" placeholder="financeiro@cliente.com.br"></label>
+                <label><span>WhatsApp do cliente</span><input name="whatsappPhoneNumber" placeholder="5599999999999"></label>
+                <label><span>ID do número na Meta</span><input name="whatsappPhoneNumberId" placeholder="Phone Number ID"></label>
+                <label><span>Responsável LGPD</span><input name="dpoName" placeholder="Nome do DPO/responsável"></label>
+                <label><span>Email LGPD</span><input name="dpoEmail" type="email" placeholder="lgpd@cliente.com.br"></label>
+              </div>
+              <div class="form-actions">
+                <p id="tenantFormResult">O acesso do cliente ficará no formato slug.crm.neurax.com.br.</p>
+                <button type="submit">Cadastrar cliente</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel tenant-list-panel">
+            <div class="panel-title">
+              <div>
+                <h2>Clientes cadastrados</h2>
+                <span>acompanhe status, cobrança, limite e acesso ao ambiente</span>
+              </div>
+            </div>
+            <div id="tenantList" class="tenant-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="structure" class="master-section">
+
+        <!-- Toolbar: seleção do cliente -->
+        <section class="panel structure-toolbar">
+          <div>
+            <h2>Empresas e acessos</h2>
+            <span>configure grupos, CNPJs, time comercial, cargos e usuários do cliente</span>
+          </div>
+          <div class="structure-actions">
+            <label>
+              <span>Cliente ativo</span>
+              <select id="structureTenantSelect"></select>
+            </label>
+            <button id="structureReloadButton" type="button">Recarregar</button>
+          </div>
+        </section>
+
+        <!-- Linha 1: Estrutura comercial -->
+        <div class="structure-row">
+          <div class="structure-step-label">
+            <span class="step-number">1</span>
+            <div><strong>Estrutura comercial</strong><small>Grupos e CNPJs que organizam o cliente</small></div>
+          </div>
+          <div class="grid two-columns structure-grid">
+            <section class="panel">
+              <div class="panel-title"><div><h2>Grupos</h2><span>unidades, filiais ou marcas</span></div></div>
+              <form id="groupForm" class="tenant-form compact-form" autocomplete="off">
+                <div class="form-grid">
+                  <label><span>Nome do grupo</span><input name="name" placeholder="Ex: Materiais"></label>
+                  <label><span>Slug</span><input name="slug" placeholder="materiais"></label>
+                  <label class="full-span"><span>Descrição</span><input name="description" placeholder="Controle de lojas de materiais"></label>
+                </div>
+                <div class="form-actions"><p id="groupFormResult">Agrupe filiais ou marcas do mesmo cliente.</p><button type="submit">Criar grupo</button></div>
+              </form>
+              <div id="groupList" class="mini-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-title"><div><h2>CNPJs</h2><span>empresas vinculadas ao ERP</span></div></div>
+              <form id="companyForm" class="tenant-form compact-form" autocomplete="off">
+                <div class="form-grid">
+                  <label><span>Grupo</span><select id="companyGroupSelect" name="groupId"></select></label>
+                  <label><span>Código ERP</span><input name="erpCompanyId" placeholder="1"></label>
+                  <label><span>Razão social</span><input name="legalName" placeholder="Materiais Lobato Ltda"></label>
+                  <label><span>Nome fantasia</span><input name="tradeName" placeholder="Materiais Lobato"></label>
+                  <label><span>CNPJ</span><input name="document" placeholder="00.000.000/0001-00"></label>
+                  <label><span>Cidade/UF</span><input name="city" placeholder="Manaus"><input name="state" maxlength="2" placeholder="AM"></label>
+                </div>
+                <div class="form-actions"><p id="companyFormResult">O código ERP deve ser o mesmo que vem do sistema.</p><button type="submit">Criar CNPJ</button></div>
+              </form>
+              <div id="companyList" class="mini-list"></div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Linha 2: Time comercial -->
+        <div class="structure-row">
+          <div class="structure-step-label">
+            <span class="step-number">2</span>
+            <div><strong>Time comercial</strong><small>Vendedores e supervisores vinculados ao ERP</small></div>
+          </div>
+          <section class="panel">
+            <form id="salesPersonForm" class="tenant-form compact-form" autocomplete="off">
+              <div class="form-grid">
+                <label><span>Tipo</span><select name="type"><option value="seller">Vendedor</option><option value="supervisor">Supervisor</option></select></label>
+                <label><span>Código ERP</span><input name="erpCode" placeholder="2"></label>
+                <label><span>Nome</span><input name="name" placeholder="VENDEDOR EXEMPLO"></label>
+                <label><span>Email</span><input name="email" type="email" placeholder="vendedor@cliente.com.br"></label>
+                <label><span>Supervisor</span><select id="supervisorSelect" name="supervisorId"></select></label>
+                <label><span>Grupos liberados</span><select id="salesGroupSelect" name="groupIds" multiple></select></label>
+                <label><span>CNPJs liberados</span><select id="salesCompanySelect" name="companyIds" multiple></select></label>
+              </div>
+              <div class="form-actions"><p id="salesPersonFormResult">O código ERP filtra carteira e pedidos do vendedor.</p><button type="submit">Salvar pessoa</button></div>
+            </form>
+            <div id="salesPeopleList" class="mini-list"></div>
+          </section>
+        </div>
+
+        <!-- Linha 3: Cargos e permissões -->
+        <div class="structure-row">
+          <div class="structure-step-label">
+            <span class="step-number">3</span>
+            <div><strong>Cargos e permissões</strong><small>Defina o que cada perfil pode acessar</small></div>
+          </div>
+          <section class="panel">
+            <form id="roleForm" class="tenant-form" autocomplete="off">
+              <div class="form-grid" style="margin-bottom:14px">
+                <label><span>Nome do cargo</span><input name="name" placeholder="Consultor de Vendas"></label>
+                <label><span>Tipo</span><select name="type"><option value="seller">Vendedor</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option><option value="operator">Operador</option><option value="custom">Personalizado</option></select></label>
+              </div>
+              <div id="permissionList" class="permission-grid"></div>
+              <div class="form-actions" style="margin-top:14px"><p id="roleFormResult">Marque os acessos antes de convidar usuários.</p><button type="submit">Criar cargo</button></div>
+            </form>
+            <div id="roleList" class="mini-list" style="margin-top:16px"></div>
+          </section>
+        </div>
+
+        <!-- Linha 4: Convidar usuário -->
+        <div class="structure-row">
+          <div class="structure-step-label">
+            <span class="step-number">4</span>
+            <div><strong>Convidar usuário</strong><small>Gera link de acesso para o ambiente do cliente</small></div>
+          </div>
+          <section class="panel">
+            <form id="inviteForm" class="tenant-form compact-form" autocomplete="off">
+              <div class="form-grid">
+                <label><span>Nome completo</span><input name="name" placeholder="Vendedor Exemplo"></label>
+                <label><span>Email</span><input name="email" type="email" placeholder="vendedor@cliente.com.br"></label>
+                <label class="full-span"><span>Cargo</span><select id="inviteRoleSelect" name="roleId"></select></label>
+              </div>
+              <div class="form-actions"><p id="inviteFormResult">O link aparece aqui para você copiar e enviar ao usuário.</p><button type="submit">Gerar convite</button></div>
+            </form>
+            <div id="inviteResultBox" class="result-box hidden"></div>
+          </section>
+        </div>
+
+      </section>
+
+      <section id="billing" class="master-section">
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>Financeiro e planos</h2>
+              <span>mensalidade, cobrança por usuário, vencimento e bloqueios</span>
+            </div>
+          </div>
+          <div id="billingTable" class="data-table"></div>
+        </section>
+      </section>
+
+      <section id="usage" class="master-section">
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>Uso do sistema por cliente</h2>
+              <span>acessos, usuários ativos, chamadas de API e WhatsApp</span>
+            </div>
+          </div>
+          <div id="usageTable" class="data-table"></div>
+        </section>
+      </section>
+
+      <section id="integrations" class="master-section">
+        <div class="grid two-columns">
+          <section class="panel">
+            <div class="panel-title"><div><h2>Histórico de integrações</h2><span>ERP, WhatsApp e automações com status operacional</span></div></div>
+            <div id="integrationEvents" class="event-list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-title"><div><h2>Performance das APIs</h2><span>rotas com maior tempo médio, lentidão e erros</span></div></div>
+            <div id="requestStats" class="event-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="lgpd" class="master-section">
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>LGPD e governança</h2>
+              <span>DPO, retenção de dados e contrato de tratamento por cliente</span>
+            </div>
+          </div>
+          <div id="lgpdTable" class="data-table"></div>
+        </section>
+      </section>
+      <section id="whatsapp" class="master-section">
+        <div class="grid two-columns">
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <section class="panel">
+              <div class="panel-title">
+                <div>
+                  <h2>Configuração WhatsApp por cliente</h2>
+                  <span>Credenciais Meta Cloud API por tenant</span>
+                </div>
+              </div>
+              <div class="tenant-form" style="gap:12px">
+                <label>
+                  <span>Cliente</span>
+                  <select id="waTenantSelect"></select>
+                </label>
+                <label>
+                  <span>WABA ID</span>
+                  <input id="waWabaId" placeholder="Ex: 486850834511521">
+                </label>
+                <label>
+                  <span>Phone Number ID</span>
+                  <input id="waPhoneNumberId" placeholder="Ex: 465587489976712">
+                </label>
+                <label>
+                  <span>Access Token permanente</span>
+                  <input id="waAccessToken" type="password" placeholder="EAAREDRCvFAA...">
+                </label>
+                <label>
+                  <span>Variáveis padrão (JSON)</span>
+                  <textarea id="waDefaultVars" rows="4" style="resize:vertical;font-family:monospace;font-size:12px">{"customer_name":"","order_id":""}</textarea>
+                </label>
+                <div class="form-actions">
+                  <p id="waConfigResult"></p>
+                  <button id="waConfigLoadBtn" type="button">Carregar</button>
+                  <button id="waConfigSeedBtn" type="button">Importar do .env</button>
+                  <button id="waConfigSaveBtn" type="button">Salvar configuração</button>
+                </div>
+              </div>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="panel-title">
+              <div>
+                <h2>Teste de envio global</h2>
+                <span>Usa credenciais do .env (ambiente do servidor)</span>
+              </div>
+              <span id="whatsappStatus" class="status">verificando...</span>
+            </div>
+            <div class="tenant-form" style="gap:12px">
+              <label>
+                <span>Número de destino</span>
+                <input id="waTo" type="tel" placeholder="Ex: 5544999999999 (com DDI+DDD)">
+              </label>
+              <label>
+                <span>Mensagem</span>
+                <textarea id="waText" rows="4" style="resize:vertical" placeholder="Digite a mensagem a enviar...">Olá! Esta é uma mensagem de teste do Neurax CRM.</textarea>
+              </label>
+              <div class="form-actions">
+                <p id="waResult"></p>
+                <button id="waSendBtn" type="button">Enviar mensagem</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="/master.js"></script>
+  </body>
+</html>

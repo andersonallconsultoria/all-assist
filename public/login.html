@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Neurax CRM | Login</title>
+    <meta name="theme-color" content="#00b894">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/login.css">
+  </head>
+  <body data-theme="dark">
+    <main class="login-shell">
+      <section class="hero">
+        <div class="brand-line">
+          <span class="brand-mark">n</span>
+          <div>
+            <strong>Neurax CRM</strong>
+            <small>Inteligência comercial</small>
+          </div>
+        </div>
+        <p class="eyebrow">CRM comercial conectado ao ERP</p>
+        <h1>Pipeline de vendas, pedidos e atendimento no mesmo lugar.</h1>
+        <p>Controle orçamentos, pedidos, conversas WhatsApp e próximos contatos dos vendedores com uma operação mais clara.</p>
+      </section>
+      <section class="login-card">
+        <span class="login-badge">Acesso seguro</span>
+        <h2>Acessar Neurax CRM</h2>
+        <p>Use seu usuário cadastrado no sistema.</p>
+        <form id="loginForm">
+          <label>
+            Email
+            <input name="email" type="email" autocomplete="username" required placeholder="seu@email.com.br">
+          </label>
+          <label>
+            Senha
+            <input name="password" type="password" autocomplete="current-password" required placeholder="sua senha">
+          </label>
+          <button type="submit">Entrar</button>
+          <div id="loginMessage" class="message"></div>
+        </form>
+      </section>
+    </main>
+    <script src="/login.js"></script>
+  </body>
+</html>

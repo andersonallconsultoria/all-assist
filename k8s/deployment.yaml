@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neuraxcrm-platform
+  labels:
+    app: neuraxcrm-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neuraxcrm-platform
+  template:
+    metadata:
+      labels:
+        app: neuraxcrm-platform
+    spec:
+      containers:
+        - name: neuraxcrm
+          image: neuraxcrm-platform:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: neuraxcrm-config
+            - secretRef:
+                name: neuraxcrm-secret
+          ports:
+            - containerPort: 3000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: neuraxcrm-data
+        - name: logs
+          emptyDir: {}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Neurax CRM | Aceitar convite</title>
+    <meta name="theme-color" content="#00b894">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/login.css">
+  </head>
+  <body>
+    <main class="login-shell">
+      <section class="hero">
+        <div class="brand-line">
+          <span class="brand-mark">n</span>
+          <div>
+            <strong>Neurax CRM</strong>
+            <small>Convite de acesso</small>
+          </div>
+        </div>
+        <p class="eyebrow">Bem-vindo ao Neurax CRM</p>
+        <h1>Crie sua senha para acessar pedidos, orcamentos e conversas.</h1>
+        <p>Depois de criar a senha, voce precisara validar seu email para liberar o acesso.</p>
+      </section>
+      <section class="login-card">
+        <span class="login-badge">Convite seguro</span>
+        <h2>Aceitar convite</h2>
+        <p>Informe seu nome e uma senha de acesso.</p>
+        <form id="acceptInviteForm">
+          <label>
+            Nome
+            <input name="name" autocomplete="name" required>
+          </label>
+          <label>
+            Senha
+            <input name="password" type="password" autocomplete="new-password" minlength="6" required>
+          </label>
+          <button type="submit">Criar acesso</button>
+          <div id="acceptInviteMessage" class="message"></div>
+        </form>
+      </section>
+    </main>
+    <script src="/accept-invite.js"></script>
+  </body>
+</html>

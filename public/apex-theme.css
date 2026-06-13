@@ -1,0 +1,498 @@
+/*
+ * apex-theme.css — Visual inspirado no Apex Dashboard
+ *
+ * COMO APLICAR : <link rel="stylesheet" href="/apex-theme.css"> após o CSS base
+ * COMO REVERTER: remova (ou comente) essa linha — layout volta ao original
+ *
+ * Sobrescreve diretamente os valores hardcoded do CSS base.
+ */
+
+/* ─── 1. Tokens ──────────────────────────────────────────────────────── */
+:root,
+body[data-theme="dark"] {
+  --bg:            #0b1120;
+  --panel:         #131c2e;
+  --panel-soft:    #182135;
+  --panel-softer:  #1c2740;
+  --panel-alt:     #1c2740;
+  --sidebar:       #0d1526;
+  --sidebar-soft:  #182135;
+  --sidebar-muted: #4d6080;
+  --accent:        #00d4a0;
+  --accent-strong: #00b589;
+  --accent-soft:   rgba(0, 212, 160, 0.14);
+  --ink:           #e8f0fe;
+  --muted:         #7a91b4;
+  --muted-strong:  #9ab0cc;
+  --line:          rgba(255, 255, 255, 0.055);
+  --shadow:        0 16px 40px rgba(0, 0, 0, 0.48);
+  --shadow-soft:   0 6px 20px rgba(0, 0, 0, 0.32);
+  --danger:        #f43f5e;
+  --warn:          #f59e0b;
+}
+
+/* ─── 2. Fundo ───────────────────────────────────────────────────────── */
+html { background: #0b1120; }
+
+body {
+  background:
+    radial-gradient(ellipse 60% 40% at 88% -12%, rgba(0, 212, 160, 0.06), transparent),
+    radial-gradient(ellipse 40% 30% at -8% 90%,  rgba(30, 80, 200, 0.04), transparent),
+    #0b1120 !important;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+}
+
+/* ─── 3. Sidebar ─────────────────────────────────────────────────────── */
+.master-sidebar {
+  background:
+    linear-gradient(180deg, rgba(0, 180, 145, 0.09) 0%, transparent 22rem),
+    #0d1526 !important;
+  box-shadow: none !important;
+  border-right: 1px solid rgba(255,255,255,0.055);
+}
+
+.sidebar {
+  background: #0d1526 !important;
+  border-right: 1px solid rgba(255,255,255,0.055);
+}
+
+/* Brand mark */
+.brand span:first-child,
+.brand-mark {
+  background: linear-gradient(135deg, #00d4a0, #00b589) !important;
+  box-shadow: 0 4px 14px rgba(0, 212, 160, 0.3) !important;
+}
+
+/* Nav links */
+nav a, nav button, .nav-item { border-radius: 10px !important; }
+
+nav a.active, nav a:hover, nav button:hover {
+  background: rgba(0, 212, 160, 0.13) !important;
+  border-color: rgba(0, 212, 160, 0.18) !important;
+  color: #fff !important;
+}
+
+/* ─── 4. Topbar ──────────────────────────────────────────────────────── */
+.master-topbar {
+  background: rgba(11, 17, 32, 0.88) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* Search pill */
+.top-actions label {
+  background: #182135 !important;
+  border-color: rgba(255,255,255,0.07) !important;
+  border-radius: 999px !important;
+}
+.top-actions input { background: transparent !important; }
+
+/* User chip */
+#masterUser, .user-chip {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 999px !important;
+}
+
+/* ─── 5. Painel / Cards ──────────────────────────────────────────────── */
+.panel {
+  background: #131c2e !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.24) !important;
+}
+
+.panel:hover {
+  border-color: rgba(0,212,160,0.13) !important;
+}
+
+.kpi-grid article {
+  background:
+    radial-gradient(circle at 82% 18%, rgba(0, 212, 160, 0.1), transparent 5rem),
+    #131c2e !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22) !important;
+}
+
+.tenant-card {
+  background: linear-gradient(160deg, #1c2740, #182135) !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 14px !important;
+}
+
+.tenant-card:hover {
+  border-color: rgba(0,212,160,0.13) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+}
+
+.billing-card, .usage-card {
+  background: linear-gradient(160deg, #1c2740, #182135) !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 14px !important;
+}
+
+.event-item, .health-item {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 12px !important;
+}
+
+.event-item:hover {
+  background: #1c2740 !important;
+  border-color: rgba(0,212,160,0.11) !important;
+}
+
+.table-row {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 12px !important;
+}
+
+.table-row:hover {
+  background: #1c2740 !important;
+  border-color: rgba(0,212,160,0.11) !important;
+}
+
+.mini-card {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 10px !important;
+}
+
+.empty-state {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 12px !important;
+}
+
+.result-box {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 12px !important;
+}
+
+/* ─── 6. Formulários e Estrutura ─────────────────────────────────────── */
+.compact-form {
+  background: #182135 !important;
+  border: 1px solid rgba(0,212,160,0.14) !important;
+  border-radius: 14px !important;
+}
+
+.structure-toolbar {
+  background:
+    radial-gradient(circle at right, rgba(0, 212, 160, 0.09), transparent 18rem),
+    #131c2e !important;
+  border-radius: 12px;
+}
+
+/* ─── 7. Inputs e Selects ────────────────────────────────────────────── */
+.tenant-form input,
+.tenant-form select,
+.compact-form input,
+.compact-form select,
+.structure-actions select,
+.sync-config-fields input {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  border-radius: 10px !important;
+  color: #e8f0fe !important;
+}
+
+.tenant-form input:focus,
+.tenant-form select:focus,
+.compact-form input:focus,
+.compact-form select:focus,
+.structure-actions select:focus,
+.sync-config-fields input:focus {
+  background: #1c2740 !important;
+  border-color: rgba(0,212,160,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(0,212,160,0.1) !important;
+}
+
+/* ─── 8. Botões primários ────────────────────────────────────────────── */
+.top-actions button,
+.form-actions button,
+.structure-actions button {
+  background: linear-gradient(135deg, #00d4a0, #00b589) !important;
+  color: #031a14 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(0,212,160,0.22) !important;
+  transition: transform 0.15s, box-shadow 0.15s !important;
+}
+
+.top-actions button:hover,
+.form-actions button:hover,
+.structure-actions button:hover {
+  background: linear-gradient(135deg, #00e0aa, #00c492) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 7px 22px rgba(0,212,160,0.32) !important;
+}
+
+.tenant-actions button.primary {
+  background: linear-gradient(135deg, #00d4a0, #00b589) !important;
+  color: #031a14 !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 3px 10px rgba(0,212,160,0.2) !important;
+}
+
+.tenant-actions button:not(.primary) {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  color: #e8f0fe !important;
+  border-radius: 999px !important;
+}
+
+.tenant-actions button:not(.primary):hover {
+  background: #1c2740 !important;
+  border-color: rgba(255,255,255,0.14) !important;
+}
+
+/* ─── 9. Sync panel ──────────────────────────────────────────────────── */
+.sync-config-panel {
+  background: rgba(0,120,180,0.06) !important;
+  border: 1px solid rgba(0,150,210,0.22) !important;
+  border-radius: 12px !important;
+}
+
+.sync-config-actions button {
+  border-radius: 999px !important;
+  background: rgba(0,120,200,0.09) !important;
+  border: 1px solid rgba(0,120,200,0.35) !important;
+}
+
+/* ─── 10. Métricas de card de tenant ─────────────────────────────────── */
+.tenant-card-summary span,
+.metric-grid div,
+.usage-metrics span {
+  background: #182135 !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  border-radius: 10px !important;
+}
+
+/* ─── 11. KPI number gradiente ───────────────────────────────────────── */
+.kpi-grid strong {
+  background: linear-gradient(135deg, #e8f0fe 30%, #9ab0cc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 26px;
+  letter-spacing: -0.045em;
+}
+
+/* ─── 12. Permissões ─────────────────────────────────────────────────── */
+.permission-module {
+  background: #131c2e !important;
+  border: 1px solid rgba(255,255,255,0.07) !important;
+  border-radius: 12px !important;
+}
+
+.permission-module legend { color: #00d4a0 !important; }
+
+.permission-module input[type="checkbox"] {
+  background: #182135 !important;
+  border-color: #3a4a60 !important;
+}
+
+.permission-module input[type="checkbox"]:checked {
+  background: #00d4a0 !important;
+  border-color: #00d4a0 !important;
+}
+
+.permission-module label:hover {
+  background: rgba(0,212,160,0.08) !important;
+}
+
+/* ─── 13. Badges status ──────────────────────────────────────────────── */
+.status {
+  border-radius: 999px !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  padding: 3px 10px !important;
+}
+
+/* ─── 14. Barra de progresso ─────────────────────────────────────────── */
+.bar { background: #182135 !important; }
+.bar i { background: #00d4a0 !important; }
+
+/* ─── 15. Step number ────────────────────────────────────────────────── */
+.step-number {
+  background: linear-gradient(135deg, #00d4a0, #00b589) !important;
+  box-shadow: 0 3px 10px rgba(0,212,160,0.28) !important;
+}
+
+/* ─── 16. Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,212,160,0.25);
+}
+
+/* ─── 17. Focus ring acessível ───────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #00d4a0;
+  outline-offset: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TEMA CLARO — sobrescreve os !important do tema escuro acima
+══════════════════════════════════════════════════════════════════════ */
+body[data-theme="light"] {
+  background:
+    radial-gradient(ellipse 60% 40% at 88% -12%, rgba(0,143,112,0.05), transparent),
+    #f4f7f5 !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] html,
+html:has(body[data-theme="light"]) {
+  background: #f4f7f5 !important;
+}
+
+body[data-theme="light"] .sidebar {
+  background: #0f1f1b !important;
+  border-right: 1px solid rgba(0,0,0,0.08) !important;
+}
+
+body[data-theme="light"] .topbar,
+body[data-theme="light"] .master-topbar {
+  background: rgba(255,255,255,0.9) !important;
+  border-bottom: 1px solid #e4e7ec !important;
+}
+
+body[data-theme="light"] .panel {
+  background: #ffffff !important;
+  border: 1px solid #e4e7ec !important;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.06) !important;
+}
+
+body[data-theme="light"] .panel:hover {
+  border-color: rgba(0,143,112,0.25) !important;
+}
+
+body[data-theme="light"] .kpi-grid article {
+  background: #ffffff !important;
+  border: 1px solid #e4e7ec !important;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.05) !important;
+}
+
+body[data-theme="light"] .empty-state {
+  background: #f2f6f5 !important;
+  border: 1px solid #e4e7ec !important;
+  color: #667085 !important;
+}
+
+body[data-theme="light"] .result-box {
+  background: #f2f6f5 !important;
+  border: 1px solid #e4e7ec !important;
+}
+
+body[data-theme="light"] .tenant-card,
+body[data-theme="light"] .billing-card,
+body[data-theme="light"] .usage-card {
+  background: #ffffff !important;
+  border: 1px solid #e4e7ec !important;
+}
+
+body[data-theme="light"] .event-item,
+body[data-theme="light"] .health-item {
+  background: #f2f6f5 !important;
+  border: 1px solid #e4e7ec !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] .table-row {
+  background: #f9fbfa !important;
+  border: 1px solid #e4e7ec !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] .table-row:hover {
+  background: #eef4f2 !important;
+  border-color: rgba(0,143,112,0.2) !important;
+}
+
+body[data-theme="light"] .mini-card,
+body[data-theme="light"] .compact-form,
+body[data-theme="light"] .structure-toolbar {
+  background: #f2f6f5 !important;
+  border: 1px solid #e4e7ec !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] .tenant-form input,
+body[data-theme="light"] .tenant-form select,
+body[data-theme="light"] .compact-form input,
+body[data-theme="light"] .compact-form select,
+body[data-theme="light"] .structure-actions select,
+body[data-theme="light"] .sync-config-fields input {
+  background: #ffffff !important;
+  border: 1px solid #d0d5dd !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] .tenant-form input:focus,
+body[data-theme="light"] .compact-form input:focus,
+body[data-theme="light"] .compact-form select:focus {
+  background: #ffffff !important;
+  border-color: rgba(0,143,112,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(0,143,112,0.1) !important;
+}
+
+body[data-theme="light"] .permission-module {
+  background: #ffffff !important;
+  border: 1px solid #e4e7ec !important;
+}
+
+body[data-theme="light"] .permission-module legend { color: #008f70 !important; }
+
+body[data-theme="light"] .tenant-card-summary span,
+body[data-theme="light"] .metric-grid div,
+body[data-theme="light"] .usage-metrics span {
+  background: #f2f6f5 !important;
+  border: 1px solid #e4e7ec !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] .bar { background: #e4e7ec !important; }
+
+body[data-theme="light"] .tenant-actions button:not(.primary) {
+  background: #f2f6f5 !important;
+  border: 1px solid #d0d5dd !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] .kpi-grid strong {
+  background: linear-gradient(135deg, #101828 30%, #667085);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+body[data-theme="light"] #masterUser,
+body[data-theme="light"] .user-chip {
+  background: #f2f6f5 !important;
+  border: 1px solid #d0d5dd !important;
+  color: #101828 !important;
+}
+
+body[data-theme="light"] .top-actions label {
+  background: #f2f6f5 !important;
+  border-color: #d0d5dd !important;
+}
+
+body[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+}
+
+body[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,143,112,0.3);
+}

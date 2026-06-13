@@ -1,0 +1,63 @@
+{
+  "family": "neuraxcrm-platform",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::324037288309:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::324037288309:role/neuraxcrmTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "neuraxcrm-platform",
+      "image": "324037288309.dkr.ecr.sa-east-1.amazonaws.com/neuraxcrm-platform:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "NODE_ENV",               "value": "production" },
+        { "name": "PORT",                   "value": "3000" },
+        { "name": "CRM_PROVIDER",           "value": "local" },
+        { "name": "CRM_DATA_FILE",          "value": "/app/data/crm.json" },
+        { "name": "LOG_FILE",               "value": "/app/data/integration.log" },
+        { "name": "POLL_INTERVAL_MS",       "value": "60000" },
+        { "name": "SAAS_BASE_DOMAIN",       "value": "neuraxcrm.com.br" },
+        { "name": "SAAS_MASTER_SUBDOMAIN",  "value": "admin" },
+        { "name": "SAAS_ACTIVE_TENANT_COOKIE",  "value": "neuraxcrm_active_tenant" },
+        { "name": "CISS_CLIENT_ID",         "value": "cisspoder-oauth" },
+        { "name": "CISS_CLIENT_SECRET",     "value": "poder7547" },
+        { "name": "CISS_IDEMPRESA",         "value": "1" },
+        { "name": "CISS_PAGE_LIMIT",        "value": "1000" },
+        { "name": "CISS_LOOKBACK_DAYS",     "value": "30" },
+        { "name": "CISS_LOOKAHEAD_DAYS",    "value": "180" },
+        { "name": "NEURAXCRM_BOOTSTRAP_ADMIN_NAME",     "value": "Administrador" },
+        { "name": "NEURAXCRM_BOOTSTRAP_ADMIN_EMAIL",    "value": "admin@neuraxcrm.local" },
+        { "name": "NEURAXCRM_BOOTSTRAP_ADMIN_PASSWORD", "value": "NeuraxAdmin2026!" },
+        { "name": "NEURAXCRM_BOOTSTRAP_MASTER_NAME",    "value": "Suporte Neurax" },
+        { "name": "NEURAXCRM_BOOTSTRAP_MASTER_EMAIL",   "value": "master@neuraxcrm.local" },
+        { "name": "NEURAXCRM_BOOTSTRAP_MASTER_PASSWORD","value": "uFc%bFM9kt2WhVFPVGbxmeex" },
+        { "name": "NEURAXCRM_SESSION_SECRET",           "value": "neuraxcrm-session-secret-2026-change-before-saas" },
+        { "name": "NEURAXCRM_SEED_TENANTS", "value": "[{\"slug\":\"materiaislobato\",\"name\":\"Lobato Casa e Construção\",\"status\":\"implantacao\",\"plan\":\"starter\",\"billingStatus\":\"active\",\"billingEmail\":\"financeiro@lobato.com.br\",\"billingDay\":10,\"monthlyBasePrice\":200,\"pricePerUser\":40,\"userLimit\":5,\"document\":\"04044355000133\",\"contactName\":\"Eduardo\",\"erp\":{\"protocol\":\"http\",\"host\":\"he108trc1z6.sn.mynetname.net\",\"port\":\"44664\",\"username\":\"NEURAXCRM\",\"password\":\"fbbC98\",\"clientId\":\"cisspoder-oauth\",\"clientSecret\":\"poder7547\",\"idEmpresa\":1}}]" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/neuraxcrm-platform",
+          "awslogs-region": "sa-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:3000/healthz || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 15
+      }
+    }
+  ]
+}

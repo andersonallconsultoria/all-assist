@@ -1,0 +1,85 @@
+{
+  "family": "neurax-evolution-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::324037288309:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "evolution-api",
+      "image": "atendai/evolution-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "hostPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "SERVER_PORT",                            "value": "8080" },
+        { "name": "SERVER_URL",                             "value": "https://evo.neuraxcrm.com.br" },
+        { "name": "CORS_ORIGIN",                            "value": "*" },
+        { "name": "CORS_METHODS",                           "value": "POST,GET,PUT,DELETE" },
+        { "name": "LOG_LEVEL",                              "value": "ERROR,WARN,INFO" },
+        { "name": "LOG_COLOR",                              "value": "false" },
+        { "name": "LOG_BAILEYS",                            "value": "error" },
+        { "name": "DEL_INSTANCE",                           "value": "false" },
+        { "name": "DEL_TEMP_INSTANCES",                     "value": "true" },
+        { "name": "QRCODE_LIMIT",                           "value": "30" },
+        { "name": "QRCODE_EXPIRES_IN",                      "value": "45" },
+        { "name": "AUTHENTICATION_TYPE",                    "value": "apikey" },
+        { "name": "AUTHENTICATION_API_KEY",                 "value": "NeuraxEvo2026!ChangeThisKey" },
+        { "name": "AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES", "value": "true" },
+        { "name": "LANGUAGE",                               "value": "pt-BR" },
+        { "name": "DATABASE_ENABLED",                       "value": "false" },
+        { "name": "REDIS_ENABLED",                          "value": "false" },
+        { "name": "RABBITMQ_ENABLED",                       "value": "false" },
+        { "name": "WEBSOCKET_ENABLED",                      "value": "false" },
+        { "name": "CHATWOOT_ENABLED",                       "value": "false" },
+        { "name": "OPENAI_ENABLED",                         "value": "false" },
+        { "name": "DIFY_ENABLED",                           "value": "false" },
+        { "name": "STORE_MESSAGES",                         "value": "false" },
+        { "name": "STORE_MESSAGE_UP",                       "value": "false" },
+        { "name": "STORE_CONTACTS",                         "value": "false" },
+        { "name": "STORE_CHATS",                            "value": "false" }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "evolution-data",
+          "containerPath": "/evolution/instances",
+          "readOnly": false
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/neurax-evolution-api",
+          "awslogs-region": "sa-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:8080/ || exit 1"],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 45
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "evolution-data",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "PREENCHER_EFS_ID",
+        "rootDirectory": "/",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": {
+          "iam": "DISABLED"
+        }
+      }
+    }
+  ]
+}
