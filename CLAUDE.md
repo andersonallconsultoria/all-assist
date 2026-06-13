@@ -67,14 +67,14 @@ Essas ideias entram nas **Fases 3 e 4** abaixo.
 ### Fase 1 — MVP até segunda-feira (próxima entrega)
 Esta é a fase atual de execução.
 
-- [ ] Renomear projeto para ALL Assist (código + UI + branding + manifestos)
-- [ ] Limpar resíduos do CRM (rotas, telas, services não usados)
-- [ ] Implementar entidade `Ticket` (id, tenantId, contactId, conversationId, assignedAnalystId, status, priority, category, slaDueAt, openedAt, closedAt, closedBy, closureNote)
-- [ ] Webhook WhatsApp → cria ticket automático no primeiro contato de conversa nova
-- [ ] **Agente IA Classificador** — Claude Haiku 4.5 — categoriza (suporte/dúvida/reclamação/elogio/comercial) e prioriza (baixa/média/alta/crítica) ao criar ticket
-- [ ] Role `analista` + atribuição manual de tickets
-- [ ] Tela `#tickets` — lista tickets abertos (kanban ou tabela) + filtros (status, prioridade, analista, categoria)
-- [ ] Tela `#ticket-detail` — chat + ações (fechar, transferir, marcar como aguardando cliente)
+- [x] Renomear projeto para ALL Assist (código + UI + branding + manifestos)
+- [x] Limpar resíduos do CRM — remoção completa de CRM/ERP: services órfãos, endpoints (deals/pipelines/sellers/products/integrations), telas e ~1390 linhas de JS morto; `crmDataStore` enxugado para o domínio de atendimento (coleção `tickets`, método `findAll`)
+- [x] Implementar entidade `Ticket` (id, tenantId, contactId, conversationId, assignedAnalystId, status, priority, category, slaDueAt, openedAt, closedAt, closedBy, closureNote)
+- [x] Webhook WhatsApp → cria ticket automático no primeiro contato de conversa nova
+- [x] **Agente IA Classificador** — Claude Haiku 4.5 — categoriza (suporte/dúvida/reclamação/elogio/comercial) e prioriza (baixa/média/alta/crítica) ao criar ticket
+- [x] Role `analista` (+ `gerente`) + atribuição manual de tickets
+- [x] Tela `#tickets` — kanban (Abertos / Aguardando Analista / Aguardando Cliente / Fechados hoje) + filtros (prioridade, categoria, analista)
+- [x] Detalhe do ticket — drawer com chat + ações (atribuir, status, fechar, responder). Painel inicial reescrito para métricas de atendimento (`/api/dashboard`)
 - [ ] White-label config no Master Panel — nome, logo URL, cor primária por tenant
 - [ ] Resolução host expandida — aceitar domínios CNAME apontados (não só `*.allassist.com.br`)
 - [ ] Frontend renderiza nome/cor/logo do tenant ativo
@@ -193,6 +193,10 @@ node --test
 
 # Rodar teste específico
 node --test test/tenantIsolation.test.js
+
+# Smoke test do frontend (carrega public/app.js num DOM falso e verifica
+# que o boot não toca elementos removidos) — rode após mexer no app.js
+node test/smoke-frontend.mjs
 ```
 
 Copie `.env.example` para `.env` antes de rodar. Requer Node.js >= 20.
