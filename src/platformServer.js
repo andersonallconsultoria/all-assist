@@ -4,7 +4,7 @@ import path from "node:path";
 import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
 
-export function startPlatformServer({ config, logger, store, crmService, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService }) {
+export function startPlatformServer({ config, logger, store, crmService, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, classifierAgent }) {
   const publicDir = path.resolve("public");
 
   const server = http.createServer(async (request, response) => {
@@ -812,6 +812,21 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         const saved = conversationService.receiveMetaWebhook(payload);
         store.save();
 
+        // Criar tickets para mensagens inbound novas
+        for (const item of saved) {
+          if (item.message.direction === "inbound" && ticketService) {
+            await _createTicketForConversation(
+              item.conversation,
+              item.message,
+              item.contact,
+              ticketService,
+              classifierAgent,
+              store,
+              logger
+            );
+          }
+        }
+
         if (config.meta.markInboundRead) {
           for (const item of saved) {
             await whatsappClient.markAsRead(item.message.providerMessageId);
@@ -870,6 +885,18 @@ export function startPlatformServer({ config, logger, store, crmService, convers
           payload._instanceId = instance.id;
           const result = conversationService.receiveEvolutionWebhook(payload, instance.tenantId);
           if (result) {
+            // Criar ticket para mensagem inbound
+            if (result.message.direction === "inbound" && ticketService) {
+              await _createTicketForConversation(
+                result.conversation,
+                result.message,
+                result.contact,
+                ticketService,
+                classifierAgent,
+                store,
+                logger
+              );
+            }
             store.save();
             alertService?.notify({
               title: "💬 Nova mensagem WhatsApp Chat",
@@ -1208,6 +1235,50 @@ export function startPlatformServer({ config, logger, store, crmService, convers
   });
 
   return server;
+}
+
+async function _createTicketForConversation(conversation, message, contact, ticketService, classifierAgent, store, logger) {
+  try {
+    if (!conversation || !ticketService) return;
+
+    // Verificar se já existe um ticket aberto para essa conversa
+    const existingTicket = store.findOne("tickets",
+      t => t.conversationId === conversation.id && t.status !== "closed"
+    );
+    if (existingTicket) return;
+
+    // Classificar a mensagem com a IA
+    const classification = classifierAgent
+      ? await classifierAgent.classify({
+          contactName: contact.name || contact.phone,
+          firstMessage: message.body || "[mensagem de mídia]",
+          conversationHistory: []
+        })
+      : null;
+
+    // Criar o ticket
+    const ticket = ticketService.createTicket({
+      tenantId: conversation.tenantId,
+      contactId: contact.id,
+      conversationId: conversation.id,
+      firstMessage: message.body || "[mensagem de mídia]",
+      contactName: contact.name || contact.phone,
+      aiClassification: classification
+    });
+
+    store.save();
+    logger.info("ticket_created_from_webhook", {
+      ticketId: ticket.id,
+      conversationId: conversation.id,
+      category: ticket.category,
+      priority: ticket.priority
+    });
+  } catch (error) {
+    logger.error("ticket_creation_failed", {
+      error: error.message,
+      conversationId: conversation?.id
+    });
+  }
 }
 
 function sendJson(response, statusCode, payload) {

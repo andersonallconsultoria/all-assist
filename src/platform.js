@@ -4,6 +4,8 @@ import { AuthService } from "./authService.js";
 import { AlertService } from "./alertService.js";
 import { AccessRoleService } from "./accessRoleService.js";
 import { LocalCrmService } from "./localCrmService.js";
+import { TicketService } from "./ticketService.js";
+import { ClassifierAgent } from "./agents/classifier.js";
 import { createLogger } from "./logger.js";
 import { ObservabilityService } from "./observabilityService.js";
 import { loadPlatformConfig } from "./platformConfig.js";
@@ -35,6 +37,8 @@ async function main() {
   const whatsappClient = new WhatsAppMetaClient(config, logger);
   const evolutionInstanceService = new EvolutionInstanceService(store, logger);
   const conversationService = new ConversationService(store, crmService, whatsappClient, logger, evolutionInstanceService);
+  const ticketService = new TicketService(store, logger);
+  const classifierAgent = new ClassifierAgent(config, logger);
 
   if (config.syncOnce) {
     process.exit(0);
@@ -53,7 +57,9 @@ async function main() {
     accessRoleService,
     userOnboardingService,
     alertService,
-    evolutionInstanceService
+    evolutionInstanceService,
+    ticketService,
+    classifierAgent
   });
 }
 

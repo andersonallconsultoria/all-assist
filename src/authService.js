@@ -10,6 +10,10 @@ const ALL_PERMISSIONS = [
   "goals:write",
   "conversations:view",
   "conversations:write",
+  "tickets:view",
+  "tickets:respond",
+  "tickets:close",
+  "tickets:transfer",
   "products:view",
   "products:write",
   "users:view",
@@ -70,6 +74,22 @@ export class AuthService {
           "deals:write",
           "conversations:view",
           "conversations:write"
+        ]
+      });
+    }
+
+    const analyzeRole = this.store.findOne("roles", (role) => role.key === "analista");
+    if (!analyzeRole) {
+      this.store.insert("roles", {
+        key: "analista",
+        name: "Analista",
+        description: "Atendimento de tickets e conversas",
+        permissions: [
+          "tickets:view",
+          "tickets:respond",
+          "tickets:close",
+          "tickets:transfer",
+          "conversations:view"
         ]
       });
     }
