@@ -5,9 +5,8 @@ const EVO_STATUS_MAP = { 0: "failed", 1: "sending", 2: "sent", 3: "delivered", 4
 const MSG_STATUS_ORDER = ["sending", "queued", "sent", "delivered", "read"];
 
 export class ConversationService {
-  constructor(store, crmService, whatsappClient, logger, evolutionInstanceService = null) {
+  constructor(store, whatsappClient, logger, evolutionInstanceService = null) {
     this.store = store;
-    this.crmService = crmService;
     this.whatsappClient = whatsappClient;
     this.logger = logger;
     this.evolutionInstanceService = evolutionInstanceService;

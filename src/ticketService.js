@@ -51,7 +51,7 @@ export class TicketService {
       ]
     };
 
-    this.store.create("tickets", ticket);
+    this.store.insert("tickets", ticket);
     return ticket;
   }
 

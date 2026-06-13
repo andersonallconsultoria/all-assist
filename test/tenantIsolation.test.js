@@ -4,12 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { CrmDataStore } from "../src/crmDataStore.js";
-import { LocalCrmService } from "../src/localCrmService.js";
+import { TicketService } from "../src/ticketService.js";
 import { assertTenantAccess, resolveTenantFromHost } from "../src/tenantContext.js";
 import { TenantService } from "../src/tenantService.js";
 
-test("LocalCrmService isolates contacts and deals by tenant", () => {
-  const { store, crmService } = createFixture();
+test("TicketService isolates tickets by tenant", () => {
+  const { store, ticketService } = createFixture();
   const tenantA = store.findOne("tenants", (tenant) => tenant.slug === "default");
   const tenantB = store.insert("tenants", {
     name: "Boa Vista Pisos",
@@ -18,15 +18,20 @@ test("LocalCrmService isolates contacts and deals by tenant", () => {
     plan: "business"
   });
 
-  crmService.upsertDealFromCiss(sampleRecord(98458, "PEDIDO"), tenantA.id);
-  crmService.upsertDealFromCiss(sampleRecord(98458, "PEDIDO"), tenantB.id);
+  const contactA = store.insert("contacts", { tenantId: tenantA.id, name: "Cliente A", phone: "5534999990001" });
+  const contactB = store.insert("contacts", { tenantId: tenantB.id, name: "Cliente B", phone: "5534999990002" });
+  const convA = store.insert("conversations", { tenantId: tenantA.id, contactId: contactA.id, status: "open" });
+  const convB = store.insert("conversations", { tenantId: tenantB.id, contactId: contactB.id, status: "open" });
 
-  assert.equal(crmService.listDeals({}, tenantA.id).length, 1);
-  assert.equal(crmService.listDeals({}, tenantB.id).length, 1);
+  ticketService.createTicket({ tenantId: tenantA.id, contactId: contactA.id, conversationId: convA.id, firstMessage: "Olá, preciso de suporte" });
+  ticketService.createTicket({ tenantId: tenantB.id, contactId: contactB.id, conversationId: convB.id, firstMessage: "Tenho uma dúvida" });
+
+  assert.equal(ticketService.listOpenTickets(tenantA.id).length, 1);
+  assert.equal(ticketService.listOpenTickets(tenantB.id).length, 1);
   assert.equal(store.list("contacts").length, 2);
   assert.notEqual(
-    crmService.listDeals({}, tenantA.id)[0].id,
-    crmService.listDeals({}, tenantB.id)[0].id
+    ticketService.listOpenTickets(tenantA.id)[0].id,
+    ticketService.listOpenTickets(tenantB.id)[0].id
   );
 });
 
@@ -113,37 +118,9 @@ function createFixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tenant-isolation-"));
   const store = new CrmDataStore(path.join(dir, "crm.json"));
   store.load();
-  const config = {
-    crm: {
-      defaultStep: "Entrada",
-      defaultResponsible: "",
-      stageMap: {
-        PENDENTE: "Entrada"
-      }
-    }
-  };
   return {
     store,
-    crmService: new LocalCrmService(store, config, silentLogger())
-  };
-}
-
-function sampleRecord(idorcamento, desrdav) {
-  return {
-    idempresa: 1,
-    idorcamento,
-    dtmovimento: "2026-04-21",
-    valtotliquido: 700,
-    idclifor: 556,
-    nome: "ANDERSON ABRAO",
-    descrcidade: "UBERABA",
-    uf: "MG",
-    cnpjcpf: "00170736180",
-    fonecelular: "34999812497",
-    dtvalidade: "2026-07-30",
-    desrdav,
-    status: "PENDENTE",
-    vendedores: "2 - VENDEDOR EXEMPLO"
+    ticketService: new TicketService(store, silentLogger())
   };
 }
 

@@ -11,7 +11,7 @@ test("AuthService bootstraps admin role and user", () => {
 
   const admin = auth.bootstrap();
 
-  assert.equal(store.list("roles").length, 3);
+  assert.equal(store.list("roles").length, 4);
   assert.equal(store.list("users").length, 1);
   assert.equal(admin.email, "admin@allassist.local");
   assert.equal(admin.passwordHash, undefined);

@@ -3,7 +3,6 @@ import { CrmDataStore } from "./crmDataStore.js";
 import { AuthService } from "./authService.js";
 import { AlertService } from "./alertService.js";
 import { AccessRoleService } from "./accessRoleService.js";
-import { LocalCrmService } from "./localCrmService.js";
 import { TicketService } from "./ticketService.js";
 import { ClassifierAgent } from "./agents/classifier.js";
 import { createLogger } from "./logger.js";
@@ -29,14 +28,13 @@ async function main() {
   const authService = new AuthService(store, config, logger);
   authService.bootstrap();
 
-  const crmService = new LocalCrmService(store, config, logger);
   const observabilityService = new ObservabilityService(store, config, logger);
   const tenantService = new TenantService(store, logger);
   const accessRoleService = new AccessRoleService(store, logger);
   const userOnboardingService = new UserOnboardingService(store, authService, config, logger);
   const whatsappClient = new WhatsAppMetaClient(config, logger);
   const evolutionInstanceService = new EvolutionInstanceService(store, logger);
-  const conversationService = new ConversationService(store, crmService, whatsappClient, logger, evolutionInstanceService);
+  const conversationService = new ConversationService(store, whatsappClient, logger, evolutionInstanceService);
   const ticketService = new TicketService(store, logger);
   const classifierAgent = new ClassifierAgent(config, logger);
 
@@ -48,7 +46,6 @@ async function main() {
     config,
     logger,
     store,
-    crmService,
     conversationService,
     whatsappClient,
     authService,

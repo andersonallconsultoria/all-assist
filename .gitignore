@@ -8,3 +8,6 @@ npm-debug.log*
 flycrm-main.js
 flycrm-vendor.js
 payload-*.json
+
+# Claude Code - settings pessoais (não versionar)
+.claude/settings.local.json

@@ -6,9 +6,7 @@
   "main": "src/platform.js",
   "scripts": {
     "start": "node src/platform.js",
-    "run:once": "node src/index.js --once",
     "serve": "node src/platform.js",
-    "sync:local": "node src/platform.js --sync-once",
     "test": "node --test"
   },
   "engines": {

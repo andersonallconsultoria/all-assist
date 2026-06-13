@@ -24,7 +24,10 @@ const state = {
   usersFilter: "all",
   productsFilter: "all",
   waTemplates: [],
-  waSettings: null
+  waSettings: null,
+  tickets: [],
+  ticketAnalysts: [],
+  activeTicket: null
 };
 
 const STAGE_ORDER = [
@@ -137,6 +140,7 @@ document.querySelectorAll("nav a").forEach((link) => {
     document.getElementById("pageTitle").textContent = link.textContent.trim();
     if (link.getAttribute("href") === "#sellers") renderSellers();
     if (link.getAttribute("href") === "#whatsapp-chat") renderWhatsAppChat();
+    if (link.getAttribute("href") === "#tickets") renderTickets();
   });
 });
 
@@ -3639,6 +3643,279 @@ async function renderSellers() {
     target.innerHTML = `<div class="empty-state">Erro ao carregar vendedores: ${escapeHtml(error.message)}</div>`;
   }
 }
+
+// ===== Tickets =====
+const TICKET_CATEGORY_LABELS = {
+  support: "Suporte",
+  question: "Dúvida",
+  complaint: "Reclamação",
+  compliment: "Elogio",
+  sales: "Comercial",
+  other: "Outro"
+};
+const TICKET_PRIORITY_LABELS = {
+  critical: "Crítica",
+  high: "Alta",
+  medium: "Média",
+  low: "Baixa"
+};
+const TICKET_PRIORITY_BADGE = {
+  critical: "badge-danger",
+  high: "badge-warning",
+  medium: "badge-info",
+  low: "badge-neutral"
+};
+const TICKET_STATUS_LABELS = {
+  open: "Aberto",
+  waiting_analyst: "Aguardando Analista",
+  waiting_customer: "Aguardando Cliente",
+  closed: "Fechado"
+};
+const TICKET_COLUMNS = [
+  { key: "open", label: "Abertos" },
+  { key: "waiting_analyst", label: "Aguardando Analista" },
+  { key: "waiting_customer", label: "Aguardando Cliente" },
+  { key: "closed", label: "Fechados hoje" }
+];
+
+function ticketFilterValues() {
+  return {
+    priority: document.getElementById("ticketFilterPriority")?.value || "",
+    category: document.getElementById("ticketFilterCategory")?.value || "",
+    assignedAnalystId: document.getElementById("ticketFilterAnalyst")?.value || ""
+  };
+}
+
+async function loadTicketAnalysts() {
+  if (state.ticketAnalysts.length) return;
+  try {
+    const res = await api("/api/tickets/analysts");
+    state.ticketAnalysts = res.data || [];
+    const filterSel = document.getElementById("ticketFilterAnalyst");
+    const assignSel = document.getElementById("ticketAssignSelect");
+    const opts = state.ticketAnalysts.map((a) => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join("");
+    if (filterSel) filterSel.innerHTML = `<option value="">Todos analistas</option>${opts}`;
+    if (assignSel) assignSel.innerHTML = `<option value="">— Atribuir analista —</option>${opts}`;
+  } catch (error) {
+    console.error("Falha ao carregar analistas", error);
+  }
+}
+
+async function renderTickets() {
+  const board = document.getElementById("ticketBoard");
+  if (!board) return;
+  await loadTicketAnalysts();
+  const filters = ticketFilterValues();
+  const query = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
+  try {
+    const res = await api(`/api/tickets${query ? "?" + query : ""}`);
+    state.tickets = res.data || [];
+  } catch (error) {
+    board.innerHTML = `<div class="empty-state">Erro ao carregar tickets: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  renderTicketBoard();
+  updateTicketBadge();
+}
+
+function updateTicketBadge() {
+  const openCount = state.tickets.filter((t) => t.status !== "closed").length;
+  const badge = document.getElementById("ticketBadge");
+  if (badge) {
+    badge.textContent = openCount;
+    badge.style.display = openCount > 0 ? "" : "none";
+  }
+  const counter = document.getElementById("ticketCount");
+  if (counter) counter.textContent = `${openCount} aberto${openCount === 1 ? "" : "s"}`;
+}
+
+function renderTicketBoard() {
+  const board = document.getElementById("ticketBoard");
+  if (!board) return;
+  board.innerHTML = TICKET_COLUMNS.map((col) => {
+    const items = state.tickets.filter((t) => t.status === col.key);
+    const cards = items.length
+      ? items.map(ticketCardHtml).join("")
+      : `<div class="kanban-empty">Nenhum ticket</div>`;
+    return `
+      <div class="kanban-column">
+        <div class="kanban-column-header">
+          <strong>${col.label}</strong>
+          <span class="kanban-count">${items.length}</span>
+        </div>
+        <div class="kanban-cards">${cards}</div>
+      </div>
+    `;
+  }).join("");
+  board.querySelectorAll("[data-ticket-id]").forEach((el) => {
+    el.addEventListener("click", () => openTicket(el.dataset.ticketId));
+  });
+}
+
+function ticketTimeOpen(openedAt) {
+  if (!openedAt) return "";
+  const diffMs = Date.now() - new Date(openedAt).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function ticketCardHtml(ticket) {
+  const priorityBadge = TICKET_PRIORITY_BADGE[ticket.priority] || "badge-neutral";
+  const analyst = ticket.analystName
+    ? `<span class="ticket-card-analyst" title="Analista">${escapeHtml(ticket.analystName)}</span>`
+    : `<span class="ticket-card-analyst unassigned">Não atribuído</span>`;
+  return `
+    <div class="ticket-card" data-ticket-id="${ticket.id}">
+      <div class="ticket-card-top">
+        <span class="avatar-mini">${escapeHtml(initials(ticket.contactName))}</span>
+        <div class="ticket-card-id">
+          <strong>${escapeHtml(ticket.contactName)}</strong>
+          <small>${escapeHtml(TICKET_CATEGORY_LABELS[ticket.category] || ticket.category)}</small>
+        </div>
+        <span class="badge ${priorityBadge}">${escapeHtml(TICKET_PRIORITY_LABELS[ticket.priority] || ticket.priority)}</span>
+      </div>
+      <p class="ticket-card-subject">${escapeHtml(ticket.subject || "")}</p>
+      <div class="ticket-card-footer">
+        ${analyst}
+        <span class="ticket-card-time" title="Aberto há">⏱ ${ticketTimeOpen(ticket.openedAt)}</span>
+      </div>
+    </div>
+  `;
+}
+
+async function openTicket(id) {
+  const overlay = document.getElementById("ticketOverlay");
+  if (!overlay) return;
+  overlay.classList.remove("hidden");
+  document.getElementById("ticketChat").innerHTML = `<div class="empty-state">Carregando...</div>`;
+  try {
+    const ticket = await api(`/api/tickets/${id}`);
+    state.activeTicket = ticket;
+    renderTicketDrawer(ticket);
+  } catch (error) {
+    document.getElementById("ticketChat").innerHTML = `<div class="empty-state">Erro: ${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderTicketDrawer(ticket) {
+  document.getElementById("ticketDrawerCategory").textContent = TICKET_CATEGORY_LABELS[ticket.category] || ticket.category;
+  document.getElementById("ticketDrawerSubject").textContent = ticket.subject || "Ticket";
+  document.getElementById("ticketDrawerContact").textContent = `${ticket.contactName}${ticket.contactPhone ? " · " + ticket.contactPhone : ""}`;
+
+  const ai = ticket.aiClassification;
+  document.getElementById("ticketDrawerMeta").innerHTML = `
+    <span class="badge ${TICKET_PRIORITY_BADGE[ticket.priority] || "badge-neutral"}">${TICKET_PRIORITY_LABELS[ticket.priority] || ticket.priority}</span>
+    <span class="badge badge-neutral">${TICKET_STATUS_LABELS[ticket.status] || ticket.status}</span>
+    ${ticket.analystName ? `<span class="badge badge-info">${escapeHtml(ticket.analystName)}</span>` : ""}
+    ${ai ? `<span class="ticket-ai-note" title="${escapeHtml(ai.reasoning || "")}">🤖 IA ${Math.round((ai.confidence || 0) * 100)}%</span>` : ""}
+  `;
+
+  // Select de atribuição reflete o analista atual
+  const assignSel = document.getElementById("ticketAssignSelect");
+  if (assignSel) assignSel.value = ticket.assignedAnalystId || "";
+
+  // Botões de status
+  const statusBtns = document.getElementById("ticketStatusButtons");
+  if (statusBtns) {
+    statusBtns.innerHTML = ["open", "waiting_customer", "waiting_analyst"].map((s) => `
+      <button class="btn btn-secondary ticket-status-btn ${ticket.status === s ? "active" : ""}" data-status="${s}">
+        ${TICKET_STATUS_LABELS[s]}
+      </button>
+    `).join("");
+    statusBtns.querySelectorAll("[data-status]").forEach((btn) => {
+      btn.addEventListener("click", () => changeTicketStatus(ticket.id, btn.dataset.status));
+    });
+  }
+
+  // Botão fechar e reply visíveis só se não estiver fechado
+  const isClosed = ticket.status === "closed";
+  document.getElementById("ticketCloseBtn").style.display = isClosed ? "none" : "";
+  document.getElementById("ticketReplyBox").style.display = isClosed ? "none" : "";
+
+  // Chat
+  const messages = ticket.conversation?.messages || [];
+  const chat = document.getElementById("ticketChat");
+  chat.innerHTML = messages.length
+    ? messages.map((m) => `
+        <div class="message ${m.direction}">
+          <p>${escapeHtml(m.body)}</p>
+          <div class="msg-meta">
+            <small>${formatDateTime(m.createdAt)}</small>
+            ${m.direction === "outbound" ? renderMsgStatus(m.status) : ""}
+          </div>
+        </div>
+      `).join("")
+    : `<div class="empty-state">Sem mensagens nesta conversa.</div>`;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function closeTicketDrawer() {
+  document.getElementById("ticketOverlay")?.classList.add("hidden");
+  state.activeTicket = null;
+}
+
+async function ticketAction(path, body, successMsg) {
+  try {
+    await api(path, { method: "POST", body: JSON.stringify(body || {}) });
+    if (successMsg) setStatus(successMsg);
+    if (state.activeTicket) await openTicket(state.activeTicket.id);
+    await renderTickets();
+  } catch (error) {
+    setStatus(`Erro: ${error.message}`);
+  }
+}
+
+async function assignTicket(id, analystId) {
+  await ticketAction(`/api/tickets/${id}/assign`, { analystId }, "Ticket atribuído");
+}
+
+async function changeTicketStatus(id, status) {
+  await ticketAction(`/api/tickets/${id}/status`, { status }, "Status atualizado");
+}
+
+async function replyTicket() {
+  const ticket = state.activeTicket;
+  if (!ticket) return;
+  const input = document.getElementById("ticketReplyText");
+  const body = input.value.trim();
+  if (!body) return;
+  input.value = "";
+  await ticketAction(`/api/tickets/${ticket.id}/messages`, { body }, "Mensagem enviada");
+}
+
+async function closeActiveTicket() {
+  const ticket = state.activeTicket;
+  if (!ticket) return;
+  const note = window.prompt("Nota de encerramento (opcional):", "") ?? "";
+  await ticketAction(`/api/tickets/${ticket.id}/close`, { closureNote: note }, "Ticket fechado");
+}
+
+function wireTicketEvents() {
+  document.getElementById("ticketRefreshBtn")?.addEventListener("click", () => renderTickets());
+  ["ticketFilterPriority", "ticketFilterCategory", "ticketFilterAnalyst"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("change", () => renderTickets());
+  });
+  document.getElementById("ticketDrawerClose")?.addEventListener("click", closeTicketDrawer);
+  document.getElementById("ticketOverlay")?.addEventListener("click", (e) => {
+    if (e.target.id === "ticketOverlay") closeTicketDrawer();
+  });
+  document.getElementById("ticketCloseBtn")?.addEventListener("click", closeActiveTicket);
+  document.getElementById("ticketReplyBtn")?.addEventListener("click", replyTicket);
+  document.getElementById("ticketReplyText")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      replyTicket();
+    }
+  });
+  document.getElementById("ticketAssignSelect")?.addEventListener("change", (e) => {
+    if (state.activeTicket) assignTicket(state.activeTicket.id, e.target.value || null);
+  });
+}
+
+wireTicketEvents();
 
 loadAll().then(() => {
   const hash = window.location.hash;

@@ -12,6 +12,11 @@ export const PERMISSION_CATALOG = [
     permissions: ["reports:view"]
   },
   {
+    module: "atendimento",
+    name: "Atendimento (Tickets)",
+    permissions: ["tickets:view", "tickets:respond", "tickets:close", "tickets:transfer"]
+  },
+  {
     module: "crm",
     name: "CRM",
     permissions: ["contacts:view", "deals:view", "deals:write", "goals:view", "goals:write"]

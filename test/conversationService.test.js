@@ -54,7 +54,7 @@ test("extractMessageEvents reads Meta WhatsApp text messages", () => {
 
 test("ConversationService creates contact, conversation and inbound message", () => {
   const store = createStore();
-  const service = new ConversationService(store, {}, fakeWhatsappClient(), silentLogger());
+  const service = new ConversationService(store, fakeWhatsappClient(), silentLogger());
 
   const saved = service.receiveMetaWebhook(metaPayload);
 
@@ -67,7 +67,7 @@ test("ConversationService creates contact, conversation and inbound message", ()
 
 test("ConversationService queues outbound message when Meta is not configured", async () => {
   const store = createStore();
-  const service = new ConversationService(store, {}, fakeWhatsappClient(), silentLogger());
+  const service = new ConversationService(store, fakeWhatsappClient(), silentLogger());
   const [{ conversation }] = service.receiveMetaWebhook(metaPayload);
 
   const message = await service.sendText(conversation.id, "Vou verificar e te retorno.");

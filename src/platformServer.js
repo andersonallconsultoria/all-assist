@@ -4,7 +4,7 @@ import path from "node:path";
 import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
 
-export function startPlatformServer({ config, logger, store, crmService, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, classifierAgent }) {
+export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, classifierAgent }) {
   const publicDir = path.resolve("public");
 
   const server = http.createServer(async (request, response) => {
@@ -132,7 +132,7 @@ export function startPlatformServer({ config, logger, store, crmService, convers
 
       if (request.method === "GET" && parsedUrl.pathname === "/api/dashboard") {
         if (!requirePermission(response, authService, user, "dashboard:view")) return;
-        return sendJson(response, 200, crmService.getDashboard(tenantContext.tenantId));
+        return sendJson(response, 200, buildSupportDashboard(store, tenantContext.tenantId));
       }
 
       if (request.method === "GET" && parsedUrl.pathname === "/api/support/overview") {
@@ -415,47 +415,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         });
       }
 
-      if (request.method === "GET" && parsedUrl.pathname === "/api/integrations/erp") {
-        if (!requirePermission(response, authService, user, "settings:manage")) return;
-        return sendJson(response, 200, erpIntegrationService.getPublicSettings(tenantContext.tenantId));
-      }
-
-      if (request.method === "GET" && parsedUrl.pathname === "/api/integrations/schedules") {
-        if (!requirePermission(response, authService, user, "settings:manage")) return;
-        return sendJson(response, 200, {
-          data: integrationScheduleService.listSchedules(tenantContext.tenantId)
-        });
-      }
-
-      const integrationScheduleMatch = parsedUrl.pathname.match(/^\/api\/integrations\/schedules\/([^/]+)$/);
-      if (request.method === "PUT" && integrationScheduleMatch) {
-        if (!requirePermission(response, authService, user, "settings:manage")) return;
-        try {
-          const schedule = integrationScheduleService.updateSchedule(
-            tenantContext.tenantId,
-            integrationScheduleMatch[1],
-            await readJson(request),
-            user
-          );
-          observabilityService?.recordAudit({
-            tenantId: tenantContext.tenantId,
-            userId: user.id,
-            action: "integration.schedule.updated",
-            entityType: "integrationSchedule",
-            entityId: schedule.id || schedule.entityType,
-            metadata: {
-              entityType: schedule.entityType,
-              intervalMinutes: schedule.intervalMinutes,
-              strategy: schedule.strategy
-            }
-          });
-          store.save();
-          return sendJson(response, 200, schedule);
-        } catch (error) {
-          return sendJson(response, 400, { error: error.message });
-        }
-      }
-
       if (request.method === "POST" && parsedUrl.pathname === "/api/tenant/settings") {
         if (!requirePermission(response, authService, user, "settings:manage")) return;
         const body = await readJson(request);
@@ -467,82 +426,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         store.update("tenants", tenantId, patch);
         store.save();
         return sendJson(response, 200, { ok: true });
-      }
-
-      if (request.method === "PUT" && parsedUrl.pathname === "/api/integrations/erp") {
-        if (!requirePermission(response, authService, user, "settings:manage")) return;
-        const body = await readJson(request);
-        observabilityService?.recordAudit({
-          tenantId: tenantContext.tenantId,
-          userId: user.id,
-          action: "integration.erp.settings.updated",
-          entityType: "integration",
-          entityId: "erp",
-          metadata: {
-            host: settings.host,
-            port: settings.port,
-            idEmpresa: settings.idEmpresa
-          }
-        });
-        store.save();
-        return sendJson(response, 200, settings);
-      }
-
-      if (request.method === "DELETE" && parsedUrl.pathname === "/api/integrations/erp") {
-        if (!requirePermission(response, authService, user, "settings:manage")) return;
-        observabilityService?.recordAudit({
-          tenantId: tenantContext.tenantId,
-          userId: user.id,
-          action: "integration.erp.settings.cleared",
-          entityType: "integration",
-          entityId: "erp"
-        });
-        store.save();
-        return sendJson(response, 200, settings);
-      }
-
-      if (request.method === "POST" && parsedUrl.pathname === "/api/integrations/erp/test") {
-        if (!requirePermission(response, authService, user, "settings:manage")) return;
-        const body = await readJson(request);
-        try {
-          observabilityService?.recordAudit({
-            tenantId: tenantContext.tenantId,
-            userId: user.id,
-            action: "integration.erp.connection_tested",
-            entityType: "integration",
-            entityId: "erp",
-            metadata: {
-              host: result.baseUrl,
-              provider: result.provider
-            }
-          });
-          store.save();
-          return sendJson(response, 200, result);
-        } catch (error) {
-          observabilityService?.recordAudit({
-            tenantId: tenantContext.tenantId,
-            userId: user.id,
-            action: "integration.erp.connection_test_failed",
-            entityType: "integration",
-            entityId: "erp",
-            metadata: {
-              error: error.message
-            }
-          });
-          store.save();
-          if (config.alerts.notifyIntegrationFailures) {
-            await alertService?.notifyError({
-              title: "Falha no teste de conexao ERP",
-              message: error.message,
-              metadata: {
-                tenantId: tenantContext.tenantId,
-                userId: user.id,
-                path: parsedUrl.pathname
-              }
-            });
-          }
-          return sendJson(response, 400, { error: error.message });
-        }
       }
 
       if (request.method === "GET" && parsedUrl.pathname === "/api/contacts") {
@@ -588,78 +471,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         });
         store.save();
         return sendJson(response, 200, updated);
-      }
-
-      if (request.method === "GET" && parsedUrl.pathname === "/api/pipelines") {
-        if (!requirePermission(response, authService, user, "deals:view")) return;
-        return sendJson(response, 200, {
-          data: crmService.listPipelines(tenantContext.tenantId)
-        });
-      }
-
-      if (request.method === "POST" && parsedUrl.pathname === "/api/pipelines") {
-        if (!requirePermission(response, authService, user, "deals:write")) return;
-        try {
-          const pipeline = crmService.createPipeline(await readJson(request), tenantContext.tenantId);
-          observabilityService?.recordAudit({
-            tenantId: tenantContext.tenantId,
-            userId: user.id,
-            action: "pipeline.created",
-            entityType: "pipeline",
-            entityId: pipeline.id
-          });
-          return sendJson(response, 201, pipeline);
-        } catch (error) {
-          return sendJson(response, 400, { error: error.message });
-        }
-      }
-
-      const pipelineMatch = parsedUrl.pathname.match(/^\/api\/pipelines\/([^/]+)$/);
-      if (request.method === "PUT" && pipelineMatch) {
-        if (!requirePermission(response, authService, user, "deals:write")) return;
-        try {
-          const pipeline = crmService.updatePipeline(pipelineMatch[1], await readJson(request), tenantContext.tenantId);
-          if (!pipeline) return sendJson(response, 404, { error: "pipeline_not_found" });
-          observabilityService?.recordAudit({
-            tenantId: tenantContext.tenantId,
-            userId: user.id,
-            action: "pipeline.updated",
-            entityType: "pipeline",
-            entityId: pipeline.id
-          });
-          return sendJson(response, 200, pipeline);
-        } catch (error) {
-          return sendJson(response, 400, { error: error.message });
-        }
-      }
-
-      if (request.method === "GET" && parsedUrl.pathname === "/api/sellers") {
-        if (!requirePermission(response, authService, user, "deals:view")) return;
-        const deals = store.list("deals").filter((d) => d.tenantId === tenantContext.tenantId);
-        const salesPeople = store.list("salesPeople").filter((s) => s.tenantId === tenantContext.tenantId);
-
-        const statsMap = new Map();
-        for (const deal of deals) {
-          const key = deal.assignedSeller || "Sem vendedor";
-          if (!statsMap.has(key)) statsMap.set(key, { name: key, total: 0, won: 0, revenue: 0, openAmount: 0 });
-          const s = statsMap.get(key);
-          s.total++;
-          const isWon = deal.stage === "won" || deal.wonAt;
-          if (isWon) { s.won++; s.revenue += Number(deal.amount || 0); }
-          else { s.openAmount += Number(deal.amount || 0); }
-        }
-
-        const sellers = salesPeople.map((sp) => {
-          const stats = statsMap.get(sp.name) || { total: 0, won: 0, revenue: 0, openAmount: 0 };
-          statsMap.delete(sp.name);
-          return { ...sp, ...stats, conversionRate: stats.total ? ((stats.won / stats.total) * 100).toFixed(1) : "0.0" };
-        });
-
-        for (const [name, stats] of statsMap) {
-          sellers.push({ id: name, name, type: "seller", status: "active", ...stats, conversionRate: stats.total ? ((stats.won / stats.total) * 100).toFixed(1) : "0.0" });
-        }
-
-        return sendJson(response, 200, { data: sellers.sort((a, b) => b.revenue - a.revenue) });
       }
 
 
@@ -1198,6 +1009,130 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         return sendJson(response, 200, { data: ANTI_BAN_TIPS });
       }
 
+      // ===== Tickets =====
+      const enrichTicket = (ticket) => {
+        if (!ticket) return ticket;
+        const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
+        const analyst = ticket.assignedAnalystId ? store.findById("users", ticket.assignedAnalystId) : null;
+        return {
+          ...ticket,
+          contactName: contact?.name || "Cliente",
+          contactPhone: contact?.phone || "",
+          analystName: analyst?.name || null
+        };
+      };
+
+      if (request.method === "GET" && parsedUrl.pathname === "/api/tickets") {
+        if (!requirePermission(response, authService, user, "tickets:view")) return;
+        const filters = Object.fromEntries(parsedUrl.searchParams.entries());
+        const open = ticketService.listOpenTickets(tenantContext.tenantId, filters);
+        // Inclui também tickets fechados hoje (coluna "Fechados hoje")
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const closedToday = store.findAll("tickets",
+          t => t.tenantId === tenantContext.tenantId
+            && t.status === "closed"
+            && t.closedAt
+            && new Date(t.closedAt) >= todayStart
+        );
+        const all = [...open, ...closedToday].map(enrichTicket);
+        return sendJson(response, 200, { data: all });
+      }
+
+      if (request.method === "GET" && parsedUrl.pathname === "/api/tickets/analysts") {
+        if (!requirePermission(response, authService, user, "tickets:view")) return;
+        const analysts = authService
+          .listUsers({ tenantId: tenantContext.tenantId })
+          .filter((u) => u.permissions?.includes("tickets:respond"))
+          .map((u) => ({ id: u.id, name: u.name, email: u.email }));
+        return sendJson(response, 200, { data: analysts });
+      }
+
+      const ticketDetailMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)$/);
+      if (request.method === "GET" && ticketDetailMatch) {
+        if (!requirePermission(response, authService, user, "tickets:view")) return;
+        const ticket = ticketService.getTicket(ticketDetailMatch[1], tenantContext.tenantId);
+        if (!ticket) return sendJson(response, 404, { error: "ticket_not_found" });
+        const conversation = ticket.conversationId
+          ? conversationService.getConversation(ticket.conversationId, tenantContext.tenantId)
+          : null;
+        return sendJson(response, 200, {
+          ...enrichTicket(ticket),
+          conversation
+        });
+      }
+
+      const ticketAssignMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/assign$/);
+      if (request.method === "POST" && ticketAssignMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const body = await readJson(request);
+        try {
+          const updated = ticketService.assignTicket(ticketAssignMatch[1], body.analystId || null, tenantContext.tenantId, user.id);
+          store.save();
+          return sendJson(response, 200, enrichTicket(updated));
+        } catch (error) {
+          return sendJson(response, 404, { error: "ticket_not_found" });
+        }
+      }
+
+      const ticketTransferMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/transfer$/);
+      if (request.method === "POST" && ticketTransferMatch) {
+        if (!requirePermission(response, authService, user, "tickets:transfer")) return;
+        const body = await readJson(request);
+        try {
+          const updated = ticketService.transferTicket(ticketTransferMatch[1], body.analystId || null, tenantContext.tenantId, user.id);
+          store.save();
+          return sendJson(response, 200, enrichTicket(updated));
+        } catch (error) {
+          return sendJson(response, 404, { error: "ticket_not_found" });
+        }
+      }
+
+      const ticketCloseMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/close$/);
+      if (request.method === "POST" && ticketCloseMatch) {
+        if (!requirePermission(response, authService, user, "tickets:close")) return;
+        const body = await readJson(request);
+        try {
+          const updated = ticketService.closeTicket(ticketCloseMatch[1], tenantContext.tenantId, body.closureNote || "", user.id);
+          store.save();
+          return sendJson(response, 200, enrichTicket(updated));
+        } catch (error) {
+          return sendJson(response, 404, { error: "ticket_not_found" });
+        }
+      }
+
+      const ticketStatusMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/status$/);
+      if (request.method === "POST" && ticketStatusMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const body = await readJson(request);
+        try {
+          const updated = ticketService.setTicketStatus(ticketStatusMatch[1], tenantContext.tenantId, body.status, user.id, body.note || "");
+          store.save();
+          return sendJson(response, 200, enrichTicket(updated));
+        } catch (error) {
+          return sendJson(response, 400, { error: error.message });
+        }
+      }
+
+      const ticketMessageMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/messages$/);
+      if (request.method === "POST" && ticketMessageMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const ticket = ticketService.getTicket(ticketMessageMatch[1], tenantContext.tenantId);
+        if (!ticket || !ticket.conversationId) return sendJson(response, 404, { error: "ticket_not_found" });
+        const body = await readJson(request);
+        const message = await conversationService.sendText(ticket.conversationId, body.body || "", "analyst", tenantContext.tenantId, user.id);
+        if (!ticket.firstResponseAt) {
+          store.update("tickets", ticket.id, { firstResponseAt: new Date().toISOString() });
+        }
+        ticketService.addLog(ticket.id, tenantContext.tenantId, {
+          type: "reply",
+          note: "Analista respondeu ao cliente",
+          actor: user.id
+        });
+        store.save();
+        return sendJson(response, 201, message);
+      }
+
       if (parsedUrl.pathname.startsWith("/api/")) {
         return sendJson(response, 404, { error: "not_found" });
       }
@@ -1235,6 +1170,59 @@ export function startPlatformServer({ config, logger, store, crmService, convers
   });
 
   return server;
+}
+
+// Monta o painel de atendimento (tickets + conversas) para um tenant.
+function buildSupportDashboard(store, tenantId) {
+  const tickets = store.list("tickets").filter((t) => t.tenantId === tenantId);
+  const conversations = store.list("conversations").filter((c) => c.tenantId === tenantId);
+  const contacts = store.list("contacts").filter((c) => c.tenantId === tenantId);
+
+  const openTickets = tickets.filter((t) => t.status !== "closed");
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const closedToday = tickets.filter((t) => t.status === "closed" && t.closedAt && new Date(t.closedAt) >= todayStart);
+
+  const countBy = (items, field) => items.reduce((acc, item) => {
+    const key = item[field] || "other";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  // Tempo médio de primeira resposta (minutos) dos tickets que já tiveram resposta
+  const responded = tickets.filter((t) => t.firstResponseAt && t.openedAt);
+  const avgFirstResponseMins = responded.length
+    ? Math.round(
+        responded.reduce((sum, t) => sum + (new Date(t.firstResponseAt) - new Date(t.openedAt)), 0) /
+          responded.length /
+          60000
+      )
+    : null;
+
+  const now = Date.now();
+  const slaAtRisk = openTickets.filter((t) => t.slaDueAt && new Date(t.slaDueAt).getTime() - now < 2 * 3600 * 1000).length;
+
+  return {
+    tickets: {
+      total: tickets.length,
+      open: openTickets.length,
+      closedToday: closedToday.length,
+      unassigned: openTickets.filter((t) => !t.assignedAnalystId).length,
+      slaAtRisk,
+      avgFirstResponseMins,
+      byStatus: countBy(openTickets, "status"),
+      byCategory: countBy(openTickets, "category"),
+      byPriority: countBy(openTickets, "priority")
+    },
+    conversations: {
+      total: conversations.length,
+      open: conversations.filter((c) => c.status !== "closed").length,
+      unread: conversations.reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0)
+    },
+    contacts: {
+      total: contacts.length
+    }
+  };
 }
 
 async function _createTicketForConversation(conversation, message, contact, ticketService, classifierAgent, store, logger) {
