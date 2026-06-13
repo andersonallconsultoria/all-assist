@@ -164,7 +164,7 @@ export class TicketService {
 
     return result.sort((a, b) => {
       const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-      const priorityDiff = (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99);
+      const priorityDiff = (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99);
       if (priorityDiff !== 0) return priorityDiff;
       return new Date(b.openedAt) - new Date(a.openedAt);
     });

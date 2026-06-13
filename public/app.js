@@ -7,46 +7,19 @@ const state = {
   currentUser: null,
   context: null,
   dashboard: null,
-  deals: [],
-  pipelines: [],
-  selectedPipelineId: "",
-  pipelineFormMode: "create",
   contacts: [],
   conversations: [],
   users: [],
   roles: [],
-  products: [],
-  erpIntegration: null,
-  integrationSchedules: [],
   support: null,
-  ordersFilter: "all",
   contactsFilter: "all",
   usersFilter: "all",
-  productsFilter: "all",
   waTemplates: [],
   waSettings: null,
   tickets: [],
   ticketAnalysts: [],
   activeTicket: null
 };
-
-const STAGE_ORDER = [
-  "Entrada",
-  "Aguardando contato",
-  "Em negociacao",
-  "Venda efetivada",
-  "Gerou documento fiscal",
-  "Pedido negado"
-];
-
-const CHART_COLORS = ["#00bc8f", "#0891b2", "#0ea5e9", "#d99700", "#dc3d6a", "#7c3aed"];
-const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const compactMoney = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-  notation: "compact",
-  maximumFractionDigits: 1
-});
 
 const FIELD_LABELS = {
   id: "Codigo",
@@ -233,9 +206,7 @@ document.getElementById("waModalForm")?.addEventListener("submit", async (event)
     const to = document.getElementById("waModalTo").value.trim();
     const templateName = document.getElementById("waModalTemplate").value;
     const language = document.getElementById("waModalLanguage").value.trim() || "pt_BR";
-    const overlay = document.getElementById("waModalOverlay");
-    const deal = state.deals.find((d) => d.id === overlay.dataset.dealId) || {};
-    const vars = buildWaVariables(deal);
+    const vars = buildWaVariables({});
     const template = state.waTemplates.find((t) => t.name === templateName);
     const components = buildTemplateComponents(template, vars);
     await api("/api/whatsapp/send-template", {
@@ -279,165 +250,31 @@ function setupFilterTabs(containerId, onChange) {
   });
 }
 
-function renderReports() {
-  const model = buildDashboardModel();
-  const el = (id) => document.getElementById(id);
-  if (!el("rptTotalDeals")) return;
-
-  el("rptTotalDeals").textContent = model.deals.length;
-  el("rptTotalDealsChg").innerHTML = renderTrendBadge(model.pipelineChange, "variacao");
-  el("rptTotalValue").textContent = compactMoney.format(model.totalPipeline);
-  el("rptTotalValueChg").innerHTML = renderTrendBadge(model.pipelineChange, "variacao no periodo");
-  el("rptWinRate").textContent = `${model.winRate.toFixed(1)}%`;
-  el("rptWinRateChg").textContent = `${model.wonDeals.length} de ${model.deals.length} negocios`;
-  el("rptAvgDeal").textContent = compactMoney.format(model.avgDealSize);
-  el("rptAvgDealChg").textContent = `${model.deals.length} negocios analisados`;
-
-  el("rptSpark1").innerHTML = renderSparkline(model.monthly.countValues, CHART_COLORS[0]);
-  el("rptSpark2").innerHTML = renderSparkline(model.monthly.values, CHART_COLORS[1]);
-  el("rptSpark3").innerHTML = renderSparkline(model.monthly.wonValues, CHART_COLORS[2]);
-  el("rptSpark4").innerHTML = renderSparkline(model.monthly.avgValues, CHART_COLORS[3]);
-
-  el("rptChart").innerHTML = renderPipelineArea(model.monthly, false);
-  el("rptDonut").innerHTML = renderStageDonut(model.stageRows);
-  el("rptLegend").innerHTML = renderStageLegend(model.stageRows);
-  el("rptSellers").innerHTML = renderTopSalesReps(model.sellerRows);
-  el("rptLeadSources").innerHTML = renderLeadSources(model.leadSources);
-}
-
-function renderCommercialTable({ targetId, filterTabsId, searchId, filter, emptyMsg, colLabel, deals, filterKey }) {
-  const target = document.getElementById(targetId);
-  if (!target) return;
-  const q = normalizeText(document.getElementById(searchId)?.value || "");
-
-  const isExpired = (d) => normalizeText(d.stage || "") === "vencidos";
-  const isLost = (d) => normalizeText(d.stage || "").includes("negado") || normalizeText(d.status || "").includes("negado");
-
-  const base = deals;
-  const filtered = base.filter((deal) => {
-    const search = normalizeText(`${deal.title} ${deal.contactName} ${deal.contactPhone} ${deal.externalOrderId} ${deal.assignedSeller}`);
-    if (q && !search.includes(q)) return false;
-    if (filter === "won") return isWonDeal(deal);
-    if (filter === "lost") return isLost(deal);
-    if (filter === "expired") return isExpired(deal);
-    if (filter === "open") return !isWonDeal(deal) && !isLost(deal) && !isExpired(deal);
-    return true;
-  });
-
-  const counts = {
-    all: base.length,
-    won: base.filter(isWonDeal).length,
-    lost: base.filter(isLost).length,
-    expired: base.filter(isExpired).length,
-    open: base.filter((d) => !isWonDeal(d) && !isLost(d) && !isExpired(d)).length
-  };
-  updateFilterTabCounts(filterTabsId, counts);
-
-  if (!filtered.length) {
-    target.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
-    return;
-  }
-
-  target.innerHTML = `
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>${colLabel}</th>
-          <th>Cliente</th>
-          <th>Etapa</th>
-          <th>Data</th>
-          <th>Validade</th>
-          <th>Valor</th>
-          <th>Vendedor</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map((deal) => `
-          <tr data-deal-id="${escapeHtml(deal.id)}">
-            <td><span style="font-family:monospace;font-size:12px;color:var(--muted)">#${escapeHtml(deal.externalOrderId || deal.id.slice(0,8))}</span></td>
-            <td>
-              <div class="table-name-cell">
-                <span class="table-avatar">${escapeHtml(initials(deal.contactName || "?"))}</span>
-                <div>
-                  <strong>${escapeHtml(deal.contactName || "Sem nome")}</strong>
-                  <small>${escapeHtml(deal.contactPhone || "")}</small>
-                </div>
-              </div>
-            </td>
-            <td><span class="stage-pill ${escapeHtml(stagePillClass(deal.stage))}">${escapeHtml(deal.stage || "Entrada")}</span></td>
-            <td class="cell-muted">${escapeHtml(formatShortDate(deal.movementDate || deal.updatedAt))}</td>
-            <td class="cell-muted">${escapeHtml(formatBrazilianDate(deal.validUntil) || "—")}</td>
-            <td><strong>${money.format(dealAmount(deal))}</strong></td>
-            <td class="cell-muted">${escapeHtml(deal.assignedSeller || "—")}</td>
-            <td><button class="row-action-btn" type="button">Ver detalhes</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-    <div class="table-footer">
-      <small>Exibindo ${filtered.length} de ${base.length} ${filterKey}</small>
-    </div>
-  `;
-
-  target.querySelectorAll("tr[data-deal-id]").forEach((row) => {
-    row.addEventListener("click", () => openDealDetail(row.dataset.dealId));
-  });
-}
-
-function renderOrdersTable() {
-  const orders = state.deals.filter((d) => getDealKind(d) === "order");
-  renderCommercialTable({
-    targetId: "ordersTableContent",
-    filterTabsId: "ordersFilterTabs",
-    searchId: "ordersSearch",
-    filter: state.ordersFilter || "all",
-    emptyMsg: "Nenhum pedido encontrado.",
-    colLabel: "Pedido",
-    deals: orders,
-    filterKey: "pedidos"
-  });
-}
-
-function renderQuotesTable() {
-  const quotes = state.deals.filter((d) => getDealKind(d) === "quote");
-  renderCommercialTable({
-    targetId: "quotesTableContent",
-    filterTabsId: "quotesFilterTabs",
-    searchId: "quotesSearch",
-    filter: state.quotesFilter || "all",
-    emptyMsg: "Nenhum orçamento encontrado.",
-    colLabel: "Orçamento",
-    deals: quotes,
-    filterKey: "orçamentos"
-  });
-}
-
 function renderContactsTable() {
   const target = document.getElementById("contactTableContent");
   if (!target) return;
   const q = normalizeText(document.getElementById("contactSearch")?.value || "");
   const filter = state.contactsFilter;
 
-  const dealCountByContact = new Map();
-  for (const deal of state.deals) {
-    if (deal.contactPhone) {
-      dealCountByContact.set(deal.contactPhone, (dealCountByContact.get(deal.contactPhone) || 0) + 1);
+  const ticketCountByContact = new Map();
+  for (const ticket of state.tickets || []) {
+    if (ticket.contactId) {
+      ticketCountByContact.set(ticket.contactId, (ticketCountByContact.get(ticket.contactId) || 0) + 1);
     }
   }
 
   const filtered = state.contacts.filter((c) => {
     const search = normalizeText(`${c.name} ${c.phone} ${c.city} ${c.state} ${c.email}`);
     if (q && !search.includes(q)) return false;
-    const deals = dealCountByContact.get(c.phone) || 0;
-    if (filter === "withdeals") return deals > 0;
+    const tickets = ticketCountByContact.get(c.id) || 0;
+    if (filter === "withtickets") return tickets > 0;
     if (filter === "withphone") return Boolean(c.phone);
     return true;
   });
 
   updateFilterTabCounts("contactsFilterTabs", {
     all: state.contacts.length,
-    withdeals: state.contacts.filter((c) => (dealCountByContact.get(c.phone) || 0) > 0).length,
+    withtickets: state.contacts.filter((c) => (ticketCountByContact.get(c.id) || 0) > 0).length,
     withphone: state.contacts.filter((c) => Boolean(c.phone)).length
   });
 
@@ -455,14 +292,14 @@ function renderContactsTable() {
           <th>Cliente</th>
           <th>Telefone</th>
           <th>Cidade / UF</th>
-          <th>Negocios</th>
+          <th>Tickets</th>
           <th>Origem</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         ${filtered.map((contact, i) => {
-          const dealCount = dealCountByContact.get(contact.phone) || 0;
+          const ticketCount = ticketCountByContact.get(contact.id) || 0;
           const cls = avatarClasses[i % avatarClasses.length];
           return `
             <tr>
@@ -478,9 +315,9 @@ function renderContactsTable() {
               <td class="cell-muted">${escapeHtml(contact.phone || "—")}</td>
               <td class="cell-muted">${escapeHtml([contact.city, contact.state].filter(Boolean).join(" / ") || "—")}</td>
               <td>
-                ${dealCount > 0
-                  ? `<span class="badge badge-success">${dealCount} negocio${dealCount > 1 ? "s" : ""}</span>`
-                  : `<span class="badge badge-neutral">Sem negocios</span>`}
+                ${ticketCount > 0
+                  ? `<span class="badge badge-success">${ticketCount} ticket${ticketCount > 1 ? "s" : ""}</span>`
+                  : `<span class="badge badge-neutral">Sem tickets</span>`}
               </td>
               <td class="cell-muted">${escapeHtml(sourceLabel(contact.source || "manual"))}</td>
               <td style="display:flex;gap:6px;align-items:center">
@@ -576,73 +413,6 @@ function renderUsersTable() {
     </table>
     <div class="table-footer">
       <small>Exibindo ${filtered.length} de ${state.users.length} usuarios</small>
-    </div>
-  `;
-}
-
-function renderProducts() {
-  const target = document.getElementById("productsTableContent");
-  if (!target) return;
-  const q = normalizeText(document.getElementById("productsSearch")?.value || "");
-  const filter = state.productsFilter;
-
-  const filtered = state.products.filter((p) => {
-    const search = normalizeText(`${p.name} ${p.code} ${p.category}`);
-    if (q && !search.includes(q)) return false;
-    if (filter === "active") return p.status === "active" || p.active;
-    return true;
-  });
-
-  if (!state.products.length) {
-    target.innerHTML = `
-      <div class="empty-state" style="padding:60px 40px">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 16px;display:block"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-        <strong style="display:block;font-size:16px;margin-bottom:8px">Nenhum produto sincronizado</strong>
-        <p style="color:var(--muted);font-size:14px;max-width:380px;margin:0 auto">Os produtos aparecao aqui apos a sincronizacao com o ERP CISS. Ative a agenda de Produtos na tela de Integracao ERP.</p>
-      </div>
-    `;
-    return;
-  }
-
-  target.innerHTML = `
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Produto</th>
-          <th>Categoria</th>
-          <th>Status</th>
-          <th>Estoque</th>
-          <th>Preco</th>
-          <th>Atualizado</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map((product) => `
-          <tr>
-            <td>
-              <div class="table-name-cell">
-                <span class="product-icon">📦</span>
-                <div>
-                  <strong>${escapeHtml(product.name || product.code)}</strong>
-                  <small>${escapeHtml(product.code || "")}</small>
-                </div>
-              </div>
-            </td>
-            <td class="cell-muted">${escapeHtml(product.category || "—")}</td>
-            <td>
-              <span class="badge ${product.active || product.status === "active" ? "badge-success" : "badge-neutral"}">
-                ${product.active || product.status === "active" ? "Ativo" : "Inativo"}
-              </span>
-            </td>
-            <td class="cell-muted">${product.stock ?? "—"}</td>
-            <td><strong>${product.price ? money.format(Number(product.price)) : "—"}</strong></td>
-            <td class="cell-muted">${escapeHtml(formatShortDate(product.updatedAt || product.createdAt))}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-    <div class="table-footer">
-      <small>Exibindo ${filtered.length} de ${state.products.length} produtos</small>
     </div>
   `;
 }
@@ -766,12 +536,13 @@ async function loadAll() {
   state.context = me.context;
   renderNavigationPermissions();
 
-  const [dashboard, contacts, conversations, users, roles, support, waSettings] = await Promise.all([
+  const [dashboard, contacts, conversations, users, roles, tickets, support, waSettings] = await Promise.all([
     api("/api/dashboard").catch(() => null),
     api("/api/contacts"),
     api("/api/conversations"),
     api("/api/users").catch(() => ({ data: [] })),
     api("/api/roles").catch(() => ({ data: [] })),
+    hasPermission("tickets:view") ? api("/api/tickets").catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
     hasPermission("support:view") ? loadSupportData() : Promise.resolve(null),
     hasPermission("settings:manage") ? api("/api/whatsapp/settings").catch(() => null) : Promise.resolve(null)
   ]);
@@ -781,6 +552,7 @@ async function loadAll() {
   state.conversations = conversations.data || [];
   state.users = users.data || [];
   state.roles = roles.data || [];
+  state.tickets = tickets.data || [];
   state.support = support;
   state.waSettings = waSettings;
 
@@ -857,561 +629,6 @@ function renderSummary(targetId, data) {
     : `<div class="empty-state">Sem dados ainda.</div>`;
 }
 
-function buildDashboardModel() {
-  const deals = state.deals || [];
-  const contacts = state.contacts || [];
-  const wonDeals = deals.filter(isWonDeal);
-  const totalPipeline = deals.reduce((sum, deal) => sum + dealAmount(deal), 0);
-  const wonAmount = wonDeals.reduce((sum, deal) => sum + dealAmount(deal), 0);
-  const avgDealSize = deals.length ? totalPipeline / deals.length : 0;
-  const winRate = deals.length ? (wonDeals.length / deals.length) * 100 : 0;
-  const monthly = buildMonthlySeries(deals);
-  const pipelineChange = calculateChange(monthly.values);
-  const stageRows = buildStageRows(deals);
-  const sellerRows = buildSellerRows(deals);
-  const leadSources = buildLeadSources(contacts);
-  const recentDeals = [...deals]
-    .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")))
-    .slice(0, 8);
-
-  return {
-    deals,
-    contacts,
-    wonDeals,
-    totalPipeline,
-    wonAmount,
-    avgDealSize,
-    winRate,
-    monthly,
-    pipelineChange,
-    stageRows,
-    sellerRows,
-    leadSources,
-    recentDeals,
-    targets: buildTargets({ totalPipeline, wonDeals, contacts, deals })
-  };
-}
-
-function buildMonthlySeries(deals) {
-  const now = new Date();
-  const months = [];
-  for (let offset = 11; offset >= 0; offset -= 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-    months.push({
-      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
-      label: MONTH_LABELS[date.getMonth()],
-      value: 0,
-      won: 0,
-      count: 0
-    });
-  }
-
-  const byKey = new Map(months.map((month) => [month.key, month]));
-  for (const deal of deals) {
-    const date = parseDealDate(deal);
-    if (!date) continue;
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const month = byKey.get(key);
-    if (!month) continue;
-    const amount = dealAmount(deal);
-    month.value += amount;
-    month.count += 1;
-    if (isWonDeal(deal)) month.won += amount;
-  }
-
-  const values = months.map((month) => month.value);
-  const wonValues = months.map((month) => month.won);
-  const countValues = months.map((month) => month.count);
-  const avgValues = months.map((month) => month.count ? month.value / month.count : 0);
-
-  return {
-    months,
-    values,
-    wonValues,
-    countValues,
-    avgValues
-  };
-}
-
-function buildStageRows(deals) {
-  const grouped = new Map();
-  for (const deal of deals) {
-    const stage = deal.stage || "Entrada";
-    const row = grouped.get(stage) || {
-      name: stage,
-      count: 0,
-      amount: 0
-    };
-    row.count += 1;
-    row.amount += dealAmount(deal);
-    grouped.set(stage, row);
-  }
-
-  return [...grouped.values()]
-    .sort((a, b) => stageIndex(a.name) - stageIndex(b.name))
-    .map((row, index) => ({
-      ...row,
-      color: CHART_COLORS[index % CHART_COLORS.length]
-    }));
-}
-
-function buildSellerRows(deals) {
-  const grouped = new Map();
-  for (const deal of deals) {
-    const seller = deal.assignedSeller || "Sem vendedor";
-    const row = grouped.get(seller) || {
-      name: seller,
-      market: "Carteira",
-      deals: 0,
-      won: 0,
-      revenue: 0
-    };
-    row.deals += 1;
-    row.revenue += dealAmount(deal);
-    if (isWonDeal(deal)) row.won += 1;
-    grouped.set(seller, row);
-  }
-
-  return [...grouped.values()]
-    .map((row) => ({
-      ...row,
-      winRate: row.deals ? Math.round((row.won / row.deals) * 100) : 0
-    }))
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-}
-
-function buildLeadSources(contacts) {
-  const grouped = new Map();
-  for (const contact of contacts) {
-    const source = sourceLabel(contact.source || "manual");
-    grouped.set(source, (grouped.get(source) || 0) + 1);
-  }
-
-  if (!grouped.size) grouped.set("Sem origem", 0);
-
-  return [...grouped.entries()]
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
-}
-
-function buildTargets({ totalPipeline, wonDeals, contacts, deals }) {
-  const pipelineTarget = Math.max(120000, Math.ceil((totalPipeline * 1.35 || 120000) / 1000) * 1000);
-  const dealsTarget = Math.max(25, Math.ceil((deals.length * 1.5 || 25)));
-  const contactsTarget = Math.max(50, Math.ceil((contacts.length * 1.5 || 50)));
-
-  return [
-    {
-      label: "Valor em aberto",
-      value: totalPipeline,
-      target: pipelineTarget,
-      displayValue: compactMoney.format(totalPipeline),
-      displayTarget: compactMoney.format(pipelineTarget),
-      color: "accent"
-    },
-    {
-      label: "Negocios convertidos",
-      value: wonDeals.length,
-      target: dealsTarget,
-      displayValue: String(wonDeals.length),
-      displayTarget: String(dealsTarget),
-      color: "cyan"
-    },
-    {
-      label: "Clientes sincronizados",
-      value: contacts.length,
-      target: contactsTarget,
-      displayValue: String(contacts.length),
-      displayTarget: String(contactsTarget),
-      color: "blue"
-    }
-  ];
-}
-
-function renderSparkline(values, color) {
-  const safeValues = values.some((value) => value > 0) ? values : [2, 3, 2.6, 3.8, 3.2, 4.4, 4.1, 5.1, 5.6, 6.1, 6.5, 7];
-  const points = svgPoints(safeValues, 220, 44, 4);
-  return `
-    <svg viewBox="0 0 220 44" aria-hidden="true">
-      <polyline points="${points}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
-    </svg>
-  `;
-}
-
-function renderPipelineArea(monthly, showCount = false) {
-  const rawValues = showCount ? monthly.countValues : monthly.values;
-  const fallbackValues = showCount
-    ? [2, 3, 4, 5, 4, 6, 7, 8, 7, 9, 10, 12]
-    : [40000, 38000, 51000, 47000, 54000, 50000, 62000, 59000, 71000, 67000, 79000, 85000];
-  const values = rawValues.some((value) => value > 0) ? rawValues : fallbackValues;
-  const width = 820;
-  const height = 240;
-  const left = 64;
-  const right = 16;
-  const top = 20;
-  const bottom = 40;
-  const chartWidth = width - left - right;
-  const chartHeight = height - top - bottom;
-  const max = Math.max(1, ...values) * 1.18;
-  const points = values.map((value, index) => {
-    const x = left + (chartWidth / Math.max(1, values.length - 1)) * index;
-    const y = top + chartHeight - (value / max) * chartHeight;
-    return [x, y];
-  });
-  const linePath = points.map(([x, y], index) => `${index ? "L" : "M"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
-  const areaPath = `${linePath} L ${points.at(-1)[0].toFixed(1)} ${top + chartHeight} L ${left} ${top + chartHeight} Z`;
-  const grid = [1, 0.75, 0.5, 0.25, 0].map((ratio) => {
-    const y = top + chartHeight - ratio * chartHeight;
-    return `
-      <line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" class="chart-grid-line"></line>
-      <text x="10" y="${y + 5}" class="chart-axis-label">${showCount ? Math.round(max * ratio) : compactMoney.format(max * ratio)}</text>
-    `;
-  }).join("");
-  const labels = monthly.months.map((month, index) => {
-    const x = left + (chartWidth / Math.max(1, values.length - 1)) * index;
-    return `<text x="${x}" y="${height - 14}" text-anchor="middle" class="chart-axis-label">${month.label}</text>`;
-  }).join("");
-
-  return `
-    <svg viewBox="0 0 ${width} ${height}" class="area-chart" role="img" aria-label="Evolucao mensal do funil comercial">
-      <defs>
-        <linearGradient id="pipelineFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="#00bc8f" stop-opacity="0.28"></stop>
-          <stop offset="100%" stop-color="#00bc8f" stop-opacity="0.02"></stop>
-        </linearGradient>
-      </defs>
-      ${grid}
-      <path d="${areaPath}" fill="url(#pipelineFill)"></path>
-      <path d="${linePath}" fill="none" stroke="#00bc8f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
-      ${labels}
-    </svg>
-  `;
-}
-
-function renderStageDonut(rows) {
-  const total = rows.reduce((sum, row) => sum + row.count, 0);
-  const gradient = total
-    ? buildConicGradient(rows, total)
-    : "#142622";
-  return `
-    <div class="stage-donut" style="background: ${gradient}">
-      <div>
-        <strong>${total}</strong>
-        <span>Negocios</span>
-      </div>
-    </div>
-  `;
-}
-
-function renderStageLegend(rows) {
-  if (!rows.length) return `<div class="empty-state compact">Sem negocios no funil comercial.</div>`;
-  return rows.map((row) => `
-    <div class="stage-legend-row">
-      <span class="legend-dot" style="background:${row.color}"></span>
-      <strong>${escapeHtml(row.name)}</strong>
-      <small>${row.count}</small>
-    </div>
-  `).join("");
-}
-
-function renderTopSalesReps(rows) {
-  if (!rows.length) return `<div class="empty-state compact">Sem vendedores com negocios ainda.</div>`;
-  return `
-    <div class="sales-row sales-head">
-      <span>#</span>
-      <span>Vendedor</span>
-      <span>Convertidos</span>
-      <span>Receita</span>
-      <span>Conversao</span>
-    </div>
-    ${rows.map((row, index) => `
-      <div class="sales-row">
-        <span>${index + 1}</span>
-        <div class="sales-rep">
-          <span class="avatar">${escapeHtml(initials(row.name))}</span>
-          <div>
-            <strong>${escapeHtml(row.name)}</strong>
-            <small>${escapeHtml(row.market)}</small>
-          </div>
-        </div>
-        <strong>${row.won}</strong>
-        <strong>${compactMoney.format(row.revenue)}</strong>
-        <div class="win-rate">
-          <span style="width:${Math.max(4, row.winRate)}%"></span>
-          <small>${row.winRate}%</small>
-        </div>
-      </div>
-    `).join("")}
-  `;
-}
-
-function renderLeadSources(rows) {
-  const max = Math.max(1, ...rows.map((row) => row.value));
-  return rows.map((row) => `
-    <div class="lead-source-row">
-      <span>${escapeHtml(row.name)}</span>
-      <div class="lead-source-track">
-        <strong style="width:${Math.max(4, (row.value / max) * 100)}%"></strong>
-      </div>
-      <small>${row.value}</small>
-    </div>
-  `).join("");
-}
-
-function renderRecentDeals(rows) {
-  if (!rows.length) return `<div class="empty-state compact">Sem negocios recentes.</div>`;
-  return `
-    <div class="recent-row recent-head">
-      <span>Negocio</span>
-      <span>Cliente</span>
-      <span>Valor</span>
-      <span>Etapa</span>
-      <span>Data</span>
-    </div>
-    ${rows.map((deal) => `
-      <button class="recent-row" type="button" data-dashboard-deal-id="${escapeHtml(deal.id)}">
-        <strong>${escapeHtml(deal.title || `Pedido ${deal.externalOrderId}`)}</strong>
-        <span>${escapeHtml(deal.contactName || "")}</span>
-        <strong>${compactMoney.format(dealAmount(deal))}</strong>
-        <span class="stage-pill ${escapeHtml(stagePillClass(deal.stage))}">${escapeHtml(deal.stage || "")}</span>
-        <span>${escapeHtml(formatShortDate(deal.movementDate || deal.updatedAt))}</span>
-      </button>
-    `).join("")}
-  `;
-}
-
-function renderTargets(rows) {
-  return rows.map((row) => {
-    const progress = Math.min(100, Math.round((Number(row.value || 0) / Math.max(1, Number(row.target || 1))) * 100));
-    return `
-      <div class="target-row ${escapeHtml(row.color)}">
-        <div>
-          <strong>${escapeHtml(row.label)}</strong>
-          <span>${progress}%</span>
-        </div>
-        <div class="target-track"><span style="width:${progress}%"></span></div>
-        <small>${escapeHtml(row.displayValue)} / objetivo ${escapeHtml(row.displayTarget)}</small>
-      </div>
-    `;
-  }).join("");
-}
-
-function renderDeals() {
-  renderPipelineSelector();
-  renderDealKanban({
-    targetId: "dealBoard",
-    query: document.getElementById("dealSearch").value
-  });
-}
-
-function renderPipelineSelector() {
-  const select = document.getElementById("pipelineSelect");
-  select.innerHTML = state.pipelines.length
-    ? state.pipelines.map((pipeline) => `<option value="${escapeHtml(pipeline.id)}">${escapeHtml(pipeline.name)}</option>`).join("")
-    : `<option value="">Nenhuma pipeline</option>`;
-  select.value = state.selectedPipelineId || "";
-}
-
-function renderDealKanban({ targetId, query = "" }) {
-  const target = document.getElementById(targetId);
-  const pipeline = currentPipeline();
-  const q = normalizeText(query);
-  const deals = state.deals.filter((deal) => {
-    const searchText = normalizeText(`${deal.title} ${deal.contactName} ${deal.contactPhone} ${deal.externalOrderId} ${deal.assignedSeller}`);
-    return dealPipelineId(deal) === pipeline?.id && (!q || searchText.includes(q));
-  });
-
-  const stageNames = pipeline?.stages?.length ? pipeline.stages.map((stage) => stage.name) : STAGE_ORDER;
-  const stages = [...new Set([...stageNames, ...deals.map((deal) => deal.stage || "Entrada")])];
-  target.innerHTML = stages.map((stage) => renderKanbanColumn(stage, deals.filter((deal) => (deal.stage || "Entrada") === stage))).join("");
-
-  target.querySelectorAll(".deal-card").forEach((card) => {
-    card.setAttribute("draggable", "true");
-    card.addEventListener("click", (event) => {
-      if (event.target.closest(".wa-icon-btn")) return;
-      if (event.target.closest(".phone-edit-btn")) return;
-      openDealDetail(card.dataset.dealId);
-    });
-    card.addEventListener("dragstart", (event) => {
-      event.dataTransfer.setData("text/plain", card.dataset.dealId);
-      card.classList.add("dragging");
-    });
-    card.addEventListener("dragend", () => card.classList.remove("dragging"));
-  });
-
-  target.querySelectorAll(".kanban-cards").forEach((col) => {
-    col.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      col.classList.add("drag-over");
-    });
-    col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
-    col.addEventListener("drop", async (event) => {
-      event.preventDefault();
-      col.classList.remove("drag-over");
-      const dealId = event.dataTransfer.getData("text/plain");
-      const stage = col.closest(".kanban-column")?.dataset.stage;
-      if (!dealId || !stage) return;
-      const deal = state.deals.find((d) => d.id === dealId);
-      if (!deal || (deal.stage || "Entrada") === stage) return;
-      try {
-        await api(`/api/deals/${encodeURIComponent(dealId)}`, {
-          method: "PATCH",
-          body: JSON.stringify({ stage })
-        });
-        state.deals = state.deals.map((d) => d.id === dealId ? { ...d, stage } : d);
-        renderDeals();
-        setStatus(`Negocio movido para "${stage}"`);
-        setTimeout(() => setStatus("Online"), 3000);
-      } catch (error) {
-        setStatus(`Erro ao mover: ${error.message}`);
-      }
-    });
-  });
-
-  target.querySelectorAll(".wa-icon-btn").forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      event.stopPropagation();
-      const deal = state.deals.find((d) => d.id === btn.dataset.dealId);
-      if (deal) openWhatsAppModal(deal);
-    });
-  });
-}
-
-function currentPipeline() {
-  return state.pipelines.find((pipeline) => pipeline.id === state.selectedPipelineId) || state.pipelines[0] || null;
-}
-
-function dealPipelineId(deal) {
-  if (deal.pipelineId) return deal.pipelineId;
-  const kind = getDealKind(deal);
-  const pipeline = state.pipelines.find((item) => item.kind === kind);
-  return pipeline?.id || "";
-}
-
-function showPipelineForm(mode) {
-  const form = document.getElementById("pipelineForm");
-  const pipeline = currentPipeline();
-  state.pipelineFormMode = mode;
-  document.getElementById("pipelineOverlay").classList.remove("hidden");
-  document.getElementById("pipelineDrawerEyebrow").textContent = mode === "edit" ? "Editar funil" : "Novo funil";
-  document.getElementById("pipelineDrawerTitle").textContent = mode === "edit" && pipeline ? pipeline.name : "Nova pipeline";
-  form.name.value = mode === "edit" && pipeline ? pipeline.name : "";
-  form.stages.value = mode === "edit" && pipeline
-    ? (pipeline.stages || []).map((stage) => stage.name).join("\n")
-    : STAGE_ORDER.join("\n");
-  document.getElementById("pipelineFormHint").textContent = mode === "edit"
-    ? "Altere o nome ou os estagios desta pipeline. Os cards usam os nomes das etapas."
-    : "Crie uma nova pipeline para separar outros processos comerciais.";
-  form.name.focus();
-}
-
-function hidePipelineForm() {
-  document.getElementById("pipelineOverlay").classList.add("hidden");
-}
-
-async function savePipeline(form) {
-  const payload = {
-    name: form.name.value,
-    stages: form.stages.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
-  };
-  const pipeline = state.pipelineFormMode === "edit" && state.selectedPipelineId
-    ? await api(`/api/pipelines/${encodeURIComponent(state.selectedPipelineId)}`, {
-        method: "PUT",
-        body: JSON.stringify(payload)
-      })
-    : await api("/api/pipelines", {
-        method: "POST",
-        body: JSON.stringify(payload)
-      });
-
-  const reloaded = await api("/api/pipelines");
-  state.pipelines = reloaded.data || [];
-  state.selectedPipelineId = pipeline.id;
-  hidePipelineForm();
-  renderDeals();
-  setStatus("Pipeline salva");
-}
-
-function renderKanbanColumn(stage, deals) {
-  const total = deals.reduce((sum, deal) => sum + Number(deal.amount || 0), 0);
-  return `
-    <section class="kanban-column" data-stage="${escapeHtml(stage)}">
-      <header class="kanban-column-header">
-        <div>
-          <strong>${escapeHtml(stage)}</strong>
-          <p>Total: ${money.format(total)}</p>
-        </div>
-        <span>${deals.length}</span>
-      </header>
-      <div class="kanban-cards">
-        ${deals.length ? deals.map(renderDealCard).join("") : `<div class="empty-column">Nenhum negocio nesta etapa</div>`}
-      </div>
-    </section>
-  `;
-}
-
-function getDealExpiryInfo(deal) {
-  if (!deal.validUntil) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const expiry = new Date(deal.validUntil + "T00:00:00");
-  const diffMs = expiry - today;
-  const days = Math.floor(diffMs / 86400000);
-  const warningDays = Number(state.context?.tenant?.expiryWarningDays ?? 2);
-  if (days < 0) return { type: "expired", label: "Vencido", days };
-  if (days === 0) return { type: "expires-today", label: "Vence hoje", days };
-  if (days <= warningDays) return { type: "warning", label: `Vence em ${days}d`, days };
-  return null;
-}
-
-function renderDealCard(deal) {
-  const rawPhone = String(deal.contactPhone || "").replace(/\D/g, "");
-  const phoneValid = rawPhone.length >= 10 && rawPhone.length <= 13;
-  const expiryInfo = getDealExpiryInfo(deal);
-  const expiryBadge = expiryInfo
-    ? `<span class="expiry-badge expiry-badge--${expiryInfo.type}">${escapeHtml(expiryInfo.label)}</span>`
-    : "";
-  const waIconColor = phoneValid ? "#25D366" : "var(--muted,#666)";
-  const waIconTitle = phoneValid ? "Enviar mensagem WhatsApp" : "Numero invalido ou ausente";
-  const waIconStyle = phoneValid ? "cursor:pointer" : "opacity:0.4;cursor:default";
-  const waIcon = `<button type="button" class="wa-icon-btn" data-deal-id="${escapeHtml(deal.id)}" title="${waIconTitle}" style="background:none;border:none;padding:2px 4px;${waIconStyle}" ${phoneValid ? "" : "disabled"} aria-label="${waIconTitle}">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="${waIconColor}" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.558 4.121 1.535 5.849L.057 23.521a.75.75 0 0 0 .921.921l5.672-1.478A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.893 0-3.661-.523-5.169-1.427l-.371-.22-3.842 1 1.019-3.73-.24-.385A9.937 9.937 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
-  </button>`;
-  return `
-    <article class="deal-card kanban-card${expiryInfo?.type === "expired" ? " deal-card--expired" : expiryInfo ? " deal-card--expiry-warning" : ""}" data-deal-id="${escapeHtml(deal.id)}">
-      <div class="deal-card-top">
-        <span class="deal-tag ${getDealKind(deal) === "quote" ? "deal-tag-quote" : "deal-tag-order"}">${escapeHtml(getDealKindLabel(deal))}</span>
-        <small>#${escapeHtml(deal.externalOrderId)}</small>
-        ${expiryBadge}
-      </div>
-      <strong>${escapeHtml(deal.contactName || deal.title)}</strong>
-      <p style="display:flex;align-items:center;gap:6px">
-        <span class="deal-phone-text" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(deal.contactPhone || "Sem telefone")}</span>
-        <button type="button" class="phone-edit-btn" data-deal-id="${escapeHtml(deal.id)}" data-contact-id="${escapeHtml(deal.contactId || "")}" data-contact-name="${escapeHtml(deal.contactName || "")}" data-phone="${escapeHtml(deal.contactPhone || "")}" title="Editar telefone" style="background:none;border:none;padding:2px 4px;cursor:pointer;color:var(--accent,#00d4a0);flex-shrink:0" aria-label="Editar telefone">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        ${waIcon}
-      </p>
-      <div class="deal-card-money">${money.format(Number(deal.amount || 0))}</div>
-      <footer>
-        <span>${escapeHtml(deal.assignedSeller || "Sem vendedor")}</span>
-        <span>${escapeHtml(formatBrazilianDate(deal.validUntil) || "")}</span>
-      </footer>
-    </article>
-  `;
-}
-
-function getDealKind(deal) {
-  const type = normalizeText(deal.customFields?.tipoDocumento || deal.sourceRecord?.desrdav || deal.title);
-  if (type.includes("orcamento")) return "quote";
-  if (type.includes("pedido")) return "order";
-  return "order";
-}
-
-function getDealKindLabel(deal) {
-  return getDealKind(deal) === "quote" ? "Orcamento" : "Pedido";
-}
-
 function renderContacts() {
   renderContactsTable();
 }
@@ -1484,216 +701,6 @@ function renderConversations() {
 
 function renderUsers() {
   renderUsersTable();
-}
-
-function renderErpSettings() {
-  const form = document.getElementById("erpSettingsForm");
-  const status = document.getElementById("erpSettingsStatus");
-  if (!form || !hasPermission("settings:manage")) return;
-
-  const settings = state.erpIntegration;
-  if (!settings) {
-    clearErpSettingsForm(form);
-    status.textContent = "Nao carregado";
-    return;
-  }
-
-  form.provider.value = settings.provider || "ciss";
-  form.protocol.value = settings.protocol || "http";
-  form.host.value = settings.host || "";
-  form.port.value = settings.port || "";
-  form.username.value = settings.username || "";
-  form.password.value = "";
-  form.clientId.value = settings.clientId || "";
-  form.clientSecret.value = "";
-
-  const missingCreds = !settings.username || !settings.passwordConfigured;
-  const secrets = [
-    settings.passwordConfigured ? "senha salva" : "senha pendente",
-    settings.clientSecretConfigured ? "client secret salvo" : "client secret padrao"
-  ].join(" - ");
-
-  if (missingCreds) {
-    status.textContent = "Pendente: preencha usuario e senha para sincronizar";
-    status.style.color = "var(--amber, #d99700)";
-  } else {
-    status.textContent = settings.id
-      ? `${settings.baseUrl || "Sem endereco"} - ${secrets}`
-      : "Nao configurado";
-    status.style.color = "";
-  }
-
-  const testResult = document.getElementById("erpTestResult");
-  if (testResult && missingCreds && !settings.id) {
-    testResult.className = "test-result";
-    testResult.textContent = "Preencha o usuario e senha do ERP, depois clique em Testar conexao antes de salvar.";
-    testResult.style.color = "var(--amber, #d99700)";
-    testResult.style.borderColor = "var(--amber, #d99700)";
-  } else if (testResult && testResult.className !== "test-result error" && testResult.className !== "test-result success") {
-    testResult.className = "test-result hidden";
-    testResult.style.color = "";
-    testResult.style.borderColor = "";
-  }
-}
-
-function renderIntegrationSchedules() {
-  const target = document.getElementById("integrationScheduleList");
-  if (!target) return;
-
-  target.innerHTML = state.integrationSchedules.length
-    ? state.integrationSchedules.map((schedule) => `
-      <article class="schedule-card" data-schedule-type="${escapeHtml(schedule.entityType)}">
-        <header>
-          <div>
-            <h3>${escapeHtml(schedule.label || scheduleLabel(schedule.entityType))}</h3>
-            <p>${scheduleDescription(schedule)}</p>
-          </div>
-          <span class="status-chip ${schedule.enabled ? "success" : "muted"}">${schedule.enabled ? "Ativo" : "Pausado"}</span>
-        </header>
-        <div class="schedule-fields">
-          <label>
-            <span>Executar</span>
-            <select name="enabled">
-              <option value="true" ${schedule.enabled ? "selected" : ""}>Ativo</option>
-              <option value="false" ${!schedule.enabled ? "selected" : ""}>Pausado</option>
-            </select>
-          </label>
-          <label>
-            <span>Estrategia</span>
-            <select name="strategy">
-              ${["incremental", "full_then_incremental", "full", "online"].map((strategy) => `
-                <option value="${strategy}" ${schedule.strategy === strategy ? "selected" : ""}>${strategyLabel(strategy)}</option>
-              `).join("")}
-            </select>
-          </label>
-          <label>
-            <span>Intervalo min</span>
-            <input name="intervalMinutes" inputmode="numeric" value="${Number(schedule.intervalMinutes || 0)}" ${schedule.strategy === "online" ? "disabled" : ""}>
-          </label>
-          <label>
-            <span>Cache seg</span>
-            <input name="cacheTtlSeconds" inputmode="numeric" value="${Number(schedule.cacheTtlSeconds || 0)}">
-          </label>
-        </div>
-        <footer>
-          <small>Ultima execucao: ${formatDateTime(schedule.lastRunAt) || "nunca"}</small>
-          <button type="button" data-save-schedule="${escapeHtml(schedule.entityType)}">Salvar agenda</button>
-        </footer>
-      </article>
-    `).join("")
-    : `<div class="empty-state compact">Sem agendas carregadas.</div>`;
-
-  target.querySelectorAll("[data-save-schedule]").forEach((button) => {
-    button.addEventListener("click", () => saveIntegrationSchedule(button.dataset.saveSchedule));
-  });
-}
-
-async function saveIntegrationSchedule(entityType) {
-  const card = document.querySelector(`[data-schedule-type="${CSS.escape(entityType)}"]`);
-  if (!card) return;
-
-  const payload = {
-    enabled: card.querySelector('[name="enabled"]').value === "true",
-    strategy: card.querySelector('[name="strategy"]').value,
-    intervalMinutes: card.querySelector('[name="intervalMinutes"]').value,
-    cacheTtlSeconds: card.querySelector('[name="cacheTtlSeconds"]').value
-  };
-
-  setStatus("Salvando agenda da integracao");
-  const updated = await api(`/api/integrations/schedules/${encodeURIComponent(entityType)}`, {
-    method: "PUT",
-    body: JSON.stringify(payload)
-  });
-  state.integrationSchedules = state.integrationSchedules.map((schedule) => (
-    schedule.entityType === updated.entityType ? updated : schedule
-  ));
-  renderIntegrationSchedules();
-  setStatus("Online");
-}
-
-function clearErpSettingsForm(form) {
-  form.provider.value = "ciss";
-  form.protocol.value = "http";
-  form.host.value = "";
-  form.port.value = "";
-  form.username.value = "";
-  form.password.value = "";
-  form.clientId.value = "";
-  form.clientSecret.value = "";
-}
-
-async function saveErpSettings(form) {
-  const data = Object.fromEntries(new FormData(form).entries());
-  if (!data.password) delete data.password;
-  if (!data.clientSecret) delete data.clientSecret;
-
-  setStatus("Salvando integracao ERP");
-  document.getElementById("erpSettingsStatus").textContent = "Salvando...";
-  const result = document.getElementById("erpTestResult");
-  result.className = "test-result hidden";
-  result.textContent = "";
-
-  try {
-    state.erpIntegration = await api("/api/integrations/erp", {
-      method: "PUT",
-      body: JSON.stringify(data)
-    });
-    renderErpSettings();
-    setStatus("Online");
-  } catch (error) {
-    document.getElementById("erpSettingsStatus").textContent = "Erro ao salvar";
-    result.className = "test-result error";
-    result.textContent = error.message;
-    setStatus("Erro ao salvar ERP");
-  }
-}
-
-async function testErpSettings(form) {
-  const result = document.getElementById("erpTestResult");
-  const data = Object.fromEntries(new FormData(form).entries());
-  if (!data.password) delete data.password;
-  if (!data.clientSecret) delete data.clientSecret;
-
-  result.className = "test-result";
-  result.textContent = "Testando conexao com o ERP...";
-  setStatus("Testando ERP");
-
-  try {
-    const response = await api("/api/integrations/erp/test", {
-      method: "POST",
-      body: JSON.stringify(data)
-    });
-    result.className = "test-result success";
-    result.textContent = `Conexao OK. Token recebido de ${response.baseUrl}.`;
-    setStatus("Online");
-  } catch (error) {
-    result.className = "test-result error";
-    result.textContent = error.message;
-    setStatus("Erro no teste ERP");
-  }
-}
-
-async function clearErpSettings(form) {
-  const result = document.getElementById("erpTestResult");
-  setStatus("Limpando integracao ERP");
-  document.getElementById("erpSettingsStatus").textContent = "Limpando...";
-  clearErpSettingsForm(form);
-  result.className = "test-result hidden";
-  result.textContent = "";
-
-  try {
-    state.erpIntegration = await api("/api/integrations/erp", {
-      method: "DELETE"
-    });
-    clearErpSettingsForm(form);
-    document.getElementById("erpSettingsStatus").textContent = "Nao configurado";
-    setStatus("Online");
-  } catch (error) {
-    document.getElementById("erpSettingsStatus").textContent = "Erro ao limpar";
-    result.className = "test-result error";
-    result.textContent = error.message;
-    setStatus("Erro ao limpar ERP");
-  }
 }
 
 function renderSupport() {
@@ -1936,102 +943,6 @@ async function sendConversationReply(id) {
   }
 }
 
-async function openDealDetail(id) {
-  setStatus("Carregando pedido");
-  const deal = await api(`/api/deals/${encodeURIComponent(id)}`);
-  document.getElementById("dealDrawerTitle").textContent = deal.title || `Pedido ${deal.externalOrderId}`;
-  document.getElementById("dealDetail").innerHTML = renderDealDetail(deal);
-  document.getElementById("dealOverlay").classList.remove("hidden");
-  setStatus("Online");
-}
-
-function closeDealDrawer() {
-  document.getElementById("dealOverlay").classList.add("hidden");
-}
-
-function renderDealDetail(deal) {
-  const summary = {
-    pedido: deal.externalOrderId,
-    empresa: deal.companyId,
-    cliente: deal.contactName,
-    telefone: deal.contactPhone,
-    valor: money.format(Number(deal.amount || 0)),
-    etapa: deal.stage,
-    status: deal.status,
-    vendedor: deal.assignedSeller,
-    usuarioErp: deal.cissUser,
-    dataMovimento: formatBrazilianDate(deal.movementDate),
-    validade: formatBrazilianDate(deal.validUntil),
-    ultimaSincronizacao: formatDateTime(deal.lastSyncedAt)
-  };
-
-  const linkedDeal = renderLinkedDealBanner(deal);
-
-  return `
-    ${linkedDeal}
-    <section class="detail-section">
-      <h3>Resumo do pedido</h3>
-      ${renderKeyValueGrid(summary)}
-    </section>
-    <section class="detail-section">
-      <h3>Contato vinculado</h3>
-      ${renderKeyValueGrid(deal.contact || {})}
-    </section>
-    <section class="detail-section">
-      <h3>Campos personalizados</h3>
-      ${renderKeyValueGrid(deal.customFields || {})}
-    </section>
-    <section class="detail-section">
-      <h3>JSON recebido do ERP</h3>
-      ${renderKeyValueGrid(deal.sourceRecord || deal.customFields || {})}
-    </section>
-    <section class="detail-section">
-      <h3>Historico</h3>
-      ${renderDealLogs(deal.logs || [])}
-    </section>
-  `;
-}
-
-function renderLinkedDealBanner(deal) {
-  const parts = [];
-
-  if (deal.originQuoteId) {
-    const originNumber = deal.customFields?.idOrcamentoOrigem || deal.originQuoteId;
-    parts.push(`
-      <div class="linked-deal-banner linked-deal-banner--origin">
-        <span class="linked-deal-icon">📋</span>
-        <div>
-          <small>Originado do orçamento</small>
-          <strong>#${escapeHtml(String(originNumber))}</strong>
-        </div>
-        <button class="linked-deal-btn" onclick="openDealDetail('${escapeHtml(deal.originQuoteId)}')">
-          Ver orçamento →
-        </button>
-      </div>
-    `);
-  }
-
-  const ordersFromThis = state.deals.filter(
-    (d) => d.originQuoteId === deal.id
-  );
-  for (const order of ordersFromThis) {
-    parts.push(`
-      <div class="linked-deal-banner linked-deal-banner--converted">
-        <span class="linked-deal-icon">✅</span>
-        <div>
-          <small>Efetivado como pedido de venda</small>
-          <strong>#${escapeHtml(String(order.externalOrderId))}</strong>
-        </div>
-        <button class="linked-deal-btn" onclick="openDealDetail('${escapeHtml(order.id)}')">
-          Ver pedido →
-        </button>
-      </div>
-    `);
-  }
-
-  return parts.join("");
-}
-
 function renderKeyValueGrid(data, options = {}) {
   const entries = Object.entries(data || {}).filter(([, value]) => value !== "" && value !== null && value !== undefined);
   if (!entries.length) return `<div class="empty-state compact">Sem dados para exibir.</div>`;
@@ -2259,54 +1170,6 @@ function parseDealDate(deal) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function calculateChange(values) {
-  const realValues = values.filter((value) => Number(value) > 0);
-  if (!realValues.length) return 0;
-  if (realValues.length === 1) return 100;
-
-  const current = realValues.at(-1);
-  const previous = realValues.at(-2);
-  if (!previous) return current ? 100 : 0;
-  return ((current - previous) / previous) * 100;
-}
-
-function formatChange(value, suffix = "") {
-  const normalized = Number.isFinite(value) ? value : 0;
-  const signal = normalized >= 0 ? "+" : "";
-  const formatted = `${signal}${normalized.toFixed(1).replace(".", ",")}%`;
-  return suffix ? `${formatted} ${suffix}` : formatted;
-}
-
-function svgPoints(values, width, height, padding = 0) {
-  const max = Math.max(1, ...values);
-  const min = Math.min(...values, max);
-  const range = Math.max(1, max - min);
-  const usableWidth = width - padding * 2;
-  const usableHeight = height - padding * 2;
-
-  return values.map((value, index) => {
-    const x = padding + (usableWidth / Math.max(1, values.length - 1)) * index;
-    const y = padding + usableHeight - ((value - min) / range) * usableHeight;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-}
-
-function buildConicGradient(rows, total) {
-  let cursor = 0;
-  const slices = rows.map((row) => {
-    const size = (row.count / Math.max(1, total)) * 100;
-    const slice = `${row.color} ${cursor.toFixed(2)}% ${(cursor + size).toFixed(2)}%`;
-    cursor += size;
-    return slice;
-  });
-  return `conic-gradient(${slices.join(", ")})`;
-}
-
-function stageIndex(name) {
-  const index = STAGE_ORDER.findIndex((stage) => normalizeText(stage) === normalizeText(name));
-  return index >= 0 ? index : STAGE_ORDER.length + 1;
-}
-
 function sourceLabel(source) {
   const normalized = normalizeText(source);
   if (normalized.includes("ciss") || normalized.includes("erp")) return "ERP";
@@ -2381,29 +1244,6 @@ async function api(path, options = {}) {
     throw new Error(message);
   }
   return response.json();
-}
-
-function renderTrendBadge(value, label = "no periodo") {
-  const normalized = Number.isFinite(value) ? value : 0;
-  const cls = normalized > 0.5 ? "up" : normalized < -0.5 ? "down" : "neutral";
-  const arrow = cls === "up" ? "↑" : cls === "down" ? "↓" : "→";
-  const signal = normalized >= 0 ? "+" : "";
-  const text = `${signal}${normalized.toFixed(1).replace(".", ",")}%`;
-  return `<span class="trend-badge ${cls}" title="${escapeHtml(label)}">${arrow} ${text}</span>`;
-}
-
-function stagePillClass(stage) {
-  const s = normalizeText(stage || "");
-  if (["venda efetivada", "gerou documento fiscal", "aprovado", "faturado", "ganho"].some((t) => s.includes(t))) {
-    return "stage-pill-won";
-  }
-  if (["pedido negado", "cancelado", "negado", "perdido"].some((t) => s.includes(t))) {
-    return "stage-pill-lost";
-  }
-  if (["em negociacao", "negociacao", "proposta", "qualificado"].some((t) => s.includes(t))) {
-    return "stage-pill-active";
-  }
-  return "";
 }
 
 function setStatus(text) {
@@ -2678,165 +1518,6 @@ function closeWaModal() {
    IA INSIGHTS — análise heurística local
    (placeholder para integração com LLM)
 ══════════════════════════════════════ */
-function renderAiInsights() {
-  const deals = state.deals || [];
-  const contacts = state.contacts || [];
-  const now = Date.now();
-  const MS_30_DAYS = 30 * 24 * 60 * 60 * 1000;
-  const MS_7_DAYS = 7 * 24 * 60 * 60 * 1000;
-
-  const riskDeals = deals.filter((deal) => {
-    if (isWonDeal(deal)) return false;
-    const lastActivity = new Date(deal.lastSyncedAt || deal.updatedAt || deal.createdAt || 0).getTime();
-    return (now - lastActivity) > MS_30_DAYS;
-  });
-
-  const hotDeals = deals.filter((deal) => {
-    if (isWonDeal(deal)) return false;
-    const amount = dealAmount(deal);
-    const s = normalizeText(deal.stage || "");
-    return amount > 10000 && (s.includes("negociacao") || s.includes("proposta") || s.includes("aguardando"));
-  });
-
-  const followupDeals = deals.filter((deal) => {
-    const lastActivity = new Date(deal.lastSyncedAt || deal.updatedAt || deal.createdAt || 0).getTime();
-    return !isWonDeal(deal) && (now - lastActivity) > MS_7_DAYS && (now - lastActivity) < MS_30_DAYS;
-  }).slice(0, 6);
-
-  const wonDeals = deals.filter(isWonDeal);
-  const winRate = deals.length ? (wonDeals.length / deals.length) * 100 : 0;
-  const avgAmount = deals.length ? deals.reduce((s, d) => s + dealAmount(d), 0) / deals.length : 0;
-  const projectedWin = Math.round(followupDeals.length * (winRate / 100));
-  const projectedRevenue = projectedWin * avgAmount;
-
-  const riskEl = document.getElementById("aiRiskCount");
-  const hotEl = document.getElementById("aiHotCount");
-  if (riskEl) riskEl.textContent = riskDeals.length;
-  if (hotEl) hotEl.textContent = hotDeals.length;
-
-  const banner = document.getElementById("aiAlertBanner");
-  if (banner) {
-    if (riskDeals.length > 0) {
-      banner.innerHTML = `
-        <div class="ai-alert">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-          <span><strong>${riskDeals.length} negocio${riskDeals.length > 1 ? "s" : ""} sem atividade ha mais de 30 dias</strong> — revise e entre em contato para nao perder a oportunidade.</span>
-        </div>
-      `;
-    } else {
-      banner.innerHTML = `
-        <div class="ai-alert ai-alert-ok">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          <span>Todos os negocios ativos tem atividade recente. Boa gestao comercial!</span>
-        </div>
-      `;
-    }
-  }
-
-  const kpisEl = document.getElementById("aiInsightsKpis");
-  if (kpisEl) {
-    kpisEl.innerHTML = [
-      { label: "Negocios em risco", value: riskDeals.length, sub: "sem atividade +30 dias", color: "metric-rose" },
-      { label: "Oportunidades quentes", value: hotDeals.length, sub: "alta probabilidade", color: "metric-cyan" },
-      { label: "Para follow-up", value: followupDeals.length, sub: "nos proximos 7 dias", color: "metric-amber" },
-      { label: "Receita prevista", value: compactMoney.format(projectedRevenue), sub: `${projectedWin} conversoes estimadas`, color: "metric-accent" }
-    ].map((card) => `
-      <article class="metric-card ${card.color}">
-        <span>${card.label}</span>
-        <strong>${card.value}</strong>
-        <small>${card.sub}</small>
-      </article>
-    `).join("");
-  }
-
-  const riskEl2 = document.getElementById("aiRiskDeals");
-  if (riskEl2) {
-    riskEl2.innerHTML = riskDeals.length
-      ? riskDeals.slice(0, 6).map((deal) => `
-          <div class="ai-deal-row">
-            <div class="table-name-cell">
-              <span class="table-avatar avatar-rose">${escapeHtml(initials(deal.contactName || "?"))}</span>
-              <div>
-                <strong>${escapeHtml(deal.contactName || deal.title || "Sem nome")}</strong>
-                <small>${escapeHtml(deal.contactPhone || "Sem telefone")} — ${compactMoney.format(dealAmount(deal))}</small>
-              </div>
-            </div>
-            <span class="badge badge-danger">Em risco</span>
-          </div>
-        `).join("")
-      : `<div class="empty-state compact">Nenhum negocio em risco identificado.</div>`;
-  }
-
-  const hotEl2 = document.getElementById("aiHotDeals");
-  if (hotEl2) {
-    hotEl2.innerHTML = hotDeals.length
-      ? hotDeals.slice(0, 6).map((deal) => `
-          <div class="ai-deal-row">
-            <div class="table-name-cell">
-              <span class="table-avatar">${escapeHtml(initials(deal.contactName || "?"))}</span>
-              <div>
-                <strong>${escapeHtml(deal.contactName || deal.title || "Sem nome")}</strong>
-                <small>${escapeHtml(deal.stage || "Sem etapa")} — ${compactMoney.format(dealAmount(deal))}</small>
-              </div>
-            </div>
-            <span class="badge badge-success">Quente</span>
-          </div>
-        `).join("")
-      : `<div class="empty-state compact">Nenhuma oportunidade quente identificada.</div>`;
-  }
-
-  const followEl = document.getElementById("aiFollowupList");
-  if (followEl) {
-    followEl.innerHTML = followupDeals.length
-      ? followupDeals.map((deal) => `
-          <div class="ai-followup-row">
-            <div>
-              <strong>${escapeHtml(deal.contactName || deal.title || "Negocio")}</strong>
-              <small>${escapeHtml(deal.contactPhone || "")} — ${escapeHtml(deal.assignedSeller || "Sem vendedor")}</small>
-            </div>
-            <div class="ai-followup-actions">
-              <span class="badge badge-warning">Follow-up</span>
-              ${deal.contactPhone
-                ? `<a class="btn-wa" href="https://wa.me/55${deal.contactPhone.replace(/\D/g,"")}" target="_blank" rel="noopener">WhatsApp</a>`
-                : ""}
-            </div>
-          </div>
-        `).join("")
-      : `<div class="empty-state compact">Nenhum follow-up pendente no periodo.</div>`;
-  }
-
-  const predEl = document.getElementById("aiPredictions");
-  if (predEl) {
-    predEl.innerHTML = `
-      <div class="ai-prediction-grid">
-        <div class="ai-prediction-item">
-          <span>Taxa de conversao atual</span>
-          <strong>${winRate.toFixed(1)}%</strong>
-        </div>
-        <div class="ai-prediction-item">
-          <span>Ticket medio</span>
-          <strong>${compactMoney.format(avgAmount)}</strong>
-        </div>
-        <div class="ai-prediction-item">
-          <span>Negocios em andamento</span>
-          <strong>${deals.filter((d) => !isWonDeal(d)).length}</strong>
-        </div>
-        <div class="ai-prediction-item">
-          <span>Receita potencial</span>
-          <strong>${compactMoney.format(deals.filter((d) => !isWonDeal(d)).reduce((s, d) => s + dealAmount(d), 0))}</strong>
-        </div>
-        <div class="ai-prediction-item ai-prediction-wide">
-          <span>Previsao de receita (se taxa atual mantida)</span>
-          <strong class="ai-prediction-highlight">${compactMoney.format(projectedRevenue)}</strong>
-        </div>
-      </div>
-      <p class="ai-disclaimer">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        Analise baseada nos dados do CRM. Integracao com modelo de IA avancada disponivel em breve.
-      </p>
-    `;
-  }
-}
 
 /* ══════════════════════════════════════
    AUTOMAÇÕES WHATSAPP
@@ -3028,13 +1709,6 @@ setInterval(async () => {
         body: JSON.stringify({ phone })
       });
       state.contacts = state.contacts.map((c) => c.id === activeContactId ? { ...c, phone } : c);
-      state.deals = state.deals.map((d) => {
-        if (d.contactId === activeContactId || d.id === activeDealId) {
-          return { ...d, contactPhone: phone };
-        }
-        return d;
-      });
-      renderDeals();
       renderContactsTable();
       closePhoneEdit();
       setStatus("Telefone atualizado");
@@ -3117,9 +1791,7 @@ setInterval(async () => {
         body: JSON.stringify(payload)
       });
       state.contacts = state.contacts.map((c) => c.id === activeId ? { ...c, ...updated } : c);
-      state.deals = state.deals.map((d) => d.contactId === activeId ? { ...d, contactPhone: updated.phone || d.contactPhone } : d);
       renderContactsTable();
-      renderDeals();
       closeContactEdit();
       setStatus("Contato atualizado");
       setTimeout(() => setStatus("Online"), 3000);
@@ -3473,63 +2145,6 @@ document.getElementById("evoRefreshStatus")?.addEventListener("click", async () 
 });
 
 // Vendedores
-async function renderSellers() {
-  const target = document.getElementById("sellersContent");
-  if (!target) return;
-  target.innerHTML = `<div class="empty-state">Carregando...</div>`;
-  try {
-    const result = await api("/api/sellers");
-    const sellers = result.data || [];
-    if (!sellers.length) {
-      target.innerHTML = `<div class="empty-state">Nenhum vendedor com negocios encontrado.</div>`;
-      return;
-    }
-    const totalRevenue = sellers.reduce((s, v) => s + v.revenue, 0);
-    target.innerHTML = `
-      <div class="sellers-grid">
-        ${sellers.map((seller, i) => `
-          <div class="seller-card">
-            <div class="seller-card-header">
-              <span class="avatar avatar-${["cyan","amber","rose","purple",""][i % 5]}">${escapeHtml(initials(seller.name))}</span>
-              <div>
-                <strong>${escapeHtml(seller.name)}</strong>
-                <small>${escapeHtml(seller.market || "")}</small>
-              </div>
-            </div>
-            <div class="seller-metrics">
-              <div class="seller-metric">
-                <span>Total negocios</span>
-                <strong>${seller.total}</strong>
-              </div>
-              <div class="seller-metric">
-                <span>Ganhos</span>
-                <strong>${seller.won}</strong>
-              </div>
-              <div class="seller-metric">
-                <span>Receita</span>
-                <strong>${money.format(seller.revenue)}</strong>
-              </div>
-              <div class="seller-metric">
-                <span>Em aberto</span>
-                <strong>${money.format(seller.openAmount)}</strong>
-              </div>
-              <div class="seller-metric">
-                <span>Conversao</span>
-                <strong>${seller.conversionRate}%</strong>
-              </div>
-            </div>
-            <div class="seller-revenue-bar">
-              <div style="width:${totalRevenue ? Math.max(4, (seller.revenue / totalRevenue) * 100) : 0}%"></div>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-      <div class="table-footer"><small>${sellers.length} vendedores encontrados</small></div>
-    `;
-  } catch (error) {
-    target.innerHTML = `<div class="empty-state">Erro ao carregar vendedores: ${escapeHtml(error.message)}</div>`;
-  }
-}
 
 // ===== Tickets =====
 const TICKET_CATEGORY_LABELS = {
