@@ -199,7 +199,7 @@ function renderTenants() {
         <header class="tenant-card-head">
           <div>
             <h3>${escapeHtml(tenant.name)}</h3>
-            <small>${escapeHtml(tenant.slug)}.crm.neurax.com.br</small>
+            <small>${escapeHtml(tenant.slug)}.*.allassist.com.br</small>
           </div>
           <div class="tenant-badges">
             <span class="status ${statusClass(tenant.status)}">${statusLabel(tenant.status)}</span>
@@ -499,7 +499,7 @@ async function createTenant(form) {
       method: "POST",
       body: JSON.stringify(data)
     });
-    result.textContent = `Cliente criado: ${tenant.slug}.crm.neurax.com.br`;
+    result.textContent = `Cliente criado: ${tenant.slug}.*.allassist.com.br`;
     form.reset();
     await loadAll();
   } catch (error) {

@@ -41,7 +41,7 @@ export class AuthService {
     if (!masterRole) {
       masterRole = this.store.insert("roles", {
         key: "master",
-        name: "Master Neurax CRM",
+        name: "Master ALL Assist",
         description: "Acesso global para suporte, observabilidade e administracao SaaS",
         permissions: MASTER_PERMISSIONS
       });
@@ -52,7 +52,7 @@ export class AuthService {
       adminRole = this.store.insert("roles", {
         key: "admin",
         name: "Administrador",
-        description: "Acesso total ao Neurax CRM",
+        description: "Acesso total ao ALL Assist",
         permissions: ALL_PERMISSIONS
       });
     }
@@ -87,7 +87,7 @@ export class AuthService {
       });
       this.logger.warn("auth_bootstrap_admin_created", {
         email: adminEmail,
-        message: "Change NEURAXCRM_BOOTSTRAP_ADMIN_PASSWORD before production"
+        message: "Change ALLASSIST_BOOTSTRAP_ADMIN_PASSWORD before production"
       });
     }
 
@@ -96,7 +96,7 @@ export class AuthService {
       let masterUser = this.store.findOne("users", (user) => user.email === masterEmail);
       if (!masterUser) {
         masterUser = this.createUser({
-          name: this.config.auth.bootstrapMasterName || "Suporte Neurax",
+          name: this.config.auth.bootstrapMasterName || "Suporte ALL",
           email: masterEmail,
           password: this.config.auth.bootstrapMasterPassword,
           roleId: masterRole.id,
@@ -105,7 +105,7 @@ export class AuthService {
         });
         this.logger.warn("auth_bootstrap_master_created", {
           email: masterEmail,
-          message: "Change NEURAXCRM_BOOTSTRAP_MASTER_PASSWORD before production"
+          message: "Change ALLASSIST_BOOTSTRAP_MASTER_PASSWORD before production"
         });
       }
     }

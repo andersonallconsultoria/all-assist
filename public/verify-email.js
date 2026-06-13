@@ -24,7 +24,7 @@ async function verifyEmail() {
       return;
     }
 
-    message.textContent = "Email validado. Voce ja pode acessar o Neurax CRM.";
+    message.textContent = "Email validado. Voce ja pode acessar o ALL Assist.";
     setTimeout(() => {
       window.location.href = "/login.html";
     }, 1200);

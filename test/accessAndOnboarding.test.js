@@ -129,7 +129,7 @@ function createFixture() {
   const authService = new AuthService(store, {
     auth: {
       bootstrapAdminName: "Administrador",
-      bootstrapAdminEmail: "admin@neuraxcrm.local",
+      bootstrapAdminEmail: "admin@allassist.local",
       bootstrapAdminPassword: "admin123",
       sessionSecret: "test-secret",
       sessionTtlHours: 12
@@ -139,7 +139,7 @@ function createFixture() {
   const tenantService = new TenantService(store, logger);
   const accessRoleService = new AccessRoleService(store, logger);
   const onboardingService = new UserOnboardingService(store, authService, {
-    publicBaseUrl: "https://crm.neurax.com.br"
+    publicBaseUrl: "https://*.allassist.com.br"
   }, logger);
 
   return {

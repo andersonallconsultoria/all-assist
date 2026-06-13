@@ -13,7 +13,7 @@ test("AuthService bootstraps admin role and user", () => {
 
   assert.equal(store.list("roles").length, 3);
   assert.equal(store.list("users").length, 1);
-  assert.equal(admin.email, "admin@neuraxcrm.local");
+  assert.equal(admin.email, "admin@allassist.local");
   assert.equal(admin.passwordHash, undefined);
 });
 
@@ -21,10 +21,10 @@ test("AuthService authenticates and returns sanitized session user", () => {
   const { auth } = createAuthService();
   auth.bootstrap();
 
-  const session = auth.authenticate("admin@neuraxcrm.local", "admin123");
+  const session = auth.authenticate("admin@allassist.local", "admin123");
 
   assert.ok(session.token);
-  assert.equal(session.user.email, "admin@neuraxcrm.local");
+  assert.equal(session.user.email, "admin@allassist.local");
   assert.equal(session.user.passwordHash, undefined);
   assert.ok(session.user.permissions.includes("users:write"));
 });
@@ -33,7 +33,7 @@ test("AuthService rejects invalid password", () => {
   const { auth } = createAuthService();
   auth.bootstrap();
 
-  assert.equal(auth.authenticate("admin@neuraxcrm.local", "wrong"), null);
+  assert.equal(auth.authenticate("admin@allassist.local", "wrong"), null);
 });
 
 test("AuthService creates seller user with role", () => {
@@ -59,7 +59,7 @@ function createAuthService() {
   const auth = new AuthService(store, {
     auth: {
       bootstrapAdminName: "Administrador",
-      bootstrapAdminEmail: "admin@neuraxcrm.local",
+      bootstrapAdminEmail: "admin@allassist.local",
       bootstrapAdminPassword: "admin123",
       sessionSecret: "test-secret",
       sessionTtlHours: 12

@@ -45,8 +45,8 @@ http://127.0.0.1:3000
 O Fly CRM cria um usuario admin no primeiro boot conforme `.env`:
 
 ```env
-NEURAXCRM_BOOTSTRAP_ADMIN_EMAIL=admin@neuraxcrm.local
-NEURAXCRM_BOOTSTRAP_ADMIN_PASSWORD=admin123
+ALLASSIST_BOOTSTRAP_ADMIN_EMAIL=admin@allassist.local
+ALLASSIST_BOOTSTRAP_ADMIN_PASSWORD=admin123
 ```
 
 Troque essa senha antes de usar fora de teste.
@@ -54,8 +54,8 @@ Troque essa senha antes de usar fora de teste.
 Usuario master/suporte, quando configurado no `.env`:
 
 ```env
-NEURAXCRM_BOOTSTRAP_MASTER_EMAIL=master@neuraxcrm.local
-NEURAXCRM_BOOTSTRAP_MASTER_PASSWORD=master123
+ALLASSIST_BOOTSTRAP_MASTER_EMAIL=master@allassist.local
+ALLASSIST_BOOTSTRAP_MASTER_PASSWORD=master123
 ```
 
 Esse perfil acessa a tela `Suporte Master`, com tenants, historico de integracao, metricas de requisicao, logs e eventos.
@@ -84,7 +84,7 @@ Veja [docs/meta-whatsapp.md](D:/projeto_dkw_crm/docs/meta-whatsapp.md).
 
 ## Deploy AWS Fargate
 
-O passo a passo para publicar em `crm.neurax.com.br` com ECS Fargate, ECR, ALB, ACM, DNS e EFS esta em [docs/deploy-aws-fargate.md](docs/deploy-aws-fargate.md).
+O passo a passo para publicar em `*.allassist.com.br` com ECS Fargate, ECR, ALB, ACM, DNS e EFS esta em [docs/deploy-aws-fargate.md](docs/deploy-aws-fargate.md).
 
 ## Deploy automatico com GitHub Actions
 

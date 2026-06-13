@@ -82,9 +82,9 @@ test("resolveTenantFromHost maps wildcard subdomain to tenant", () => {
     plan: "business"
   });
 
-  const result = resolveTenantFromHost("materiaislobato.crm.neurax.com.br", store, {
+  const result = resolveTenantFromHost("materiaislobato.*.allassist.com.br", store, {
     saas: {
-      baseDomain: "crm.neurax.com.br",
+      baseDomain: "*.allassist.com.br",
       masterSubdomain: "admin"
     }
   });

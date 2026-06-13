@@ -20,25 +20,25 @@ export function loadPlatformConfig(argv = process.argv.slice(2)) {
   };
 
   config.auth = {
-    bootstrapAdminName: envValue(["NEURAXCRM_BOOTSTRAP_ADMIN_NAME"], "Administrador"),
-    bootstrapAdminEmail: envValue(["NEURAXCRM_BOOTSTRAP_ADMIN_EMAIL"], "admin@neuraxcrm.local"),
-    bootstrapAdminPassword: envValue(["NEURAXCRM_BOOTSTRAP_ADMIN_PASSWORD"], "admin123"),
-    bootstrapMasterName: envValue(["NEURAXCRM_BOOTSTRAP_MASTER_NAME"], ""),
-    bootstrapMasterEmail: envValue(["NEURAXCRM_BOOTSTRAP_MASTER_EMAIL"], ""),
-    bootstrapMasterPassword: envValue(["NEURAXCRM_BOOTSTRAP_MASTER_PASSWORD"], "master123"),
-    sessionSecret: envValue(["NEURAXCRM_SESSION_SECRET"], "change-this-secret"),
-    sessionTtlHours: Number.parseInt(envValue(["NEURAXCRM_SESSION_TTL_HOURS"], "12"), 10)
+    bootstrapAdminName: envValue(["ALLASSIST_BOOTSTRAP_ADMIN_NAME"], "Administrador"),
+    bootstrapAdminEmail: envValue(["ALLASSIST_BOOTSTRAP_ADMIN_EMAIL"], "admin@allassist.local"),
+    bootstrapAdminPassword: envValue(["ALLASSIST_BOOTSTRAP_ADMIN_PASSWORD"], "admin123"),
+    bootstrapMasterName: envValue(["ALLASSIST_BOOTSTRAP_MASTER_NAME"], ""),
+    bootstrapMasterEmail: envValue(["ALLASSIST_BOOTSTRAP_MASTER_EMAIL"], ""),
+    bootstrapMasterPassword: envValue(["ALLASSIST_BOOTSTRAP_MASTER_PASSWORD"], "master123"),
+    sessionSecret: envValue(["ALLASSIST_SESSION_SECRET"], "change-this-secret"),
+    sessionTtlHours: Number.parseInt(envValue(["ALLASSIST_SESSION_TTL_HOURS"], "12"), 10)
   };
 
   config.saas = {
-    baseDomain: process.env.SAAS_BASE_DOMAIN || "crm.neurax.com.br",
+    baseDomain: process.env.SAAS_BASE_DOMAIN || "*.allassist.com.br",
     masterSubdomain: process.env.SAAS_MASTER_SUBDOMAIN || "admin",
-    activeTenantCookie: process.env.SAAS_ACTIVE_TENANT_COOKIE || "neuraxcrm_active_tenant"
+    activeTenantCookie: process.env.SAAS_ACTIVE_TENANT_COOKIE || "allassist_active_tenant"
   };
 
   try {
-    config.seedTenants = process.env.NEURAXCRM_SEED_TENANTS
-      ? JSON.parse(process.env.NEURAXCRM_SEED_TENANTS)
+    config.seedTenants = process.env.ALLASSIST_SEED_TENANTS
+      ? JSON.parse(process.env.ALLASSIST_SEED_TENANTS)
       : [];
   } catch {
     config.seedTenants = [];

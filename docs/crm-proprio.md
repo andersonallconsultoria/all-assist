@@ -75,11 +75,11 @@ No primeiro boot, o sistema cria:
 Configuracao:
 
 ```env
-NEURAXCRM_BOOTSTRAP_ADMIN_NAME=Administrador
-NEURAXCRM_BOOTSTRAP_ADMIN_EMAIL=admin@neuraxcrm.local
-NEURAXCRM_BOOTSTRAP_ADMIN_PASSWORD=admin123
-NEURAXCRM_SESSION_SECRET=change-this-secret
-NEURAXCRM_SESSION_TTL_HOURS=12
+ALLASSIST_BOOTSTRAP_ADMIN_NAME=Administrador
+ALLASSIST_BOOTSTRAP_ADMIN_EMAIL=admin@allassist.local
+ALLASSIST_BOOTSTRAP_ADMIN_PASSWORD=admin123
+ALLASSIST_SESSION_SECRET=change-this-secret
+ALLASSIST_SESSION_TTL_HOURS=12
 ```
 
 Permissoes iniciais:
@@ -94,7 +94,7 @@ Permissoes iniciais:
 - `users:write`
 - `settings:manage`
 
-Importante: trocar `NEURAXCRM_BOOTSTRAP_ADMIN_PASSWORD` e `NEURAXCRM_SESSION_SECRET` antes de qualquer ambiente real.
+Importante: trocar `ALLASSIST_BOOTSTRAP_ADMIN_PASSWORD` e `ALLASSIST_SESSION_SECRET` antes de qualquer ambiente real.
 
 ## Como rodar o portal local
 

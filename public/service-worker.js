@@ -1,4 +1,4 @@
-const CACHE_NAME = "neurax-crm-shell-v1";
+const CACHE_NAME = "allassist-shell-v1";
 const APP_SHELL = [
   "/",
   "/index.html",

@@ -1,7 +1,7 @@
 {
-  "name": "neurax-crm-platform",
+  "name": "all-assist-platform",
   "version": "0.1.0",
-  "description": "CRM proprio com integracao ERP CISS e WhatsApp Meta Cloud API",
+  "description": "SaaS white-label de atendimento ao cliente via WhatsApp com agentes de IA",
   "type": "module",
   "main": "src/platform.js",
   "scripts": {

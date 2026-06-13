@@ -32,23 +32,23 @@ Toda consulta operacional usa o tenant ativo. Isso evita que usuarios de uma emp
 O desenho esperado para producao e:
 
 ```text
-crm.neurax.com.br
-admin.crm.neurax.com.br
-materiaislobato.crm.neurax.com.br
-boavistapisos.crm.neurax.com.br
+*.allassist.com.br
+admin.*.allassist.com.br
+materiaislobato.*.allassist.com.br
+boavistapisos.*.allassist.com.br
 ```
 
 Configuracao desejada no DNS:
 
 ```text
-*.crm.neurax.com.br -> Application Load Balancer
-crm.neurax.com.br -> Application Load Balancer
+*.*.allassist.com.br -> Application Load Balancer
+*.allassist.com.br -> Application Load Balancer
 ```
 
 A aplicacao le o host acessado. Quando recebe:
 
 ```text
-materiaislobato.crm.neurax.com.br
+materiaislobato.*.allassist.com.br
 ```
 
 ela busca:

@@ -756,7 +756,7 @@ function renderSettingsContent(tab) {
     target.innerHTML = `
       <div class="settings-section">
         <h3>Perfil</h3>
-        <p>Informacoes da sua conta no Neurax CRM.</p>
+        <p>Informacoes da sua conta no ALL Assist.</p>
         <div style="display:flex;align-items:center;gap:18px;margin-bottom:24px">
           <span class="user-avatar-lg">${escapeHtml(initials(user.name))}</span>
           <div>
@@ -817,7 +817,7 @@ function renderSettingsContent(tab) {
     target.innerHTML = `
       <div class="settings-section">
         <h3>Aparencia</h3>
-        <p>Ajuste o visual da interface do Neurax CRM.</p>
+        <p>Ajuste o visual da interface do ALL Assist.</p>
         <div class="settings-row">
           <div class="settings-row-label"><strong>Tema</strong><small>Claro ou escuro</small></div>
           <button class="btn-secondary" type="button" id="settingsThemeToggle">
@@ -1843,7 +1843,7 @@ function renderSupport() {
       <div>
         <strong>${escapeHtml(tenant.name)}</strong>
         <p>${tenantUsage(tenant, "users")} usuarios - ${tenantUsage(tenant, "contacts")} contatos - ${tenantUsage(tenant, "deals")} negocios</p>
-        <small>${escapeHtml(tenant.slug)}.crm.neurax.com.br - ${escapeHtml(statusLabel(tenant.status))}</small>
+        <small>${escapeHtml(tenant.slug)}.*.allassist.com.br - ${escapeHtml(statusLabel(tenant.status))}</small>
       </div>
       <div class="support-actions">
         <span>${escapeHtml(tenant.plan || "plano")}</span>
@@ -1897,7 +1897,7 @@ async function createTenant(form) {
       method: "POST",
       body: JSON.stringify(data)
     });
-    result.textContent = `Cliente criado: ${tenant.slug}.crm.neurax.com.br`;
+    result.textContent = `Cliente criado: ${tenant.slug}.*.allassist.com.br`;
     form.reset();
     state.support = await loadSupportData();
     renderSupport();
@@ -2208,7 +2208,7 @@ function renderDealLogs(logs) {
 }
 
 function applySavedTheme() {
-  setTheme(localStorage.getItem("neuraxcrm-theme") || "dark", false);
+  setTheme(localStorage.getItem("allassist-theme") || "dark", false);
 }
 
 function setTheme(theme, persist = true) {
@@ -2216,7 +2216,7 @@ function setTheme(theme, persist = true) {
   const isDark = theme === "dark";
   document.getElementById("themeToggle").textContent = isDark ? "Tema claro" : "Tema escuro";
   if (persist) {
-    localStorage.setItem("neuraxcrm-theme", theme);
+    localStorage.setItem("allassist-theme", theme);
   }
 }
 

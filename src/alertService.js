@@ -8,11 +8,11 @@ export class AlertService {
     return Boolean(this.config.alerts?.telegramBotToken && this.config.alerts?.telegramChatId);
   }
 
-  async notify({ title = "Neurax CRM", message = "", metadata = {} }) {
+  async notify({ title = "ALL Assist", message = "", metadata = {} }) {
     return this.notifyError({ title, message, metadata });
   }
 
-  async notifyError({ title = "Erro no Neurax CRM", message = "", metadata = {} }) {
+  async notifyError({ title = "Erro no ALL Assist", message = "", metadata = {} }) {
     if (!this.isConfigured()) return false;
 
     const text = formatTelegramMessage({ title, message, metadata });

@@ -4,7 +4,7 @@ import path from "node:path";
 import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
 
-export function startPlatformServer({ config, logger, store, crmService, conversationService, localSyncService, whatsappClient, authService, erpIntegrationService, observabilityService, tenantService, commercialStructureService, accessRoleService, userOnboardingService, integrationScheduleService, alertService, evolutionInstanceService }) {
+export function startPlatformServer({ config, logger, store, crmService, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService }) {
   const publicDir = path.resolve("public");
 
   const server = http.createServer(async (request, response) => {
@@ -35,7 +35,7 @@ export function startPlatformServer({ config, logger, store, crmService, convers
     });
 
     try {
-      const user = authService.getSessionUser(readCookie(request, "neuraxcrm_session"));
+      const user = authService.getSessionUser(readCookie(request, "allassist_session"));
       currentUser = user;
       tenantContext = user
         ? resolveTenantContext({ request, user, store, config, readCookie })
@@ -86,7 +86,7 @@ export function startPlatformServer({ config, logger, store, crmService, convers
             entityId: user.id
           });
         }
-        authService.revokeSession(readCookie(request, "neuraxcrm_session"));
+        authService.revokeSession(readCookie(request, "allassist_session"));
         clearSessionCookie(response);
         return sendJson(response, 200, { ok: true });
       }
@@ -354,87 +354,10 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         }
       }
 
-      const tenantStructureMatch = parsedUrl.pathname.match(/^\/api\/support\/tenants\/([^/]+)\/structure$/);
-      if (request.method === "GET" && tenantStructureMatch) {
-        if (!requirePermission(response, authService, user, "support:tenants")) return;
-        try {
-          return sendJson(response, 200, commercialStructureService.getTenantStructure(tenantStructureMatch[1]));
-        } catch (error) {
-          return sendJson(response, 404, { error: error.message });
-        }
-      }
-
-      const tenantGroupsMatch = parsedUrl.pathname.match(/^\/api\/support\/tenants\/([^/]+)\/groups$/);
-      if (request.method === "POST" && tenantGroupsMatch) {
-        if (!requirePermission(response, authService, user, "support:tenants")) return;
-        try {
-          const group = commercialStructureService.createCompanyGroup({
-            ...(await readJson(request)),
-            tenantId: tenantGroupsMatch[1]
-          }, user);
-          observabilityService?.recordAudit({
-            tenantId: group.tenantId,
-            userId: user.id,
-            action: "tenant.company_group.created",
-            entityType: "companyGroup",
-            entityId: group.id
-          });
-          store.save();
-          return sendJson(response, 201, group);
-        } catch (error) {
-          return sendJson(response, 400, { error: error.message });
-        }
-      }
-
-      const tenantCompaniesMatch = parsedUrl.pathname.match(/^\/api\/support\/tenants\/([^/]+)\/companies$/);
-      if (request.method === "POST" && tenantCompaniesMatch) {
-        if (!requirePermission(response, authService, user, "support:tenants")) return;
-        try {
-          const company = commercialStructureService.createCompany({
-            ...(await readJson(request)),
-            tenantId: tenantCompaniesMatch[1]
-          }, user);
-          observabilityService?.recordAudit({
-            tenantId: company.tenantId,
-            userId: user.id,
-            action: "tenant.company.created",
-            entityType: "tenantCompany",
-            entityId: company.id
-          });
-          store.save();
-          return sendJson(response, 201, company);
-        } catch (error) {
-          return sendJson(response, 400, { error: error.message });
-        }
-      }
-
-      const tenantSalesPeopleMatch = parsedUrl.pathname.match(/^\/api\/support\/tenants\/([^/]+)\/sales-people$/);
-      if (request.method === "POST" && tenantSalesPeopleMatch) {
-        if (!requirePermission(response, authService, user, "support:tenants")) return;
-        try {
-          const salesPerson = commercialStructureService.createSalesPerson({
-            ...(await readJson(request)),
-            tenantId: tenantSalesPeopleMatch[1]
-          }, user);
-          observabilityService?.recordAudit({
-            tenantId: salesPerson.tenantId,
-            userId: user.id,
-            action: "tenant.sales_person.created",
-            entityType: "salesPerson",
-            entityId: salesPerson.id
-          });
-          store.save();
-          return sendJson(response, 201, salesPerson);
-        } catch (error) {
-          return sendJson(response, 400, { error: error.message });
-        }
-      }
-
       const userScopeMatch = parsedUrl.pathname.match(/^\/api\/support\/users\/([^/]+)\/access-scope$/);
       if (request.method === "PUT" && userScopeMatch) {
         if (!requirePermission(response, authService, user, "support:tenants")) return;
         try {
-          const updatedUser = commercialStructureService.setUserScope(userScopeMatch[1], await readJson(request), user);
           observabilityService?.recordAudit({
             tenantId: updatedUser.tenantId,
             userId: user.id,
@@ -549,7 +472,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
       if (request.method === "PUT" && parsedUrl.pathname === "/api/integrations/erp") {
         if (!requirePermission(response, authService, user, "settings:manage")) return;
         const body = await readJson(request);
-        const settings = erpIntegrationService.updateSettings(body, { ...user, tenantId: tenantContext.tenantId });
         observabilityService?.recordAudit({
           tenantId: tenantContext.tenantId,
           userId: user.id,
@@ -568,7 +490,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
 
       if (request.method === "DELETE" && parsedUrl.pathname === "/api/integrations/erp") {
         if (!requirePermission(response, authService, user, "settings:manage")) return;
-        const settings = erpIntegrationService.clearSettings({ ...user, tenantId: tenantContext.tenantId });
         observabilityService?.recordAudit({
           tenantId: tenantContext.tenantId,
           userId: user.id,
@@ -584,7 +505,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         if (!requirePermission(response, authService, user, "settings:manage")) return;
         const body = await readJson(request);
         try {
-          const result = await erpIntegrationService.testConnection(body, tenantContext.tenantId);
           observabilityService?.recordAudit({
             tenantId: tenantContext.tenantId,
             userId: user.id,
@@ -742,60 +662,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         return sendJson(response, 200, { data: sellers.sort((a, b) => b.revenue - a.revenue) });
       }
 
-      if (request.method === "GET" && parsedUrl.pathname === "/api/deals") {
-        if (!requirePermission(response, authService, user, "deals:view")) return;
-        return sendJson(response, 200, {
-          data: crmService.listDeals(Object.fromEntries(parsedUrl.searchParams.entries()), tenantContext.tenantId)
-        });
-      }
-
-      const dealMatch = parsedUrl.pathname.match(/^\/api\/deals\/([^/]+)$/);
-      if (request.method === "GET" && dealMatch) {
-        if (!requirePermission(response, authService, user, "deals:view")) return;
-        const deal = crmService.getDeal(dealMatch[1], tenantContext.tenantId);
-        return deal ? sendJson(response, 200, deal) : sendJson(response, 404, { error: "deal_not_found" });
-      }
-
-      if (request.method === "PATCH" && dealMatch) {
-        if (!requirePermission(response, authService, user, "deals:write")) return;
-        const deal = store.findById("deals", dealMatch[1]);
-        if (!deal || deal.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "deal_not_found" });
-        const body = await readJson(request);
-        const allowed = ["stage", "pipelineId", "assignedSeller", "amount", "title", "notes"];
-        const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
-        if (!Object.keys(patch).length) return sendJson(response, 400, { error: "no_valid_fields" });
-        const updated = store.update("deals", deal.id, patch);
-        observabilityService?.recordAudit({
-          tenantId: tenantContext.tenantId,
-          userId: user.id,
-          action: "deal.updated",
-          entityType: "deal",
-          entityId: deal.id,
-          metadata: patch
-        });
-        store.save();
-        return sendJson(response, 200, updated);
-      }
-
-      const dealLogsMatch = parsedUrl.pathname.match(/^\/api\/deals\/([^/]+)\/logs$/);
-      if (request.method === "POST" && dealLogsMatch) {
-        if (!requirePermission(response, authService, user, "deals:write")) return;
-        const body = await readJson(request);
-        const log = crmService.addDealLog(dealLogsMatch[1], body, tenantContext.tenantId);
-        if (!log) return sendJson(response, 404, { error: "deal_not_found" });
-        observabilityService?.recordAudit({
-          tenantId: tenantContext.tenantId,
-          userId: user.id,
-          action: "deal.log.created",
-          entityType: "deal",
-          entityId: dealLogsMatch[1],
-          metadata: {
-            type: body.type || "note"
-          }
-        });
-        store.save();
-        return sendJson(response, 201, log);
-      }
 
       if (request.method === "GET" && parsedUrl.pathname === "/api/conversations") {
         if (!requirePermission(response, authService, user, "conversations:view")) return;
@@ -868,26 +734,6 @@ export function startPlatformServer({ config, logger, store, crmService, convers
         return sendJson(response, 201, message);
       }
 
-      if (request.method === "POST" && ["/api/erp/sync/run", "/api/ciss/sync/run"].includes(parsedUrl.pathname)) {
-        if (!requirePermission(response, authService, user, "settings:manage")) return;
-        erpIntegrationService.applyStoredSettings(tenantContext.tenantId);
-        try {
-          const stats = await localSyncService.runOnce({ tenantId: tenantContext.tenantId });
-          observabilityService?.recordAudit({
-            tenantId: tenantContext.tenantId,
-            userId: user.id,
-            action: "integration.erp.manual_sync",
-            entityType: "integration",
-            entityId: "erp",
-            metadata: { stats }
-          });
-          store.save();
-          return sendJson(response, 200, stats);
-        } catch (syncError) {
-          logger.error("erp_manual_sync_failed", { error: syncError.message, tenantId: tenantContext.tenantId });
-          return sendJson(response, 400, { error: syncError.message });
-        }
-      }
 
       if (request.method === "GET" && parsedUrl.pathname === "/api/users") {
         if (!requirePermission(response, authService, user, "users:view")) return;
@@ -1119,7 +965,7 @@ export function startPlatformServer({ config, logger, store, crmService, convers
       if (request.method === "POST" && parsedUrl.pathname === "/api/whatsapp/test") {
         const body = await readJson(request);
         const to = String(body.to || "").trim();
-        const text = String(body.text || "Mensagem de teste do Neurax CRM 🚀").trim();
+        const text = String(body.text || "Mensagem de teste do ALL Assist 🚀").trim();
         if (!to) return sendJson(response, 400, { error: "Informe o número de destino (campo 'to')" });
         if (!whatsappClient.isConfigured()) return sendJson(response, 400, { error: "WhatsApp não configurado — verifique META_PHONE_NUMBER_ID e META_ACCESS_TOKEN no .env" });
         const result = await whatsappClient.sendText({ to, body: text });
@@ -1343,7 +1189,7 @@ export function startPlatformServer({ config, logger, store, crmService, convers
       });
       if (config.alerts.notifyServerErrors) {
         await alertService?.notifyError({
-          title: "Erro HTTP no Neurax CRM",
+          title: "Erro HTTP no ALL Assist",
           message: error.message,
           metadata: {
             method: request.method,
@@ -1429,11 +1275,11 @@ function readCookie(request, name) {
 
 function setSessionCookie(response, token, ttlHours) {
   const maxAge = Math.max(1, Number(ttlHours || 12)) * 60 * 60;
-  response.setHeader("Set-Cookie", `neuraxcrm_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`);
+  response.setHeader("Set-Cookie", `allassist_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`);
 }
 
 function clearSessionCookie(response) {
-  response.setHeader("Set-Cookie", "neuraxcrm_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+  response.setHeader("Set-Cookie", "allassist_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
 }
 
 function setActiveTenantCookie(response, config, tenantId) {

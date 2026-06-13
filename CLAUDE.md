@@ -19,11 +19,11 @@ Sempre responda em **português** ao usuário deste repositório.
 
 ## Origem do código
 
-Este projeto **nasceu como fork** de [`fly-crm-platform`](https://github.com/andersonallconsultoria/fly-crm-platform) (Neurax CRM). O CRM continua existindo e evoluindo separadamente — **não temos nenhuma intenção de fundir os dois projetos no nível de código**.
+Este projeto **nasceu como fork** de [`fly-crm-platform`](https://github.com/andersonallconsultoria/fly-crm-platform) (ALL Assist). O CRM continua existindo e evoluindo separadamente — **não temos nenhuma intenção de fundir os dois projetos no nível de código**.
 
 **Reaproveitado do CRM:**
 - Integração **Meta WhatsApp Cloud API** (`src/whatsappMetaClient.js`)
-- Integração **Evolution API** (Baileys) com infra `evo.neuraxcrm.com.br` — reusada
+- Integração **Evolution API** (Baileys) com infra `evo.allassist.com.br` — reusada
 - Webhook handlers para Meta e Evolution
 - Sistema de **Auth** (sessões cookie, roles, permissions, bootstrap)
 - **Multi-tenant** por subdomínio (`src/tenantContext.js`)
@@ -78,7 +78,7 @@ Esta é a fase atual de execução.
 - [ ] White-label config no Master Panel — nome, logo URL, cor primária por tenant
 - [ ] Resolução host expandida — aceitar domínios CNAME apontados (não só `*.allassist.com.br`)
 - [ ] Frontend renderiza nome/cor/logo do tenant ativo
-- [ ] Deploy ECS espelhando padrão `neuraxcrm` (cluster, ECR, task-definition, GitHub Actions)
+- [ ] Deploy ECS espelhando padrão `allassist` (cluster, ECR, task-definition, GitHub Actions)
 
 ### Fase 2 — Semana seguinte (~7-10 dias)
 - [ ] Suporte a **mídia** — envio/recebimento de imagens, áudio, PDF (Meta API + Evolution)
@@ -220,7 +220,7 @@ META_VERIFY_TOKEN=
 META_GRAPH_VERSION=v23.0
 
 # Evolution API (compartilhada com CRM)
-EVOLUTION_API_URL=https://evo.neuraxcrm.com.br
+EVOLUTION_API_URL=https://evo.allassist.com.br
 EVOLUTION_API_KEY=
 
 # Claude API (classificador)
@@ -251,11 +251,11 @@ Padrão a ser espelhado do `fly-crm-platform`:
 
 ## Decisões importantes já tomadas (com Anderson em 2026-05-23)
 
-1. **Nome final:** ALL Assist (não Neurax Atendimento, não ALL Atende)
+1. **Nome final:** ALL Assist (não ALL Atendimento, não ALL Atende)
 2. **Multi-tenant white-label SaaS** desde o dia 1 — cada cliente personaliza marca e domínio
 3. **Stack única Node.js** — AllHub Python NÃO será fundido. Suas ideias serão reimplementadas em Node aqui
 4. **Fork direto** ao invés de monorepo — monorepo só quando 2 ferramentas estiverem maduras
-5. **Reuso de infra Evolution API** existente — mesma instância `evo.neuraxcrm.com.br` por enquanto
+5. **Reuso de infra Evolution API** existente — mesma instância `evo.allassist.com.br` por enquanto
 6. **Reuso de número WhatsApp** atual (mesma config Meta) pra fase de testes; em produção cada cliente terá seu próprio número
 7. **MVP até segunda inclui IA classificador** — não nasce só como ticket sem IA
 8. **Persistência JSON file** mantida do CRM por enquanto — migrar pra Postgres só quando justificar
@@ -265,7 +265,7 @@ Padrão a ser espelhado do `fly-crm-platform`:
 
 ## Referências de outros projetos do mesmo dono
 
-- **Fly CRM / Neurax CRM:** `c:\Projetos Dev\fly-crm-platform` — código-base original deste fork
+- **Fly CRM / ALL Assist:** `c:\Projetos Dev\fly-crm-platform` — código-base original deste fork
 - **AllHub:** `c:\Projetos Dev\allhub` — projeto Python/FastAPI cujas IDEIAS serão reimplementadas aqui em Node (Fases 3-4)
 - **Fluxo de Caixa:** `c:\Projetos Dev\Fluxo_Caixa` — projeto Next.js separado (não relacionado)
 - **CISS Vidroweb Integration:** `c:\Projetos Dev\ciss_vidroweb_integration` — integração ERP separada
@@ -278,4 +278,4 @@ Leia este CLAUDE.md inteiro **antes** de começar qualquer alteração. O contex
 
 Se faltar algo, **pergunte ao Anderson** antes de inferir. Ele prefere alinhamento curto a retrabalho longo.
 
-**Não mexa em:** `c:\Projetos Dev\fly-crm-platform` — esse é o CRM Neurax que continua existindo em paralelo.
+**Não mexa em:** `c:\Projetos Dev\fly-crm-platform` — esse é o CRM ALL que continua existindo em paralelo.

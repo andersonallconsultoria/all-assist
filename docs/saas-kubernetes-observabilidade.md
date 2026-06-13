@@ -24,9 +24,9 @@ Hoje o armazenamento local ainda usa `data/crm.json`, suficiente para prototipo 
 O usuario master e configurado por variaveis de ambiente:
 
 ```env
-NEURAXCRM_BOOTSTRAP_MASTER_NAME=Suporte Neurax
-NEURAXCRM_BOOTSTRAP_MASTER_EMAIL=master@neuraxcrm.local
-NEURAXCRM_BOOTSTRAP_MASTER_PASSWORD=change-me-too
+ALLASSIST_BOOTSTRAP_MASTER_NAME=Suporte ALL
+ALLASSIST_BOOTSTRAP_MASTER_EMAIL=master@allassist.local
+ALLASSIST_BOOTSTRAP_MASTER_PASSWORD=change-me-too
 ```
 
 O perfil `Master ALL` possui permissoes globais:
@@ -43,7 +43,7 @@ Clientes comuns nao devem receber essas permissoes.
 A plataforma registra:
 
 - Requisicoes de API e webhooks com duracao, status HTTP, usuario e tenant.
-- Requisicoes lentas acima de `NEURAXCRM_SLOW_REQUEST_MS`.
+- Requisicoes lentas acima de `ALLASSIST_SLOW_REQUEST_MS`.
 - Eventos de integracao ERP: iniciado, finalizado, criado, atualizado, ignorado, erro.
 - Auditoria: login, logout, criacao de usuario, envio de mensagem, sincronizacao manual e logs de negocio.
 - Logs estruturados JSON em `LOG_FILE`.
@@ -51,8 +51,8 @@ A plataforma registra:
 Variaveis principais:
 
 ```env
-NEURAXCRM_SLOW_REQUEST_MS=1000
-NEURAXCRM_OBSERVABILITY_MAX_RECORDS=5000
+ALLASSIST_SLOW_REQUEST_MS=1000
+ALLASSIST_OBSERVABILITY_MAX_RECORDS=5000
 LOG_FILE=/app/logs/integration.log
 ```
 
@@ -82,7 +82,7 @@ Manifests base:
 Fluxo sugerido:
 
 ```bash
-docker build -t neuraxcrm-platform:latest .
+docker build -t allassist-platform:latest .
 kubectl apply -f k8s/pvc.yaml
 kubectl apply -f k8s/configmap.example.yaml
 kubectl apply -f k8s/secret.example.yaml

@@ -19,7 +19,7 @@
       ],
       "environment": [
         { "name": "SERVER_PORT",                            "value": "8080" },
-        { "name": "SERVER_URL",                             "value": "https://evo.neuraxcrm.com.br" },
+        { "name": "SERVER_URL",                             "value": "https://evo.allassist.com.br" },
         { "name": "CORS_ORIGIN",                            "value": "*" },
         { "name": "CORS_METHODS",                           "value": "POST,GET,PUT,DELETE" },
         { "name": "LOG_LEVEL",                              "value": "ERROR,WARN,INFO" },
@@ -30,7 +30,7 @@
         { "name": "QRCODE_LIMIT",                           "value": "30" },
         { "name": "QRCODE_EXPIRES_IN",                      "value": "45" },
         { "name": "AUTHENTICATION_TYPE",                    "value": "apikey" },
-        { "name": "AUTHENTICATION_API_KEY",                 "value": "NeuraxEvo2026!ChangeThisKey" },
+        { "name": "AUTHENTICATION_API_KEY",                 "value": "ALLEvo2026!ChangeThisKey" },
         { "name": "AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES", "value": "true" },
         { "name": "LANGUAGE",                               "value": "pt-BR" },
         { "name": "DATABASE_ENABLED",                       "value": "false" },

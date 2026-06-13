@@ -3,8 +3,8 @@ export class ObservabilityService {
     this.store = store;
     this.config = config;
     this.logger = logger;
-    this.requestSlowMs = Number.parseInt(process.env.NEURAXCRM_SLOW_REQUEST_MS || "1000", 10);
-    this.maxRecords = Number.parseInt(process.env.NEURAXCRM_OBSERVABILITY_MAX_RECORDS || "1000", 10);
+    this.requestSlowMs = Number.parseInt(process.env.ALLASSIST_SLOW_REQUEST_MS || "1000", 10);
+    this.maxRecords = Number.parseInt(process.env.ALLASSIST_OBSERVABILITY_MAX_RECORDS || "1000", 10);
   }
 
   recordAudit({ tenantId = "", userId = "", action, entityType = "", entityId = "", metadata = {} }) {

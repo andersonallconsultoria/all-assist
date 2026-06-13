@@ -1,16 +1,16 @@
-# Deploy do Neurax CRM na AWS com ECS Fargate
+# Deploy do ALL Assist na AWS com ECS Fargate
 
-Este guia descreve o processo para publicar o Neurax CRM em `neuraxcrm.com.br`, usando Docker, Amazon ECR, Amazon ECS Fargate, Application Load Balancer, AWS Certificate Manager e DNS — tudo na região `sa-east-1` (São Paulo).
+Este guia descreve o processo para publicar o ALL Assist em `allassist.com.br`, usando Docker, Amazon ECR, Amazon ECS Fargate, Application Load Balancer, AWS Certificate Manager e DNS — tudo na região `sa-east-1` (São Paulo).
 
 ## Visão geral dos recursos AWS
 
-- **ECR**: `neuraxcrm-platform` — repositório da imagem Docker
-- **ECS Cluster**: `neuraxcrm-cluster`
-- **ECS Service**: `neuraxcrm-platform-service`
+- **ECR**: `allassist-platform` — repositório da imagem Docker
+- **ECS Cluster**: `allassist-cluster`
+- **ECS Service**: `allassist-platform-service`
 - **ALB**: internet-facing, listeners HTTP:80 e HTTPS:443
-- **ACM**: certificado wildcard `*.neuraxcrm.com.br`
-- **CloudWatch Logs**: `/ecs/neuraxcrm-platform`
-- **IAM Task Role**: `neuraxcrmTaskRole`
+- **ACM**: certificado wildcard `*.allassist.com.br`
+- **CloudWatch Logs**: `/ecs/allassist-platform`
+- **IAM Task Role**: `allassistTaskRole`
 
 > O deploy automático hoje é feito via GitHub Actions (push para `main`). Este guia é referência para setup inicial ou recriação manual.
 
@@ -27,7 +27,7 @@ Este guia descreve o processo para publicar o Neurax CRM em `neuraxcrm.com.br`, 
 ## 2. Criar repositório no ECR
 
 ```bash
-aws ecr create-repository --repository-name neuraxcrm-platform --region sa-east-1
+aws ecr create-repository --repository-name allassist-platform --region sa-east-1
 ```
 
 Definir variáveis de ambiente:
@@ -35,11 +35,11 @@ Definir variáveis de ambiente:
 ```bash
 # Windows CMD
 set AWS_ACCOUNT_ID=324037288309
-set ECR_IMAGE=%AWS_ACCOUNT_ID%.dkr.ecr.sa-east-1.amazonaws.com/neuraxcrm-platform
+set ECR_IMAGE=%AWS_ACCOUNT_ID%.dkr.ecr.sa-east-1.amazonaws.com/allassist-platform
 
 # Git Bash / WSL
 export AWS_ACCOUNT_ID=324037288309
-export ECR_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.sa-east-1.amazonaws.com/neuraxcrm-platform
+export ECR_IMAGE=$AWS_ACCOUNT_ID.dkr.ecr.sa-east-1.amazonaws.com/allassist-platform
 ```
 
 Login e push manual (normalmente feito pelo CI/CD):
@@ -59,7 +59,7 @@ docker push $ECR_IMAGE:latest
 
 ```
 ECS → Clusters → Create cluster
-Nome: neuraxcrm-cluster
+Nome: allassist-cluster
 Infraestrutura: AWS Fargate
 ```
 
@@ -70,7 +70,7 @@ Infraestrutura: AWS Fargate
 ```
 IAM → Roles → Create role
 Trusted entity: ECS Tasks (ecs-tasks.amazonaws.com)
-Nome: neuraxcrmTaskRole
+Nome: allassistTaskRole
 Permissões: AmazonECSTaskExecutionRolePolicy + política customizada se necessário
 ```
 
@@ -78,11 +78,11 @@ Permissões: AmazonECSTaskExecutionRolePolicy + política customizada se necess�
 
 ## 5. Criar Security Groups
 
-### ALB SG (`neuraxcrm-alb-sg`)
+### ALB SG (`allassist-alb-sg`)
 - Entrada: TCP 80 e 443 de `0.0.0.0/0`
 - Saída: tudo liberado
 
-### ECS Task SG (`neuraxcrm-ecs-sg`)
+### ECS Task SG (`allassist-ecs-sg`)
 - Entrada: TCP 3000 somente do ALB SG
 - Saída: tudo liberado (para acesso ao ERP, Meta API, internet)
 
@@ -92,11 +92,11 @@ Permissões: AmazonECSTaskExecutionRolePolicy + política customizada se necess�
 
 ```
 EC2 → Load Balancers → Create → Application Load Balancer
-Nome: neuraxcrm-alb
+Nome: allassist-alb
 Scheme: Internet-facing
 VPC: sua VPC padrão
 Subnets: selecionar todas as subnets públicas disponíveis
-Security group: neuraxcrm-alb-sg
+Security group: allassist-alb-sg
 ```
 
 **Listener HTTP:80** → Redirect para HTTPS (301)
@@ -108,7 +108,7 @@ Security group: neuraxcrm-alb-sg
 
 ```
 EC2 → Target Groups → Create
-Nome: neuraxcrm-platform-tg
+Nome: allassist-platform-tg
 Type: IP addresses
 Protocol: HTTP, Port: 3000
 VPC: sua VPC
@@ -122,8 +122,8 @@ Health check path: /healthz
 ```
 ACM → Request certificate → Public
 Domínios:
-  neuraxcrm.com.br
-  *.neuraxcrm.com.br
+  allassist.com.br
+  *.allassist.com.br
 Validação: DNS
 ```
 
@@ -146,33 +146,33 @@ aws ecs register-task-definition \
 ## 10. Criar ECS Service
 
 ```
-ECS → Clusters → neuraxcrm-cluster → Services → Create
+ECS → Clusters → allassist-cluster → Services → Create
 Launch type: Fargate
-Task definition: neuraxcrm-platform
-Service name: neuraxcrm-platform-service
+Task definition: allassist-platform
+Service name: allassist-platform-service
 Desired tasks: 1
 Networking:
   VPC: sua VPC
   Subnets: subnets públicas
-  Security group: neuraxcrm-ecs-sg
+  Security group: allassist-ecs-sg
   Public IP: ENABLED
 Load balancing:
-  ALB: neuraxcrm-alb
-  Target group: neuraxcrm-platform-tg
+  ALB: allassist-alb
+  Target group: allassist-platform-tg
 ```
 
 ---
 
 ## 11. Apontar domínio no DNS
 
-Após o ALB ser criado, copie o DNS dele (ex: `neuraxcrm-alb-xxx.sa-east-1.elb.amazonaws.com`) e adicione no seu DNS:
+Após o ALB ser criado, copie o DNS dele (ex: `allassist-alb-xxx.sa-east-1.elb.amazonaws.com`) e adicione no seu DNS:
 
 | Nome | Tipo | Valor |
 |------|------|-------|
 | `*` (wildcard) | CNAME | DNS do ALB |
 | `www` | CNAME | DNS do ALB |
 
-Se usar Route 53, pode usar ALIAS record no domínio raiz `neuraxcrm.com.br`.
+Se usar Route 53, pode usar ALIAS record no domínio raiz `allassist.com.br`.
 
 ---
 
@@ -191,8 +191,8 @@ O CI/CD (`deploy-ecs.yml`) faz build, push para ECR e deploy no ECS automaticame
 Para forçar novo deploy sem mudança de código:
 ```bash
 aws ecs update-service \
-  --cluster neuraxcrm-cluster \
-  --service neuraxcrm-platform-service \
+  --cluster allassist-cluster \
+  --service allassist-platform-service \
   --force-new-deployment \
   --region sa-east-1
 ```
@@ -203,9 +203,9 @@ aws ecs update-service \
 
 ```bash
 aws ecs update-service \
-  --cluster neuraxcrm-cluster \
-  --service neuraxcrm-platform-service \
-  --task-definition neuraxcrm-platform:NUMERO_REVISAO_ANTERIOR \
+  --cluster allassist-cluster \
+  --service allassist-platform-service \
+  --task-definition allassist-platform:NUMERO_REVISAO_ANTERIOR \
   --region sa-east-1
 ```
 
