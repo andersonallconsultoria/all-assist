@@ -430,12 +430,117 @@ export function startPlatformServer({ config, logger, store, conversationService
 
       if (request.method === "GET" && parsedUrl.pathname === "/api/contacts") {
         if (!requirePermission(response, authService, user, "contacts:view")) return;
+        const tid = tenantContext.tenantId;
+        const customersById = new Map(store.findAll("customers", (c) => c.tenantId === tid).map((c) => [c.id, c]));
         return sendJson(response, 200, {
           data: store
             .list("contacts")
-            .filter((contact) => contact.tenantId === tenantContext.tenantId)
+            .filter((contact) => contact.tenantId === tid)
+            .map((contact) => ({ ...contact, customerName: contact.customerId ? customersById.get(contact.customerId)?.name || null : null }))
             .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
         });
+      }
+
+      if (request.method === "POST" && parsedUrl.pathname === "/api/contacts") {
+        if (!requirePermission(response, authService, user, "contacts:write")) return;
+        const body = await readJson(request);
+        if (!String(body.name || "").trim()) return sendJson(response, 400, { error: "name_required" });
+        const created = store.insert("contacts", {
+          tenantId: tenantContext.tenantId,
+          name: String(body.name).trim(),
+          phone: String(body.phone || "").replace(/\D/g, ""),
+          email: String(body.email || "").trim(),
+          city: String(body.city || "").trim(),
+          state: String(body.state || "").trim(),
+          document: String(body.document || "").trim(),
+          notes: String(body.notes || "").trim(),
+          customerId: body.customerId || null,
+          source: body.source || "manual"
+        });
+        store.save();
+        return sendJson(response, 201, created);
+      }
+
+      // ===== Clientes (empresas) =====
+      if (request.method === "GET" && parsedUrl.pathname === "/api/customers") {
+        if (!requirePermission(response, authService, user, "contacts:view")) return;
+        const tid = tenantContext.tenantId;
+        const contacts = store.findAll("contacts", (c) => c.tenantId === tid);
+        const tickets = store.findAll("tickets", (t) => t.tenantId === tid);
+        const data = store.findAll("customers", (c) => c.tenantId === tid).map((customer) => {
+          const custContacts = contacts.filter((c) => c.customerId === customer.id);
+          const contactIds = new Set(custContacts.map((c) => c.id));
+          const custTickets = tickets.filter((t) => contactIds.has(t.contactId));
+          const totalSeconds = custTickets.reduce((sum, t) => sum + timerSeconds(t.timeTracking), 0);
+          return {
+            ...customer,
+            contactsCount: custContacts.length,
+            ticketsCount: custTickets.length,
+            openTicketsCount: custTickets.filter((t) => t.status !== "closed").length,
+            totalSeconds
+          };
+        }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        return sendJson(response, 200, { data });
+      }
+
+      if (request.method === "POST" && parsedUrl.pathname === "/api/customers") {
+        if (!requirePermission(response, authService, user, "contacts:write")) return;
+        const body = await readJson(request);
+        if (!String(body.name || "").trim()) return sendJson(response, 400, { error: "name_required" });
+        const created = store.insert("customers", {
+          tenantId: tenantContext.tenantId,
+          name: String(body.name).trim(),
+          document: String(body.document || "").trim(),
+          notes: String(body.notes || "").trim(),
+          billing: {
+            mode: body.billing?.mode === "auto" ? "auto" : "manual",
+            ratePerHour: Number(body.billing?.ratePerHour) || 0
+          }
+        });
+        store.save();
+        return sendJson(response, 201, created);
+      }
+
+      const customerDetailMatch = parsedUrl.pathname.match(/^\/api\/customers\/([^/]+)$/);
+      if (request.method === "GET" && customerDetailMatch) {
+        if (!requirePermission(response, authService, user, "contacts:view")) return;
+        const tid = tenantContext.tenantId;
+        const customer = store.findById("customers", customerDetailMatch[1]);
+        if (!customer || customer.tenantId !== tid) return sendJson(response, 404, { error: "customer_not_found" });
+        const custContacts = store.findAll("contacts", (c) => c.tenantId === tid && c.customerId === customer.id);
+        const contactIds = new Set(custContacts.map((c) => c.id));
+        const custTickets = store.findAll("tickets", (t) => t.tenantId === tid && contactIds.has(t.contactId));
+        const contactName = (id) => custContacts.find((c) => c.id === id)?.name || "Cliente";
+        return sendJson(response, 200, {
+          ...customer,
+          contacts: custContacts,
+          totalSeconds: custTickets.reduce((sum, t) => sum + timerSeconds(t.timeTracking), 0),
+          history: custTickets
+            .filter((t) => t.status === "closed")
+            .sort((a, b) => String(b.closedAt).localeCompare(String(a.closedAt)))
+            .map((t) => ({ id: t.id, subject: t.subject, contactName: contactName(t.contactId), closedAt: t.closedAt, closureNote: t.closureNote, seconds: timerSeconds(t.timeTracking) }))
+        });
+      }
+
+      const customerPatchMatch = parsedUrl.pathname.match(/^\/api\/customers\/([^/]+)$/);
+      if (request.method === "PATCH" && customerPatchMatch) {
+        if (!requirePermission(response, authService, user, "contacts:write")) return;
+        const customer = store.findById("customers", customerPatchMatch[1]);
+        if (!customer || customer.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "customer_not_found" });
+        const body = await readJson(request);
+        const patch = {};
+        if (body.name !== undefined) patch.name = String(body.name).trim();
+        if (body.document !== undefined) patch.document = String(body.document).trim();
+        if (body.notes !== undefined) patch.notes = String(body.notes).trim();
+        if (body.billing !== undefined) {
+          patch.billing = {
+            mode: body.billing?.mode === "auto" ? "auto" : "manual",
+            ratePerHour: Number(body.billing?.ratePerHour) || 0
+          };
+        }
+        const updated = store.update("customers", customer.id, patch);
+        store.save();
+        return sendJson(response, 200, updated);
       }
 
       const contactPatchMatch = parsedUrl.pathname.match(/^\/api\/contacts\/([^/]+)$/);
@@ -455,12 +560,8 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (body.state !== undefined) patch.state = String(body.state || "").trim();
         if (body.document !== undefined) patch.document = String(body.document || "").trim();
         if (body.notes !== undefined) patch.notes = String(body.notes || "").trim();
+        if (body.customerId !== undefined) patch.customerId = body.customerId || null;
         const updated = store.update("contacts", contactId, patch);
-        if (patch.phone !== undefined) {
-          store.data.deals
-            .filter((d) => d.tenantId === tenantContext.tenantId && d.contactId === contactId)
-            .forEach((d) => { d.contactPhone = patch.phone; d.updatedAt = new Date().toISOString(); });
-        }
         observabilityService?.recordAudit({
           tenantId: tenantContext.tenantId,
           userId: user.id,
@@ -1014,11 +1115,15 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (!ticket) return ticket;
         const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
         const analyst = ticket.assignedAnalystId ? store.findById("users", ticket.assignedAnalystId) : null;
+        const customer = contact?.customerId ? store.findById("customers", contact.customerId) : null;
         return {
           ...ticket,
           contactName: contact?.name || "Cliente",
           contactPhone: contact?.phone || "",
-          analystName: analyst?.name || null
+          analystName: analyst?.name || null,
+          customerId: customer?.id || null,
+          customerName: customer?.name || null,
+          customerBilling: customer?.billing || null
         };
       };
 
@@ -1183,6 +1288,16 @@ export function startPlatformServer({ config, logger, store, conversationService
   });
 
   return server;
+}
+
+// Total de segundos cronometrados num ticket (acumulado + tempo correndo).
+function timerSeconds(tt) {
+  if (!tt) return 0;
+  let total = tt.accumulatedSeconds || 0;
+  if (tt.status === "running" && tt.lastStartedAt) {
+    total += Math.max(0, Math.floor((Date.now() - new Date(tt.lastStartedAt).getTime()) / 1000));
+  }
+  return total;
 }
 
 // Monta o painel de atendimento (tickets + conversas) para um tenant.

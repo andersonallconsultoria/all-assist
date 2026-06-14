@@ -17,19 +17,14 @@ export const PERMISSION_CATALOG = [
     permissions: ["tickets:view", "tickets:respond", "tickets:close", "tickets:transfer"]
   },
   {
-    module: "crm",
-    name: "CRM",
-    permissions: ["contacts:view", "deals:view", "deals:write", "goals:view", "goals:write"]
+    module: "clientes",
+    name: "Clientes e contatos",
+    permissions: ["contacts:view", "contacts:write"]
   },
   {
     module: "conversas",
     name: "Conversas WhatsApp",
     permissions: ["conversations:view", "conversations:write"]
-  },
-  {
-    module: "produtos",
-    name: "Produtos e estoque",
-    permissions: ["products:view", "products:write"]
   },
   {
     module: "usuarios",

@@ -20,8 +20,8 @@ test("AccessRoleService creates custom cargos with permission modules", () => {
     permissions: [
       "dashboard:view",
       "contacts:view",
-      "deals:view",
-      "deals:write",
+      "tickets:view",
+      "tickets:respond",
       "conversations:view"
     ]
   });
@@ -33,8 +33,8 @@ test("AccessRoleService creates custom cargos with permission modules", () => {
   assert.deepEqual(role.permissions, [
     "dashboard:view",
     "contacts:view",
-    "deals:view",
-    "deals:write",
+    "tickets:view",
+    "tickets:respond",
     "conversations:view"
   ]);
   assert.equal(accessRoleService.listPermissionCatalog().length > 4, true);
@@ -55,7 +55,7 @@ test("UserOnboardingService invites seller, validates email and enables login", 
     tenantId: tenant.id,
     name: "Vendedor Exemplo",
     type: "seller",
-    permissions: ["dashboard:view", "deals:view", "deals:write"]
+    permissions: ["dashboard:view", "tickets:view", "tickets:respond"]
   });
 
   const invite = onboardingService.createInvite({
@@ -96,7 +96,7 @@ test("UserOnboardingService links Google identity and trusts verified provider e
     tenantId: tenant.id,
     name: "Supervisor",
     type: "supervisor",
-    permissions: ["dashboard:view", "reports:view", "deals:view"]
+    permissions: ["dashboard:view", "reports:view", "tickets:view"]
   });
   const user = authService.createUser({
     tenantId: tenant.id,

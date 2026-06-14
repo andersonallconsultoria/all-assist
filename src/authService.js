@@ -4,18 +4,13 @@ const ALL_PERMISSIONS = [
   "dashboard:view",
   "reports:view",
   "contacts:view",
-  "deals:view",
-  "deals:write",
-  "goals:view",
-  "goals:write",
+  "contacts:write",
   "conversations:view",
   "conversations:write",
   "tickets:view",
   "tickets:respond",
   "tickets:close",
   "tickets:transfer",
-  "products:view",
-  "products:write",
   "users:view",
   "users:write",
   "settings:manage",
@@ -89,7 +84,9 @@ export class AuthService {
           "tickets:respond",
           "tickets:close",
           "tickets:transfer",
-          "conversations:view"
+          "conversations:view",
+          "contacts:view",
+          "contacts:write"
         ]
       });
     }
