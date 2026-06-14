@@ -83,7 +83,7 @@ for (const [nome, email] of ANALISTAS) {
 }
 
 const DEMO = [
-  { name: "Maria Silva", cust: "superbig", phone: "5534998810001", category: "complaint", priority: "high", assign: true, status: "waiting_customer", openH: 3,
+  { name: "Maria Silva", cust: "superbig", phone: "5534998810001", category: "complaint", priority: "high", assign: true, status: "waiting_customer", openH: 3, mins: 95,
     subject: "Pedido atrasado há 5 dias",
     msgs: [["in","Bom dia, meu pedido está atrasado há 5 dias e ninguém me responde!"],["out","Olá Maria, sinto muito pelo transtorno. Vou verificar agora mesmo o status do seu pedido."],["in","Por favor, preciso disso com urgência."],["out","Entendo. Localizei seu pedido, está em trânsito e chega até amanhã. Vou te enviar o rastreio."]] },
   { name: "João Souza", cust: "verdi", phone: "5534998810002", category: "question", priority: "medium", assign: false, status: "open", openH: 0.3,
@@ -92,13 +92,13 @@ const DEMO = [
   { name: "Ana Costa", cust: "jao", phone: "5534998810003", category: "support", priority: "critical", assign: false, status: "open", openH: 0.1,
     subject: "Sistema fora do ar",
     msgs: [["in","O sistema parou de funcionar aqui na loja!"],["in","Não consigo emitir nota, preciso de ajuda AGORA."]] },
-  { name: "Pedro Lima", cust: "superbig", phone: "5534998810004", category: "sales", priority: "low", assign: true, status: "open", openH: 6,
+  { name: "Pedro Lima", cust: "superbig", phone: "5534998810004", category: "sales", priority: "low", assign: true, status: "open", openH: 6, mins: 140,
     subject: "Orçamento de novo plano",
     msgs: [["in","Gostaria de saber sobre planos maiores."],["out","Claro, Pedro! Temos o plano Pro. Posso te enviar os detalhes?"]] },
   { name: "Carla Dias", cust: "varanda", phone: "5534998810005", category: "compliment", priority: "low", assign: false, status: "open", openH: 26,
     subject: "Elogio ao atendimento",
     msgs: [["in","Só queria agradecer, o atendimento de vocês é excelente!"]] },
-  { name: "Roberto Alves", cust: "genial", phone: "5534998810006", category: "support", priority: "medium", assign: true, status: "waiting_analyst", openH: 1.5,
+  { name: "Roberto Alves", cust: "genial", phone: "5534998810006", category: "support", priority: "medium", assign: true, status: "waiting_analyst", openH: 1.5, mins: 50,
     subject: "Erro ao fazer login",
     msgs: [["in","Não consigo entrar na minha conta."],["out","Vou te ajudar. Pode me dizer o e-mail cadastrado?"],["in","roberto@email.com"]] }
 ];
@@ -128,6 +128,7 @@ for (const d of DEMO) {
     aiClassification: { category: d.category, priority: d.priority, subject: d.subject, confidence: 0.85 + Math.round(Math.random() * 10) / 100, reasoning: `Mensagem classificada como ${d.category} de prioridade ${d.priority}.` }
   });
   const patch = { openedAt: hoursAgo(d.openH), demo: true };
+  if (d.mins) patch.timeTracking = { status: "stopped", accumulatedSeconds: d.mins * 60, lastStartedAt: null };
   const analyst = analistas.length ? analistas[count % analistas.length] : admin;
   if (d.assign && analyst) patch.assignedAnalystId = analyst.id;
   if (d.status !== "open") { patch.status = d.status; patch.firstResponseAt = hoursAgo(d.openH - 0.1); }

@@ -135,6 +135,13 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 200, buildSupportDashboard(store, tenantContext.tenantId));
       }
 
+      if (request.method === "GET" && parsedUrl.pathname === "/api/reports/hours") {
+        if (!requirePermission(response, authService, user, "reports:view")) return;
+        const from = parsedUrl.searchParams.get("from");
+        const to = parsedUrl.searchParams.get("to");
+        return sendJson(response, 200, buildHoursReport(store, tenantContext.tenantId, from, to));
+      }
+
       if (request.method === "GET" && parsedUrl.pathname === "/api/support/overview") {
         if (!requirePermission(response, authService, user, "support:view")) return;
         return sendJson(response, 200, observabilityService.getSupportOverview());
@@ -1361,6 +1368,55 @@ function timerSeconds(tt) {
     total += Math.max(0, Math.floor((Date.now() - new Date(tt.lastStartedAt).getTime()) / 1000));
   }
   return total;
+}
+
+// Relatório de horas: agrega o tempo cronometrado dos tickets por cliente e por
+// analista no período (filtra por abertura do ticket quando from/to são dados).
+function buildHoursReport(store, tenantId, from, to) {
+  const fromTs = from ? new Date(from).getTime() : null;
+  const toTs = to ? new Date(to).getTime() + 86399999 : null; // fim do dia
+  const tickets = store.findAll("tickets", (t) => {
+    if (t.tenantId !== tenantId) return false;
+    const opened = new Date(t.openedAt).getTime();
+    if (fromTs && opened < fromTs) return false;
+    if (toTs && opened > toTs) return false;
+    return true;
+  });
+  const contacts = new Map(store.findAll("contacts", (c) => c.tenantId === tenantId).map((c) => [c.id, c]));
+  const customers = new Map(store.findAll("customers", (c) => c.tenantId === tenantId).map((c) => [c.id, c]));
+  const users = new Map(store.findAll("users", (u) => u.tenantId === tenantId).map((u) => [u.id, u]));
+
+  const byCustomer = new Map();
+  const byAnalyst = new Map();
+  let totalSeconds = 0;
+
+  for (const t of tickets) {
+    const seconds = timerSeconds(t.timeTracking);
+    if (seconds <= 0) continue;
+    totalSeconds += seconds;
+
+    const contact = contacts.get(t.contactId);
+    const customer = contact?.customerId ? customers.get(contact.customerId) : null;
+    const custKey = customer?.id || "_none";
+    const custName = customer ? (customer.fantasia || customer.name) : "Sem cliente";
+    const cur = byCustomer.get(custKey) || { id: customer?.id || null, name: custName, seconds: 0, tickets: 0, hourlyBilling: customer?.hourlyBilling || false };
+    cur.seconds += seconds; cur.tickets += 1;
+    byCustomer.set(custKey, cur);
+
+    const analyst = t.assignedAnalystId ? users.get(t.assignedAnalystId) : null;
+    const anKey = analyst?.id || "_none";
+    const anName = analyst?.name || "Não atribuído";
+    const a = byAnalyst.get(anKey) || { id: analyst?.id || null, name: anName, seconds: 0, tickets: 0 };
+    a.seconds += seconds; a.tickets += 1;
+    byAnalyst.set(anKey, a);
+  }
+
+  const sortDesc = (arr) => arr.sort((x, y) => y.seconds - x.seconds);
+  return {
+    totalSeconds,
+    byCustomer: sortDesc([...byCustomer.values()]),
+    byAnalyst: sortDesc([...byAnalyst.values()])
+  };
 }
 
 // Monta o painel de atendimento (tickets + conversas) para um tenant.

@@ -117,6 +117,7 @@ document.querySelectorAll("nav a").forEach((link) => {
     if (link.getAttribute("href") === "#tickets") renderTickets();
     if (link.getAttribute("href") === "#inbox") renderInbox();
     if (link.getAttribute("href") === "#customers") renderCustomers();
+    if (link.getAttribute("href") === "#reports") renderReports();
   });
 });
 
@@ -2532,6 +2533,47 @@ function renderCustomers() {
     } catch (error) { err.textContent = error.message; err.style.display = ""; }
   });
 })();
+
+// ===== Relatório de horas =====
+function hoursLabel(seconds) {
+  const h = Math.floor((seconds || 0) / 3600);
+  const m = Math.floor(((seconds || 0) % 3600) / 60);
+  return `${h}h${m > 0 ? ` ${m}min` : ""}`;
+}
+
+async function renderReports() {
+  const from = document.getElementById("reportFrom")?.value || "";
+  const to = document.getElementById("reportTo")?.value || "";
+  const q = new URLSearchParams();
+  if (from) q.set("from", from);
+  if (to) q.set("to", to);
+  let data;
+  try {
+    data = await api(`/api/reports/hours${q.toString() ? "?" + q : ""}`);
+  } catch (e) {
+    document.getElementById("reportByCustomer").innerHTML = `<div class="empty-state">Erro: ${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  document.getElementById("reportTotalHours").textContent = hoursLabel(data.totalSeconds);
+
+  const tableHtml = (rows, nameLabel, extra) => rows.length ? `
+    <table class="data-table">
+      <thead><tr><th>${nameLabel}</th><th>Atendimentos</th><th>Horas</th>${extra ? "<th></th>" : ""}</tr></thead>
+      <tbody>
+        ${rows.map((r) => `<tr>
+          <td><strong>${escapeHtml(r.name)}</strong></td>
+          <td class="cell-muted">${r.tickets}</td>
+          <td><strong>${hoursLabel(r.seconds)}</strong></td>
+          ${extra ? `<td>${r.hourlyBilling ? '<span class="badge badge-success">Por horas</span>' : ''}</td>` : ""}
+        </tr>`).join("")}
+      </tbody>
+    </table>` : `<div class="empty-state compact">Sem horas no período.</div>`;
+
+  document.getElementById("reportByCustomer").innerHTML = tableHtml(data.byCustomer, "Cliente", true);
+  document.getElementById("reportByAnalyst").innerHTML = tableHtml(data.byAnalyst, "Analista", false);
+}
+
+document.getElementById("reportApply")?.addEventListener("click", renderReports);
 
 // ===== Cofre de acessos (credenciais por cliente) =====
 const vaultState = { customerId: null, customerName: "", list: [] };
