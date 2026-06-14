@@ -1441,7 +1441,7 @@ export function startPlatformServer({ config, logger, store, conversationService
         const mediaId = `med_${randomId()}`;
         fileStore.save(mediaId, buffer);
         const message = await conversationService.sendMedia(ticket.conversationId, {
-          mediaId, mediaMime: mime, mediaName: String(body.name || mediaType), mediaType, caption: String(body.caption || "")
+          mediaId, mediaMime: mime, mediaName: String(body.name || mediaType), mediaType, caption: String(body.caption || ""), buffer
         }, "analyst", tenantContext.tenantId, user.id);
         if (!ticket.firstResponseAt) store.update("tickets", ticket.id, { firstResponseAt: new Date().toISOString() });
         ticketService.addLog(ticket.id, tenantContext.tenantId, { type: "reply", note: `Analista enviou ${mediaType}`, actor: user.id });

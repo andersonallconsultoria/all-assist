@@ -66,6 +66,48 @@ export class WhatsAppMetaClient {
     }, this.config.http);
   }
 
+  // Envia mídia: faz upload do arquivo (obtém media_id) e envia a mensagem.
+  async sendMedia({ to, mediaType, mime, fileName, caption, buffer }) {
+    this.ensureConfigured();
+    if (!buffer || !buffer.length) throw new Error("Arquivo de mídia vazio");
+    const version = this.config.meta.graphVersion || "v23.0";
+    const uploadUrl = `https://graph.facebook.com/${version}/${this.config.meta.phoneNumberId}/media`;
+    const boundary = "----allassist" + crypto.randomBytes(8).toString("hex");
+    const head = Buffer.from(
+      `--${boundary}\r\nContent-Disposition: form-data; name="messaging_product"\r\n\r\nwhatsapp\r\n` +
+      `--${boundary}\r\nContent-Disposition: form-data; name="type"\r\n\r\n${mime}\r\n` +
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: ${mime}\r\n\r\n`, "utf8");
+    const tail = Buffer.from(`\r\n--${boundary}--\r\n`, "utf8");
+    const upRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.config.meta.accessToken}`, "Content-Type": `multipart/form-data; boundary=${boundary}` },
+      body: Buffer.concat([head, buffer, tail])
+    });
+    const upData = await upRes.json();
+    if (!upRes.ok || !upData.id) throw new Error("Falha no upload de mídia Meta: " + JSON.stringify(upData));
+
+    const type = ["image", "audio", "video", "document"].includes(mediaType) ? mediaType : "document";
+    const mediaObj = { id: upData.id };
+    if (type !== "audio" && caption) mediaObj.caption = caption;
+    if (type === "document" && fileName) mediaObj.filename = fileName;
+    return requestJson(this.messagesUrl(), {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: normalizeToE164(to), type, [type]: mediaObj })
+    }, this.config.http);
+  }
+
+  // Baixa uma mídia recebida (retorna { buffer, mime }).
+  async downloadMedia(mediaId) {
+    this.ensureConfigured();
+    const version = this.config.meta.graphVersion || "v23.0";
+    const metaRes = await fetch(`https://graph.facebook.com/${version}/${mediaId}`, { headers: { Authorization: `Bearer ${this.config.meta.accessToken}` } });
+    const meta = await metaRes.json();
+    if (!meta.url) throw new Error("Mídia não encontrada na Meta");
+    const fileRes = await fetch(meta.url, { headers: { Authorization: `Bearer ${this.config.meta.accessToken}` } });
+    return { buffer: Buffer.from(await fileRes.arrayBuffer()), mime: meta.mime_type || "application/octet-stream" };
+  }
+
   async markAsRead(messageId) {
     if (!messageId || !this.isConfigured()) return null;
     return requestJson(this.messagesUrl(), {

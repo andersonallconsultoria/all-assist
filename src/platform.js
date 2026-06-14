@@ -38,10 +38,10 @@ async function main() {
   const userOnboardingService = new UserOnboardingService(store, authService, config, logger);
   const whatsappClient = new WhatsAppMetaClient(config, logger);
   const evolutionInstanceService = new EvolutionInstanceService(store, logger);
-  const conversationService = new ConversationService(store, whatsappClient, logger, evolutionInstanceService);
+  const fileStore = new FileStore(path.join(path.dirname(config.crmDataFile || "data/crm.json"), "uploads"));
+  const conversationService = new ConversationService(store, whatsappClient, logger, evolutionInstanceService, fileStore);
   const ticketService = new TicketService(store, logger);
   const vaultService = new VaultService(store, logger);
-  const fileStore = new FileStore(path.join(path.dirname(config.crmDataFile || "data/crm.json"), "uploads"));
   const classifierAgent = new ClassifierAgent(config, logger);
   const assistantAgent = new AssistantAgent(config, logger);
 

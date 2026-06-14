@@ -5,11 +5,12 @@ const EVO_STATUS_MAP = { 0: "failed", 1: "sending", 2: "sent", 3: "delivered", 4
 const MSG_STATUS_ORDER = ["sending", "queued", "sent", "delivered", "read"];
 
 export class ConversationService {
-  constructor(store, whatsappClient, logger, evolutionInstanceService = null) {
+  constructor(store, whatsappClient, logger, evolutionInstanceService = null, fileStore = null) {
     this.store = store;
     this.whatsappClient = whatsappClient;
     this.logger = logger;
     this.evolutionInstanceService = evolutionInstanceService;
+    this.fileStore = fileStore;
   }
 
   updateMessageStatus(providerMessageId, newStatus) {
@@ -59,10 +60,27 @@ export class ConversationService {
         status: "waiting"
       });
 
+      // Mídia recebida: baixa em background e anexa à mensagem (não bloqueia o webhook).
+      if (event.media?.sourceId) this._fetchMetaInboundMedia(message.id, event.media);
+
       saved.push({ contact, conversation, message });
     }
 
     return saved;
+  }
+
+  // Baixa uma mídia recebida da Meta e anexa ao registro da mensagem.
+  async _fetchMetaInboundMedia(messageId, media) {
+    if (!this.fileStore || typeof this.whatsappClient?.downloadMedia !== "function") return;
+    try {
+      const { buffer, mime } = await this.whatsappClient.downloadMedia(media.sourceId);
+      const mediaId = `med_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 8)}`;
+      this.fileStore.save(mediaId, buffer);
+      this.store.update("messages", messageId, { mediaId, mediaMime: mime || media.mime, mediaName: media.name });
+      this.store.save?.();
+    } catch (error) {
+      this.logger?.warn?.("inbound_media_download_failed", { error: error.message });
+    }
   }
 
   async sendText(conversationId, body, actor = "user", tenantId = "", senderUserId = null) {
@@ -135,7 +153,7 @@ export class ConversationService {
   // Registra (e tenta enviar) uma mensagem de mídia já armazenada no fileStore.
   // O envio real pelo WhatsApp depende do provider suportar mídia e estar
   // conectado; se não, a mensagem fica registrada (status "queued").
-  async sendMedia(conversationId, { mediaId, mediaMime, mediaName, mediaType, caption = "" }, actor = "user", tenantId = "", senderUserId = null) {
+  async sendMedia(conversationId, { mediaId, mediaMime, mediaName, mediaType, caption = "", buffer = null }, actor = "user", tenantId = "", senderUserId = null) {
     const conversation = this.store.findById("conversations", conversationId);
     if (!conversation) throw new Error("Conversation not found");
     if (tenantId && conversation.tenantId !== tenantId) throw new Error("Conversation not found");
@@ -155,14 +173,16 @@ export class ConversationService {
         if (instance && instance.status === "connected") {
           const { EvolutionApiClient } = await import("./evolutionApiClient.js");
           const evoClient = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
-          if (typeof evoClient.sendMedia === "function") {
-            providerResponse = await evoClient.sendMedia(instance.instanceName, contact.phone, { mediaType, mime: mediaMime, fileName: mediaName, caption });
-            this.evolutionInstanceService.recordSent(instance.id);
-            status = "sent";
-          }
+          const delayMs = this.evolutionInstanceService.randomDelay(instance);
+          providerResponse = await evoClient.sendMedia(instance.instanceName, contact.phone, {
+            mediaType, mime: mediaMime, fileName: mediaName, caption,
+            base64: buffer ? buffer.toString("base64") : "", delayMs
+          });
+          this.evolutionInstanceService.recordSent(instance.id);
+          status = "sent";
         }
-      } else if (provider === "meta" && this.whatsappClient.isConfigured() && typeof this.whatsappClient.sendMedia === "function") {
-        providerResponse = await this.whatsappClient.sendMedia({ to: contact.phone, mediaType, mime: mediaMime, fileName: mediaName, caption });
+      } else if (provider === "meta" && this.whatsappClient.isConfigured()) {
+        providerResponse = await this.whatsappClient.sendMedia({ to: contact.phone, mediaType, mime: mediaMime, fileName: mediaName, caption, buffer });
         status = "sent";
       }
     } catch (error) {
@@ -368,6 +388,10 @@ export function extractMessageEvents(payload) {
 
       for (const message of value.messages || []) {
         const contact = contactByWaId.get(message.from) || {};
+        const mediaPart = message[message.type];
+        const media = mediaPart && mediaPart.id
+          ? { sourceId: mediaPart.id, mime: mediaPart.mime_type || "", name: mediaPart.filename || message.type }
+          : null;
         events.push({
           phoneNumberId: value.metadata?.phone_number_id || "",
           from: message.from,
@@ -375,6 +399,7 @@ export function extractMessageEvents(payload) {
           timestamp: message.timestamp ? new Date(Number(message.timestamp) * 1000).toISOString() : new Date().toISOString(),
           type: message.type,
           body: extractMessageBody(message),
+          media,
           profileName: contact.profile?.name || "",
           raw: message
         });

@@ -58,6 +58,26 @@ export class EvolutionApiClient {
     });
   }
 
+  async sendMedia(name, to, { mediaType, mime, fileName, caption, base64, delayMs = 1200 }) {
+    if (mediaType === "audio") {
+      return this._request("POST", `/message/sendWhatsAppAudio/${encodeURIComponent(name)}`, {
+        number: to,
+        audio: base64,
+        delay: delayMs
+      });
+    }
+    const mediatype = mediaType === "video" ? "video" : mediaType === "image" ? "image" : "document";
+    return this._request("POST", `/message/sendMedia/${encodeURIComponent(name)}`, {
+      number: to,
+      mediatype,
+      mimetype: mime,
+      media: base64,
+      fileName,
+      caption,
+      delay: delayMs
+    });
+  }
+
   async logout(name) {
     return this._request("DELETE", `/instance/logout/${encodeURIComponent(name)}`);
   }
