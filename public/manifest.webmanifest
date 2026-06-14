@@ -1,12 +1,12 @@
 {
-  "name": "Neurax CRM",
-  "short_name": "Neurax CRM",
-  "description": "CRM inteligente integrado ao ERP, WhatsApp e gestao de vendas.",
+  "name": "ALL Assist",
+  "short_name": "ALL Assist",
+  "description": "Plataforma de atendimento ao cliente via WhatsApp com agentes de IA.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#001b18",
-  "theme_color": "#00b894",
+  "background_color": "#16112e",
+  "theme_color": "#7c5cff",
   "orientation": "any",
   "icons": [
     {

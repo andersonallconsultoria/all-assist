@@ -11,3 +11,6 @@ payload-*.json
 
 # Claude Code - settings pessoais (não versionar)
 .claude/settings.local.json
+
+# Compose local (use docker-compose.example.yml como base)
+docker-compose.yml
