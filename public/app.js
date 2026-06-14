@@ -11,6 +11,7 @@ const state = {
   conversations: [],
   users: [],
   roles: [],
+  customers: [],
   support: null,
   contactsFilter: "all",
   usersFilter: "all",
@@ -115,6 +116,7 @@ document.querySelectorAll("nav a").forEach((link) => {
     if (link.getAttribute("href") === "#whatsapp-chat") renderWhatsAppChat();
     if (link.getAttribute("href") === "#tickets") renderTickets();
     if (link.getAttribute("href") === "#inbox") renderInbox();
+    if (link.getAttribute("href") === "#customers") renderCustomers();
   });
 });
 
@@ -535,13 +537,14 @@ async function loadAll() {
   state.context = me.context;
   renderNavigationPermissions();
 
-  const [dashboard, contacts, conversations, users, roles, tickets, support, waSettings] = await Promise.all([
+  const [dashboard, contacts, conversations, users, roles, tickets, customers, support, waSettings] = await Promise.all([
     api("/api/dashboard").catch(() => null),
     api("/api/contacts"),
     api("/api/conversations"),
     api("/api/users").catch(() => ({ data: [] })),
     api("/api/roles").catch(() => ({ data: [] })),
     hasPermission("tickets:view") ? api("/api/tickets").catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+    hasPermission("contacts:view") ? api("/api/customers").catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
     hasPermission("support:view") ? loadSupportData() : Promise.resolve(null),
     hasPermission("settings:manage") ? api("/api/whatsapp/settings").catch(() => null) : Promise.resolve(null)
   ]);
@@ -552,6 +555,7 @@ async function loadAll() {
   state.users = users.data || [];
   state.roles = roles.data || [];
   state.tickets = tickets.data || [];
+  state.customers = customers.data || [];
   state.support = support;
   state.waSettings = waSettings;
 
@@ -1760,6 +1764,12 @@ setInterval(async () => {
     document.getElementById("contactEditState").value = contact.state || "";
     document.getElementById("contactEditDocument").value = contact.document || "";
     document.getElementById("contactEditNotes").value = contact.notes || "";
+    const custSel = document.getElementById("contactEditCustomer");
+    if (custSel) {
+      custSel.innerHTML = `<option value="">— Sem cliente —</option>` +
+        (state.customers || []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("");
+      custSel.value = contact.customerId || "";
+    }
     errorEl.style.display = "none";
     overlay.style.display = "flex";
   }
@@ -1778,7 +1788,8 @@ setInterval(async () => {
       city: document.getElementById("contactEditCity").value.trim(),
       state: document.getElementById("contactEditState").value.trim(),
       document: document.getElementById("contactEditDocument").value.trim(),
-      notes: document.getElementById("contactEditNotes").value.trim()
+      notes: document.getElementById("contactEditNotes").value.trim(),
+      customerId: document.getElementById("contactEditCustomer")?.value || null
     };
     if (!payload.name) { errorEl.textContent = "Nome é obrigatório."; errorEl.style.display = ""; return; }
     saveBtn.disabled = true;
@@ -2418,6 +2429,79 @@ function wireTicketEvents() {
 
 wireTicketEvents();
 
+// ===== Clientes (empresas) =====
+function renderCustomers() {
+  const target = document.getElementById("customersContent");
+  if (!target) return;
+  const q = normalizeText(document.getElementById("customerSearch")?.value || "");
+  const items = (state.customers || []).filter((c) => !q || normalizeText(`${c.name} ${c.document}`).includes(q));
+  if (!items.length) {
+    target.innerHTML = `<div class="empty-state">Nenhum cliente cadastrado. Clique em "+ Novo cliente" para começar.</div>`;
+    return;
+  }
+  target.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Cliente</th><th>Contatos</th><th>Atendimentos</th><th>Horas</th><th>Valor/h</th><th></th></tr></thead>
+      <tbody>
+        ${items.map((c) => `
+          <tr>
+            <td><div class="table-name-cell"><span class="table-avatar">${escapeHtml(initials(c.name))}</span><div><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.document || "")}</small></div></div></td>
+            <td class="cell-muted">${c.contactsCount || 0}</td>
+            <td class="cell-muted">${c.ticketsCount || 0}${c.openTicketsCount ? ` <span class="badge badge-warning">${c.openTicketsCount} aberto${c.openTicketsCount > 1 ? "s" : ""}</span>` : ""}</td>
+            <td><strong>${formatDuration(c.totalSeconds || 0)}</strong></td>
+            <td class="cell-muted">${c.billing?.ratePerHour ? formatMoney(c.billing.ratePerHour) : "—"}${c.billing?.mode === "auto" ? ` <span class="badge badge-info">auto</span>` : ""}</td>
+            <td><button class="btn btn-sm customer-edit-btn" data-customer-id="${escapeHtml(c.id)}">Editar</button></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>
+    <div class="table-footer"><small>${items.length} cliente(s)</small></div>`;
+  target.querySelectorAll(".customer-edit-btn").forEach((b) =>
+    b.addEventListener("click", () => openCustomerModal((state.customers || []).find((c) => c.id === b.dataset.customerId)))
+  );
+}
+
+(function setupCustomerModal() {
+  const overlay = document.getElementById("customerOverlay");
+  if (!overlay) return;
+  let activeId = null;
+  const $ = (id) => document.getElementById(id);
+  window.openCustomerModal = (customer) => {
+    activeId = customer?.id || null;
+    $("customerModalTitle").textContent = customer ? "Editar cliente" : "Novo cliente";
+    $("customerName").value = customer?.name || "";
+    $("customerDocument").value = customer?.document || "";
+    $("customerBillingMode").value = customer?.billing?.mode || "manual";
+    $("customerRate").value = customer?.billing?.ratePerHour || "";
+    $("customerNotes").value = customer?.notes || "";
+    $("customerModalError").style.display = "none";
+    overlay.style.display = "flex";
+  };
+  const close = () => { overlay.style.display = "none"; activeId = null; };
+  $("customerCancel").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  $("newCustomerBtn")?.addEventListener("click", () => window.openCustomerModal(null));
+  $("customerSave").addEventListener("click", async () => {
+    const name = $("customerName").value.trim();
+    const err = $("customerModalError");
+    if (!name) { err.textContent = "Nome é obrigatório."; err.style.display = ""; return; }
+    const payload = {
+      name,
+      document: $("customerDocument").value.trim(),
+      notes: $("customerNotes").value.trim(),
+      billing: { mode: $("customerBillingMode").value, ratePerHour: Number($("customerRate").value) || 0 }
+    };
+    try {
+      if (activeId) await api(`/api/customers/${activeId}`, { method: "PATCH", body: JSON.stringify(payload) });
+      else await api("/api/customers", { method: "POST", body: JSON.stringify(payload) });
+      const res = await api("/api/customers").catch(() => ({ data: [] }));
+      state.customers = res.data || [];
+      close();
+      renderCustomers();
+      setStatus("Cliente salvo");
+    } catch (error) { err.textContent = error.message; err.style.display = ""; }
+  });
+})();
+
 // ===== Central de Atendimento (inbox) =====
 const QUICK_REPLIES = [
   "Olá! Sou do atendimento, como posso ajudar?",
@@ -2595,6 +2679,12 @@ function renderInboxContext(ticket) {
       <span class="avatar-lg">${escapeHtml(initials(ticket.contactName))}</span>
       <strong>${escapeHtml(ticket.contactName)}</strong>
       <small>${escapeHtml(ticket.contactPhone || "")}</small>
+      ${ticket.customerName
+        ? `<span class="ctx-customer-tag">🏢 ${escapeHtml(ticket.customerName)}</span>`
+        : (isClosed ? "" : `<select id="inboxCustomerSelect" class="search-input">
+            <option value="">🏢 Vincular a um cliente…</option>
+            ${(state.customers || []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
+          </select>`)}
     </div>
     <div class="ctx-section">
       <h4>Ticket</h4>
@@ -2610,6 +2700,9 @@ function renderInboxContext(ticket) {
       <h4>Tempo de atendimento</h4>
       <div class="timer-display" id="inboxTimerDisplay">${formatDuration(timerTotalSeconds(ticket.timeTracking))}</div>
       <div class="timer-state" id="inboxTimerState">${timerStateLabel(ticket.timeTracking)}</div>
+      ${ticket.customerBilling?.ratePerHour > 0
+        ? `<small class="timer-cost">${formatMoney((timerTotalSeconds(ticket.timeTracking) / 3600) * ticket.customerBilling.ratePerHour)} · ${formatMoney(ticket.customerBilling.ratePerHour)}/h</small>`
+        : ""}
       ${!isClosed ? `<div class="timer-controls">
         <button class="btn btn-secondary" data-timer="start" type="button" title="Iniciar">▶</button>
         <button class="btn btn-secondary" data-timer="pause" type="button" title="Pausar">⏸</button>
@@ -2642,8 +2735,25 @@ function renderInboxContext(ticket) {
     ctx.querySelectorAll("[data-inbox-status]").forEach((b) => b.addEventListener("click", () => inboxSetStatus(b.dataset.inboxStatus)));
     document.getElementById("inboxCloseBtn")?.addEventListener("click", inboxClose);
     ctx.querySelectorAll("[data-timer]").forEach((b) => b.addEventListener("click", () => inboxTimer(b.dataset.timer)));
+    document.getElementById("inboxCustomerSelect")?.addEventListener("change", (e) => inboxLinkCustomer(e.target.value));
   }
   startInboxTimerTick(ticket);
+}
+
+function formatMoney(value) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value) || 0);
+}
+
+async function inboxLinkCustomer(customerId) {
+  const ticket = state.inbox.activeTicket;
+  if (!ticket || !customerId || !ticket.contactId) return;
+  try {
+    await api(`/api/contacts/${ticket.contactId}`, { method: "PATCH", body: JSON.stringify({ customerId }) });
+    setStatus("Contato vinculado ao cliente");
+    await selectInboxTicket(ticket.id);
+  } catch (error) {
+    setStatus(`Erro ao vincular: ${error.message}`);
+  }
 }
 
 // ===== Cronômetro (display em tempo real) =====

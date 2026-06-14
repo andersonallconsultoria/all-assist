@@ -37,9 +37,13 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>
           Tickets (gestao)
         </a>
-        <a href="#contacts">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <a href="#customers" data-permission="contacts:view">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-4"></path><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"></path></svg>
           Clientes
+        </a>
+        <a href="#contacts" data-permission="contacts:view">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          Contatos
         </a>
         <div class="nav-section-label">WhatsApp</div>
         <a href="#wa-templates">
@@ -516,11 +520,30 @@
         </div>
       </section>
 
-      <section id="contacts" class="view">
+      <section id="customers" class="view">
         <div class="view-header">
           <div>
             <p class="eyebrow">ALL Assist</p>
             <h1>Clientes</h1>
+          </div>
+          <button id="newCustomerBtn" class="btn btn-primary" type="button" data-permission="contacts:write">+ Novo cliente</button>
+        </div>
+        <div class="table-toolbar">
+          <div class="table-toolbar-right">
+            <label class="kanban-search" style="min-width:260px">
+              <span>Buscar</span>
+              <input id="customerSearch" placeholder="Nome do cliente...">
+            </label>
+          </div>
+        </div>
+        <div id="customersContent"></div>
+      </section>
+
+      <section id="contacts" class="view">
+        <div class="view-header">
+          <div>
+            <p class="eyebrow">ALL Assist</p>
+            <h1>Contatos</h1>
           </div>
         </div>
         <div class="table-toolbar">
@@ -817,7 +840,7 @@
     <!-- Modal: Editar contato completo -->
     <div id="contactEditOverlay" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
       <div style="background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#2a2a3e);border-radius:14px;padding:24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)">
-        <h3 style="margin:0 0 16px;font-size:16px">Editar cliente</h3>
+        <h3 style="margin:0 0 16px;font-size:16px">Editar contato</h3>
         <div class="form-grid" style="gap:12px">
           <label style="display:block">
             <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Nome *</span>
@@ -844,6 +867,12 @@
             <input id="contactEditState" type="text" maxlength="2" placeholder="Ex: AM" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
           </label>
           <label style="display:block;grid-column:1/-1">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Cliente (empresa)</span>
+            <select id="contactEditCustomer" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px">
+              <option value="">— Sem cliente —</option>
+            </select>
+          </label>
+          <label style="display:block;grid-column:1/-1">
             <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Observacoes</span>
             <textarea id="contactEditNotes" rows="3" placeholder="Anotacoes internas..." style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:var(--input-bg,#0f0f23);color:inherit;font-size:14px;resize:vertical"></textarea>
           </label>
@@ -852,6 +881,43 @@
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
           <button id="contactEditCancel" type="button" style="padding:8px 16px;border-radius:8px;border:1px solid var(--border,#2a2a3e);background:transparent;color:inherit;cursor:pointer">Cancelar</button>
           <button id="contactEditSave" type="button" style="padding:8px 16px;border-radius:8px;border:none;background:var(--accent,#00d4a0);color:#000;font-weight:600;cursor:pointer">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Cliente (empresa) -->
+    <div id="customerOverlay" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+        <h3 id="customerModalTitle" style="margin:0 0 16px;font-size:16px">Novo cliente</h3>
+        <div class="form-grid" style="gap:12px">
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Nome da empresa *</span>
+            <input id="customerName" type="text" placeholder="Ex: Supermercado Big" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">CNPJ / CPF</span>
+            <input id="customerDocument" type="text" placeholder="Documento" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Cobrança</span>
+            <select id="customerBillingMode" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:14px">
+              <option value="manual">Manual — analista controla o cronômetro</option>
+              <option value="auto">Automático — conta enquanto em atendimento</option>
+            </select>
+          </label>
+          <label style="display:block">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Valor por hora (R$)</span>
+            <input id="customerRate" type="number" step="0.01" min="0" placeholder="0,00" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:14px">
+          </label>
+          <label style="display:block;grid-column:1/-1">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Observações</span>
+            <textarea id="customerNotes" rows="3" placeholder="Anotações sobre o cliente..." style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:14px;resize:vertical"></textarea>
+          </label>
+        </div>
+        <p id="customerModalError" style="color:#e74c3c;font-size:12px;margin:12px 0 0;display:none"></p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button id="customerCancel" type="button" style="padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:transparent;color:inherit;cursor:pointer">Cancelar</button>
+          <button id="customerSave" type="button" style="padding:8px 16px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-weight:600;cursor:pointer">Salvar</button>
         </div>
       </div>
     </div>
