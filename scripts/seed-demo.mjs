@@ -43,9 +43,11 @@ for (const c of customerDefs) {
 // Cofre de acessos de exemplo (criptografado)
 const vault = new VaultService(store, { debug() {}, info() {}, warn() {}, error() {} });
 const credDefs = [
-  { cust: "superbig", label: "Banco de dados ERP", type: "database", host: "192.168.0.10", port: "5432", database: "erp_prod", username: "consulta", password: "Big@2026db" },
-  { cust: "superbig", label: "Servidor (RDP)", type: "server", host: "187.10.20.30", port: "3389", username: "administrador", password: "Rdp#Big2026" },
-  { cust: "verdi", label: "Banco SQL Verdi", type: "database", host: "10.0.0.5", port: "1433", database: "VERDI", username: "sa", password: "Verdi$2026" }
+  { cust: "superbig", category: "access", label: "Banco de dados ERP", type: "database", host: "192.168.0.10", port: "5432", database: "erp_prod", username: "consulta", password: "Big@2026db" },
+  { cust: "superbig", category: "connection", label: "Servidor (RDP)", type: "rdp", host: "187.10.20.30", port: "3389", username: "administrador", password: "Rdp#Big2026" },
+  { cust: "superbig", category: "connection", label: "TeamViewer Loja 01", type: "teamviewer", accessId: "1 234 567 890", password: "tvBig2026" },
+  { cust: "verdi", category: "access", label: "Banco SQL Verdi", type: "database", host: "10.0.0.5", port: "1433", database: "VERDI", username: "sa", password: "Verdi$2026" },
+  { cust: "verdi", category: "connection", label: "AnyDesk Caixa", type: "anydesk", accessId: "987 654 321", password: "adVerdi2026" }
 ];
 for (const cd of credDefs) {
   const cust = customers[cd.cust];

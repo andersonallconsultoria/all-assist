@@ -2535,7 +2535,12 @@ function renderCustomers() {
 
 // ===== Cofre de acessos (credenciais por cliente) =====
 const vaultState = { customerId: null, customerName: "", list: [] };
-const VAULT_TYPE_LABELS = { database: "Banco de dados", server: "Servidor", erp: "ERP", ftp: "FTP", api: "API", other: "Outro" };
+const VAULT_TYPE_LABELS = {
+  database: "Banco de dados", server: "Servidor", erp: "ERP", ftp: "FTP", api: "API", other: "Outro",
+  rdp: "RDP", teamviewer: "TeamViewer", anydesk: "AnyDesk", vnc: "VNC", ssh: "SSH"
+};
+const VAULT_ACCESS_TYPES = ["database", "server", "erp", "ftp", "api", "other"];
+const VAULT_CONNECTION_TYPES = ["rdp", "teamviewer", "anydesk", "vnc", "ssh", "other"];
 
 async function openVault(customerId, customerName) {
   if (!customerId) { setStatus("Vincule o contato a um cliente primeiro"); return; }
@@ -2559,13 +2564,8 @@ async function loadVaultList() {
   renderVaultFooter();
 }
 
-function renderVaultList() {
-  const el = document.getElementById("vaultList");
-  if (!vaultState.list.length) {
-    el.innerHTML = `<div class="inbox-empty small"><p>Nenhum acesso cadastrado para este cliente.</p></div>`;
-    return;
-  }
-  el.innerHTML = vaultState.list.map((c) => `
+function vaultItemHtml(c) {
+  return `
     <div class="vault-item">
       <div class="vault-item-head">
         <div><strong>${escapeHtml(c.label)}</strong><small>${escapeHtml(VAULT_TYPE_LABELS[c.type] || c.type || "Acesso")}</small></div>
@@ -2575,7 +2575,21 @@ function renderVaultList() {
         </div>
       </div>
       <div class="vault-item-detail" id="vaultDetail-${c.id}"></div>
-    </div>`).join("");
+    </div>`;
+}
+
+function renderVaultList() {
+  const el = document.getElementById("vaultList");
+  if (!vaultState.list.length) {
+    el.innerHTML = `<div class="inbox-empty small"><p>Nada cadastrado para este cliente ainda.</p></div>`;
+    return;
+  }
+  const acessos = vaultState.list.filter((c) => (c.category || "access") === "access");
+  const conexoes = vaultState.list.filter((c) => c.category === "connection");
+  const section = (titulo, itens) => itens.length
+    ? `<div class="vault-group-title">${titulo}</div>${itens.map(vaultItemHtml).join("")}`
+    : "";
+  el.innerHTML = section("🔑 Acessos", acessos) + section("🖥️ Conexões remotas", conexoes);
   el.querySelectorAll("[data-vault-reveal]").forEach((b) => b.addEventListener("click", () => revealVaultCred(b.dataset.vaultReveal)));
   el.querySelectorAll("[data-vault-del]").forEach((b) => b.addEventListener("click", () => deleteVaultCred(b.dataset.vaultDel)));
 }
@@ -2586,7 +2600,7 @@ async function revealVaultCred(id) {
   detail.innerHTML = "Carregando...";
   try {
     const c = await api(`/api/credentials/${id}/reveal`);
-    const rows = [["Host", c.host], ["Porta", c.port], ["Banco", c.database], ["Usuário", c.username], ["Senha", c.password], ["URL", c.url], ["Notas", c.notes]].filter(([, v]) => v);
+    const rows = [["ID/Endereço", c.accessId], ["Host", c.host], ["Porta", c.port], ["Banco", c.database], ["Usuário", c.username], ["Senha", c.password], ["URL", c.url], ["Notas", c.notes]].filter(([, v]) => v);
     detail.innerHTML = rows.length ? rows.map(([k, v]) => `
       <div class="vault-field">
         <span class="vault-field-label">${k}</span>
@@ -2611,14 +2625,24 @@ function renderVaultFooter() {
   document.getElementById("vaultAddBtn").addEventListener("click", showVaultForm);
 }
 
+function vaultTypeOptions(category) {
+  const list = category === "connection" ? VAULT_CONNECTION_TYPES : VAULT_ACCESS_TYPES;
+  return list.map((k) => `<option value="${k}">${VAULT_TYPE_LABELS[k]}</option>`).join("");
+}
+
 function showVaultForm() {
   const el = document.getElementById("vaultFooter");
   el.innerHTML = `
     <div class="vault-form">
-      <input id="vfLabel" class="search-input" placeholder="Rótulo (ex: Banco de produção) *">
-      <select id="vfType" class="search-input">
-        ${Object.entries(VAULT_TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
+      <select id="vfCategory" class="search-input">
+        <option value="access">🔑 Acesso (credencial / banco)</option>
+        <option value="connection">🖥️ Conexão remota (RDP, TeamViewer, AnyDesk)</option>
       </select>
+      <input id="vfLabel" class="search-input" placeholder="Rótulo (ex: Banco de produção) *">
+      <select id="vfType" class="search-input">${vaultTypeOptions("access")}</select>
+      <div id="vfConnFields" style="display:none;flex-direction:column;gap:8px">
+        <input id="vfAccessId" class="search-input" placeholder="ID / Endereço (TeamViewer, AnyDesk)">
+      </div>
       <input id="vfHost" class="search-input" placeholder="Host / IP">
       <input id="vfPort" class="search-input" placeholder="Porta">
       <input id="vfDatabase" class="search-input" placeholder="Banco / instância">
@@ -2628,17 +2652,25 @@ function showVaultForm() {
       <textarea id="vfNotes" class="search-input" rows="2" placeholder="Notas (opcional)"></textarea>
       <div class="vault-form-actions">
         <button class="btn btn-secondary" id="vfCancel" type="button">Cancelar</button>
-        <button class="btn btn-primary" id="vfSave" type="button">Salvar acesso</button>
+        <button class="btn btn-primary" id="vfSave" type="button">Salvar</button>
       </div>
     </div>`;
+  const catSel = document.getElementById("vfCategory");
+  const applyCategory = () => {
+    const isConn = catSel.value === "connection";
+    document.getElementById("vfType").innerHTML = vaultTypeOptions(catSel.value);
+    document.getElementById("vfConnFields").style.display = isConn ? "flex" : "none";
+    document.getElementById("vfDatabase").style.display = isConn ? "none" : "";
+  };
+  catSel.addEventListener("change", applyCategory);
   document.getElementById("vfCancel").addEventListener("click", renderVaultFooter);
   document.getElementById("vfSave").addEventListener("click", saveVaultCred);
 }
 
 async function saveVaultCred() {
   const g = (id) => document.getElementById(id).value.trim();
-  if (!g("vfLabel")) { setStatus("Informe o rótulo do acesso"); return; }
-  const payload = { label: g("vfLabel"), type: document.getElementById("vfType").value, host: g("vfHost"), port: g("vfPort"), database: g("vfDatabase"), username: g("vfUsername"), password: g("vfPassword"), url: g("vfUrl"), notes: g("vfNotes") };
+  if (!g("vfLabel")) { setStatus("Informe o rótulo"); return; }
+  const payload = { category: document.getElementById("vfCategory").value, label: g("vfLabel"), type: document.getElementById("vfType").value, accessId: g("vfAccessId"), host: g("vfHost"), port: g("vfPort"), database: g("vfDatabase"), username: g("vfUsername"), password: g("vfPassword"), url: g("vfUrl"), notes: g("vfNotes") };
   try {
     await api(`/api/customers/${vaultState.customerId}/credentials`, { method: "POST", body: JSON.stringify(payload) });
     setStatus("Acesso salvo");

@@ -33,7 +33,8 @@ function decrypt(blob) {
   return JSON.parse(out.toString("utf8"));
 }
 
-const SECRET_FIELDS = ["host", "port", "database", "username", "password", "url", "notes"];
+// accessId cobre ID/endereço de conexões remotas (TeamViewer, AnyDesk, etc.).
+const SECRET_FIELDS = ["host", "port", "database", "username", "password", "url", "accessId", "notes"];
 
 export class VaultService {
   constructor(store, logger) {
@@ -43,7 +44,7 @@ export class VaultService {
 
   // Metadados visíveis na listagem (sem segredos).
   _publicView(cred) {
-    return { id: cred.id, tenantId: cred.tenantId, customerId: cred.customerId, label: cred.label, type: cred.type, createdAt: cred.createdAt, updatedAt: cred.updatedAt };
+    return { id: cred.id, tenantId: cred.tenantId, customerId: cred.customerId, label: cred.label, category: cred.category || "access", type: cred.type, createdAt: cred.createdAt, updatedAt: cred.updatedAt };
   }
 
   listByCustomer(tenantId, customerId) {
@@ -63,6 +64,7 @@ export class VaultService {
       tenantId,
       customerId,
       label,
+      category: body.category === "connection" ? "connection" : "access",
       type: String(body.type || "database"),
       secret: encrypt(secret),
       createdBy: actor
@@ -75,6 +77,7 @@ export class VaultService {
     if (!cred || cred.tenantId !== tenantId) throw new Error("Credencial não encontrada");
     const patch = {};
     if (body.label !== undefined) patch.label = String(body.label).trim();
+    if (body.category !== undefined) patch.category = body.category === "connection" ? "connection" : "access";
     if (body.type !== undefined) patch.type = String(body.type);
     // Reescreve o segredo apenas se algum campo sensível veio no corpo.
     if (SECRET_FIELDS.some((f) => body[f] !== undefined)) {

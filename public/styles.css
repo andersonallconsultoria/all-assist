@@ -3801,6 +3801,8 @@ nav a.active::after {
 .ctx-customer-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; }
 
 /* Cofre de acessos */
+.vault-group-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 10px 0 2px; font-weight: 700; }
+.vault-group-title:first-child { margin-top: 0; }
 .vault-item { border: 1px solid var(--line); border-radius: 11px; padding: 12px; }
 .vault-item-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .vault-item-head small { display: block; color: var(--muted); font-size: 11px; }
