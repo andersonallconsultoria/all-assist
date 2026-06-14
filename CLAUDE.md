@@ -197,6 +197,10 @@ node --test test/tenantIsolation.test.js
 # Smoke test do frontend (carrega public/app.js num DOM falso e verifica
 # que o boot não toca elementos removidos) — rode após mexer no app.js
 node test/smoke-frontend.mjs
+
+# Popular atendimentos de exemplo para visualizar a Central (idempotente).
+# Pare o servidor/container antes; suba depois. Limpa o que criou ao rerodar.
+node scripts/seed-demo.mjs
 ```
 
 Copie `.env.example` para `.env` antes de rodar. Requer Node.js >= 20.

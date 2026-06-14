@@ -18,7 +18,8 @@ const state = {
   waSettings: null,
   tickets: [],
   ticketAnalysts: [],
-  activeTicket: null
+  activeTicket: null,
+  inbox: { tab: "mine", activeId: null, search: "", activeTicket: null }
 };
 
 const FIELD_LABELS = {
@@ -113,6 +114,7 @@ document.querySelectorAll("nav a").forEach((link) => {
     document.getElementById("pageTitle").textContent = link.textContent.trim();
     if (link.getAttribute("href") === "#whatsapp-chat") renderWhatsAppChat();
     if (link.getAttribute("href") === "#tickets") renderTickets();
+    if (link.getAttribute("href") === "#inbox") renderInbox();
   });
 });
 
@@ -2418,6 +2420,280 @@ function wireTicketEvents() {
 }
 
 wireTicketEvents();
+
+// ===== Central de Atendimento (inbox) =====
+const QUICK_REPLIES = [
+  "Olá! Sou do atendimento, como posso ajudar?",
+  "Um momento, por favor — já estou verificando.",
+  "Obrigado pelo contato! Posso ajudar em mais alguma coisa?",
+  "Registrei seu atendimento, retornaremos em breve."
+];
+
+function inboxFilteredTickets() {
+  const { tab, search } = state.inbox;
+  const priority = document.getElementById("inboxPriority")?.value || "";
+  const category = document.getElementById("inboxCategory")?.value || "";
+  const myId = state.currentUser?.id;
+  const q = normalizeText(search || "");
+
+  return (state.tickets || [])
+    .filter((t) => t.status !== "closed")
+    .filter((t) => {
+      if (tab === "mine") return t.assignedAnalystId === myId;
+      if (tab === "unassigned") return !t.assignedAnalystId;
+      return true;
+    })
+    .filter((t) => !priority || t.priority === priority)
+    .filter((t) => !category || t.category === category)
+    .filter((t) => !q || normalizeText(`${t.contactName} ${t.contactPhone} ${t.subject}`).includes(q))
+    .sort((a, b) => {
+      const order = { critical: 0, high: 1, medium: 2, low: 3 };
+      const d = (order[a.priority] ?? 9) - (order[b.priority] ?? 9);
+      return d !== 0 ? d : new Date(b.openedAt) - new Date(a.openedAt);
+    });
+}
+
+async function renderInbox() {
+  const queue = document.getElementById("inboxQueue");
+  if (!queue) return;
+  await loadTicketAnalysts();
+  try {
+    const res = await api("/api/tickets");
+    state.tickets = res.data || [];
+  } catch (error) {
+    queue.innerHTML = `<div class="inbox-empty small">Erro ao carregar: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  renderInboxQueue();
+  updateInboxBadge();
+}
+
+function updateInboxBadge() {
+  const myId = state.currentUser?.id;
+  const mine = (state.tickets || []).filter((t) => t.status !== "closed" && t.assignedAnalystId === myId).length;
+  const badge = document.getElementById("inboxBadge");
+  if (badge) { badge.textContent = mine; badge.style.display = mine > 0 ? "" : "none"; }
+}
+
+function renderInboxQueue() {
+  const queue = document.getElementById("inboxQueue");
+  if (!queue) return;
+  // contadores nas abas
+  const myId = state.currentUser?.id;
+  const open = (state.tickets || []).filter((t) => t.status !== "closed");
+  const counts = {
+    mine: open.filter((t) => t.assignedAnalystId === myId).length,
+    unassigned: open.filter((t) => !t.assignedAnalystId).length,
+    all: open.length
+  };
+  document.querySelectorAll(".inbox-tab").forEach((tab) => {
+    const k = tab.dataset.inboxTab;
+    const base = { mine: "Meus", unassigned: "Novos", all: "Todos" }[k];
+    tab.textContent = `${base} ${counts[k] ? `(${counts[k]})` : ""}`.trim();
+    tab.classList.toggle("active", k === state.inbox.tab);
+  });
+
+  const items = inboxFilteredTickets();
+  if (!items.length) {
+    queue.innerHTML = `<div class="inbox-empty small"><p>Nenhum atendimento nesta fila.</p></div>`;
+    return;
+  }
+  queue.innerHTML = items.map(inboxQueueItemHtml).join("");
+  queue.querySelectorAll("[data-inbox-id]").forEach((el) => {
+    el.classList.toggle("active", el.dataset.inboxId === state.inbox.activeId);
+    el.addEventListener("click", () => selectInboxTicket(el.dataset.inboxId));
+  });
+}
+
+function inboxQueueItemHtml(t) {
+  const prio = TICKET_PRIORITY_BADGE[t.priority] || "badge-neutral";
+  return `
+    <div class="inbox-queue-item" data-inbox-id="${t.id}">
+      <span class="avatar-mini">${escapeHtml(initials(t.contactName))}</span>
+      <div class="iqi-body">
+        <div class="iqi-top">
+          <strong>${escapeHtml(t.contactName)}</strong>
+          <span class="iqi-time">${ticketTimeOpen(t.openedAt)}</span>
+        </div>
+        <div class="iqi-sub">${escapeHtml(t.subject || "")}</div>
+        <div class="iqi-tags">
+          <span class="badge ${prio}">${escapeHtml(TICKET_PRIORITY_LABELS[t.priority] || t.priority)}</span>
+          <span class="badge badge-neutral">${escapeHtml(TICKET_CATEGORY_LABELS[t.category] || t.category)}</span>
+          ${!t.assignedAnalystId ? `<span class="badge badge-warning">novo</span>` : ""}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function selectInboxTicket(id) {
+  state.inbox.activeId = id;
+  renderInboxQueue();
+  document.getElementById("inboxChat").innerHTML = `<div class="inbox-empty small"><p>Carregando...</p></div>`;
+  document.getElementById("inboxChatHeader").hidden = true;
+  document.getElementById("inboxReplyBox").hidden = true;
+  try {
+    const ticket = await api(`/api/tickets/${id}`);
+    state.inbox.activeTicket = ticket;
+    renderInboxHeader(ticket);
+    renderInboxChat(ticket);
+    renderInboxContext(ticket);
+  } catch (error) {
+    document.getElementById("inboxChat").innerHTML = `<div class="inbox-empty small"><p>Erro: ${escapeHtml(error.message)}</p></div>`;
+  }
+}
+
+function renderInboxHeader(ticket) {
+  const header = document.getElementById("inboxChatHeader");
+  header.hidden = false;
+  header.innerHTML = `
+    <span class="avatar-mini">${escapeHtml(initials(ticket.contactName))}</span>
+    <div class="ich-info">
+      <strong>${escapeHtml(ticket.contactName)}</strong>
+      <small>${escapeHtml(ticket.contactPhone || "")}</small>
+    </div>
+    <div class="ich-tags">
+      <span class="badge ${TICKET_PRIORITY_BADGE[ticket.priority] || "badge-neutral"}">${TICKET_PRIORITY_LABELS[ticket.priority] || ticket.priority}</span>
+      <span class="badge badge-neutral">${TICKET_STATUS_LABELS[ticket.status] || ticket.status}</span>
+    </div>`;
+}
+
+function renderInboxChat(ticket) {
+  const chat = document.getElementById("inboxChat");
+  const messages = ticket.conversation?.messages || [];
+  chat.innerHTML = messages.length
+    ? messages.map((m) => `
+        <div class="message ${m.direction}">
+          <p>${escapeHtml(m.body)}</p>
+          <div class="msg-meta">
+            <small>${formatDateTime(m.createdAt)}</small>
+            ${m.direction === "outbound" ? renderMsgStatus(m.status) : ""}
+          </div>
+        </div>`).join("")
+    : `<div class="inbox-empty small"><p>Sem mensagens nesta conversa ainda.</p></div>`;
+  chat.scrollTop = chat.scrollHeight;
+
+  const replyBox = document.getElementById("inboxReplyBox");
+  replyBox.hidden = ticket.status === "closed";
+  const quick = document.getElementById("inboxQuickReplies");
+  quick.innerHTML = QUICK_REPLIES.map((r, i) => `<button class="quick-reply-chip" data-quick="${i}" type="button">${escapeHtml(r.length > 32 ? r.slice(0, 30) + "…" : r)}</button>`).join("");
+  quick.querySelectorAll("[data-quick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = document.getElementById("inboxReplyText");
+      input.value = QUICK_REPLIES[Number(btn.dataset.quick)];
+      input.focus();
+    });
+  });
+}
+
+function renderInboxContext(ticket) {
+  const ctx = document.getElementById("inboxContext");
+  const ai = ticket.aiClassification;
+  const analystOptions = state.ticketAnalysts.map((a) =>
+    `<option value="${a.id}" ${a.id === ticket.assignedAnalystId ? "selected" : ""}>${escapeHtml(a.name)}</option>`
+  ).join("");
+  const isClosed = ticket.status === "closed";
+
+  ctx.innerHTML = `
+    <div class="ctx-section ctx-client">
+      <span class="avatar-lg">${escapeHtml(initials(ticket.contactName))}</span>
+      <strong>${escapeHtml(ticket.contactName)}</strong>
+      <small>${escapeHtml(ticket.contactPhone || "")}</small>
+    </div>
+    <div class="ctx-section">
+      <h4>Ticket</h4>
+      <p class="ctx-subject">${escapeHtml(ticket.subject || "")}</p>
+      <div class="ctx-badges">
+        <span class="badge ${TICKET_PRIORITY_BADGE[ticket.priority] || "badge-neutral"}">${TICKET_PRIORITY_LABELS[ticket.priority] || ticket.priority}</span>
+        <span class="badge badge-info">${TICKET_CATEGORY_LABELS[ticket.category] || ticket.category}</span>
+        <span class="badge badge-neutral">${TICKET_STATUS_LABELS[ticket.status] || ticket.status}</span>
+      </div>
+      <small class="ctx-meta">Aberto há ${ticketTimeOpen(ticket.openedAt)}</small>
+    </div>
+    ${ai ? `<div class="ctx-section ctx-ai">
+      <h4>🤖 Classificação IA <span class="ctx-confidence">${Math.round((ai.confidence || 0) * 100)}%</span></h4>
+      <p>${escapeHtml(ai.reasoning || "—")}</p>
+    </div>` : ""}
+    ${isClosed ? `<div class="ctx-section"><span class="badge badge-success">Atendimento encerrado</span></div>` : `
+    <div class="ctx-section ctx-actions">
+      <h4>Ações</h4>
+      <label class="ctx-field">
+        <span>Analista responsável</span>
+        <select id="inboxAssignSelect" class="search-input">
+          <option value="">— Não atribuído —</option>
+          ${analystOptions}
+        </select>
+      </label>
+      <div class="ctx-status-row">
+        <button class="btn btn-secondary ${ticket.status === "waiting_customer" ? "active" : ""}" data-inbox-status="waiting_customer" type="button">Aguardar cliente</button>
+        <button class="btn btn-secondary ${ticket.status === "waiting_analyst" ? "active" : ""}" data-inbox-status="waiting_analyst" type="button">Aguardar analista</button>
+      </div>
+      <button id="inboxCloseBtn" class="btn btn-danger" type="button">Encerrar atendimento</button>
+    </div>`}`;
+
+  if (!isClosed) {
+    document.getElementById("inboxAssignSelect")?.addEventListener("change", (e) => inboxAssign(e.target.value || null));
+    ctx.querySelectorAll("[data-inbox-status]").forEach((b) => b.addEventListener("click", () => inboxSetStatus(b.dataset.inboxStatus)));
+    document.getElementById("inboxCloseBtn")?.addEventListener("click", inboxClose);
+  }
+}
+
+async function inboxAction(path, body, successMsg) {
+  try {
+    await api(path, { method: "POST", body: JSON.stringify(body || {}) });
+    if (successMsg) setStatus(successMsg);
+    await renderInbox();
+    if (state.inbox.activeId) await selectInboxTicket(state.inbox.activeId);
+  } catch (error) {
+    setStatus(`Erro: ${error.message}`);
+  }
+}
+
+async function inboxReply() {
+  const ticket = state.inbox.activeTicket;
+  if (!ticket) return;
+  const input = document.getElementById("inboxReplyText");
+  const body = input.value.trim();
+  if (!body) return;
+  input.value = "";
+  input.style.height = "auto";
+  await inboxAction(`/api/tickets/${ticket.id}/messages`, { body }, "Mensagem enviada");
+}
+
+async function inboxAssign(analystId) {
+  if (!state.inbox.activeId) return;
+  await inboxAction(`/api/tickets/${state.inbox.activeId}/assign`, { analystId }, "Atendimento atribuído");
+}
+
+async function inboxSetStatus(status) {
+  if (!state.inbox.activeId) return;
+  await inboxAction(`/api/tickets/${state.inbox.activeId}/status`, { status }, "Status atualizado");
+}
+
+async function inboxClose() {
+  if (!state.inbox.activeId) return;
+  const note = window.prompt("Nota de encerramento (opcional):", "") ?? "";
+  await inboxAction(`/api/tickets/${state.inbox.activeId}/close`, { closureNote: note }, "Atendimento encerrado");
+}
+
+function wireInboxEvents() {
+  document.querySelectorAll(".inbox-tab").forEach((tab) => {
+    tab.addEventListener("click", () => { state.inbox.tab = tab.dataset.inboxTab; renderInboxQueue(); });
+  });
+  document.getElementById("inboxSearch")?.addEventListener("input", (e) => { state.inbox.search = e.target.value; renderInboxQueue(); });
+  document.getElementById("inboxPriority")?.addEventListener("change", renderInboxQueue);
+  document.getElementById("inboxCategory")?.addEventListener("change", renderInboxQueue);
+  document.getElementById("inboxReplyBtn")?.addEventListener("click", inboxReply);
+  const replyInput = document.getElementById("inboxReplyText");
+  replyInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); inboxReply(); }
+  });
+  replyInput?.addEventListener("input", () => {
+    replyInput.style.height = "auto";
+    replyInput.style.height = Math.min(replyInput.scrollHeight, 120) + "px";
+  });
+}
+
+wireInboxEvents();
 
 loadAll().then(() => {
   const hash = window.location.hash;
