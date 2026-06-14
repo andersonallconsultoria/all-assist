@@ -2752,15 +2752,11 @@ function showVaultForm() {
       </select>
       <input id="vfLabel" class="search-input" placeholder="Rótulo (ex: Banco de produção) *">
       <select id="vfType" class="search-input">${vaultTypeOptions("access")}</select>
-      <div id="vfConnFields" style="display:none;flex-direction:column;gap:8px">
-        <input id="vfAccessId" class="search-input" placeholder="ID / Endereço (TeamViewer, AnyDesk)">
-      </div>
-      <input id="vfHost" class="search-input" placeholder="Host / IP">
-      <input id="vfPort" class="search-input" placeholder="Porta">
-      <input id="vfDatabase" class="search-input" placeholder="Banco / instância">
+      <input id="vfAccessId" class="search-input vf-conn" placeholder="ID / Endereço (TeamViewer, AnyDesk)">
+      <input id="vfHost" class="search-input vf-conn" placeholder="Host / IP">
+      <input id="vfPort" class="search-input vf-conn" placeholder="Porta">
       <input id="vfUsername" class="search-input" placeholder="Usuário">
       <input id="vfPassword" class="search-input" placeholder="Senha">
-      <input id="vfUrl" class="search-input" placeholder="URL (opcional)">
       <textarea id="vfNotes" class="search-input" rows="2" placeholder="Notas (opcional)"></textarea>
       <div class="vault-form-actions">
         <button class="btn btn-secondary" id="vfCancel" type="button">Cancelar</button>
@@ -2771,10 +2767,11 @@ function showVaultForm() {
   const applyCategory = () => {
     const isConn = catSel.value === "connection";
     document.getElementById("vfType").innerHTML = vaultTypeOptions(catSel.value);
-    document.getElementById("vfConnFields").style.display = isConn ? "flex" : "none";
-    document.getElementById("vfDatabase").style.display = isConn ? "none" : "";
+    // Campos de rede só para conexões remotas; acessos pedem apenas usuário e senha.
+    el.querySelectorAll(".vf-conn").forEach((f) => { f.style.display = isConn ? "" : "none"; });
   };
   catSel.addEventListener("change", applyCategory);
+  applyCategory();
   document.getElementById("vfCancel").addEventListener("click", renderVaultFooter);
   document.getElementById("vfSave").addEventListener("click", saveVaultCred);
 }
@@ -2782,7 +2779,19 @@ function showVaultForm() {
 async function saveVaultCred() {
   const g = (id) => document.getElementById(id).value.trim();
   if (!g("vfLabel")) { setStatus("Informe o rótulo"); return; }
-  const payload = { category: document.getElementById("vfCategory").value, label: g("vfLabel"), type: document.getElementById("vfType").value, accessId: g("vfAccessId"), host: g("vfHost"), port: g("vfPort"), database: g("vfDatabase"), username: g("vfUsername"), password: g("vfPassword"), url: g("vfUrl"), notes: g("vfNotes") };
+  const isConn = document.getElementById("vfCategory").value === "connection";
+  const payload = {
+    category: isConn ? "connection" : "access",
+    label: g("vfLabel"),
+    type: document.getElementById("vfType").value,
+    username: g("vfUsername"),
+    password: g("vfPassword"),
+    notes: g("vfNotes"),
+    // dados de rede apenas para conexões remotas
+    accessId: isConn ? g("vfAccessId") : "",
+    host: isConn ? g("vfHost") : "",
+    port: isConn ? g("vfPort") : ""
+  };
   try {
     await api(`/api/customers/${vaultState.customerId}/credentials`, { method: "POST", body: JSON.stringify(payload) });
     setStatus("Acesso salvo");
