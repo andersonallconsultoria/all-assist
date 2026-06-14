@@ -3800,6 +3800,18 @@ nav a.active::after {
 .timer-cost { text-align: center; font-size: 12px; color: var(--accent-strong); font-weight: 700; }
 .ctx-customer-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft); padding: 4px 10px; border-radius: 999px; }
 
+/* Base de conhecimento — anexos e apoio IA */
+.kb-att-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+.kb-att-list { display: flex; flex-direction: column; gap: 6px; }
+.kb-att-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.kb-att-item a { color: var(--accent-strong); text-decoration: none; flex: 1; }
+.ctx-assist #inboxAssistResult { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.assist-guidance { font-size: 12px; color: var(--ink); margin: 0 0 4px; line-height: 1.5; background: var(--accent-soft); padding: 8px; border-radius: 8px; }
+.assist-item { border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; cursor: pointer; display: flex; flex-direction: column; }
+.assist-item:hover { border-color: var(--accent); }
+.assist-item strong { font-size: 12px; }
+.assist-item small { font-size: 11px; color: var(--muted); }
+
 /* Base de conhecimento */
 .kb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .kb-card { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 14px; cursor: pointer; transition: border-color .15s, transform .15s; }

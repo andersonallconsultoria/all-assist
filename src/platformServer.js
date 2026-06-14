@@ -4,7 +4,7 @@ import path from "node:path";
 import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
 
-export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, classifierAgent }) {
+export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, fileStore, classifierAgent, assistantAgent }) {
   const publicDir = path.resolve("public");
 
   const server = http.createServer(async (request, response) => {
@@ -143,6 +143,23 @@ export function startPlatformServer({ config, logger, store, conversationService
       }
 
       // ===== Base de conhecimento =====
+      if (request.method === "POST" && parsedUrl.pathname === "/api/kb/assist") {
+        if (!requirePermission(response, authService, user, "kb:view")) return;
+        const body = await readJson(request);
+        const message = String(body.message || "").trim();
+        if (!message) return sendJson(response, 400, { error: "message_required" });
+        const articles = store.findAll("kbArticles", (a) => a.tenantId === tenantContext.tenantId).map((a) => ({
+          id: a.id,
+          title: a.title,
+          category: a.category,
+          tags: a.tags,
+          content: a.content,
+          attachmentsText: (a.attachments || []).map((x) => `${x.name} ${x.textExtract || ""}`).join(" ").slice(0, 2000)
+        }));
+        const result = await assistantAgent.suggest({ message, articles });
+        return sendJson(response, 200, result);
+      }
+
       if (request.method === "GET" && parsedUrl.pathname === "/api/kb") {
         if (!requirePermission(response, authService, user, "kb:view")) return;
         const q = normalizeSearch(parsedUrl.searchParams.get("q") || "");
@@ -188,9 +205,62 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (!requirePermission(response, authService, user, "kb:manage")) return;
         const article = store.findById("kbArticles", kbItemMatch[1]);
         if (!article || article.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "article_not_found" });
+        for (const att of article.attachments || []) fileStore.remove(att.id);
         store.remove("kbArticles", article.id);
         store.save();
         return sendJson(response, 200, { ok: true });
+      }
+
+      // Upload de anexo (PDF, TXT, docs, vídeo) — base64 no corpo JSON
+      const kbUploadMatch = parsedUrl.pathname.match(/^\/api\/kb\/([^/]+)\/files$/);
+      if (request.method === "POST" && kbUploadMatch) {
+        if (!requirePermission(response, authService, user, "kb:manage")) return;
+        const article = store.findById("kbArticles", kbUploadMatch[1]);
+        if (!article || article.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "article_not_found" });
+        const body = await readJson(request);
+        const name = String(body.name || "arquivo").trim();
+        const data = String(body.dataBase64 || "").replace(/^data:[^;]+;base64,/, "");
+        if (!data) return sendJson(response, 400, { error: "file_required" });
+        const buffer = Buffer.from(data, "base64");
+        const MAX = 30 * 1024 * 1024;
+        if (buffer.length > MAX) return sendJson(response, 413, { error: "file_too_large", max: "30MB" });
+        const fileId = `kbf_${randomId()}`;
+        fileStore.save(fileId, buffer);
+        // TXT: indexa o texto para a IA usar; outros tipos guardam só metadados.
+        const mime = String(body.mime || "application/octet-stream");
+        let textExtract = "";
+        if (mime.startsWith("text/") || name.toLowerCase().endsWith(".txt")) {
+          textExtract = buffer.toString("utf8").slice(0, 20000);
+        }
+        const attachment = { id: fileId, name, mime, size: buffer.length, textExtract, createdAt: new Date().toISOString() };
+        const attachments = [...(article.attachments || []), attachment];
+        store.update("kbArticles", article.id, { attachments });
+        store.save();
+        return sendJson(response, 201, { id: fileId, name, mime, size: buffer.length });
+      }
+
+      const kbFileMatch = parsedUrl.pathname.match(/^\/api\/kb\/files\/([^/]+)$/);
+      if (kbFileMatch) {
+        if (!requirePermission(response, authService, user, "kb:view")) return;
+        const fileId = kbFileMatch[1];
+        const article = store.findOne("kbArticles", (a) => a.tenantId === tenantContext.tenantId && (a.attachments || []).some((x) => x.id === fileId));
+        const att = article?.attachments?.find((x) => x.id === fileId);
+        if (!att) return sendJson(response, 404, { error: "file_not_found" });
+        if (request.method === "DELETE") {
+          if (!requirePermission(response, authService, user, "kb:manage")) return;
+          fileStore.remove(fileId);
+          store.update("kbArticles", article.id, { attachments: article.attachments.filter((x) => x.id !== fileId) });
+          store.save();
+          return sendJson(response, 200, { ok: true });
+        }
+        const buffer = fileStore.read(fileId);
+        if (!buffer) return sendJson(response, 404, { error: "file_not_found" });
+        response.writeHead(200, {
+          "Content-Type": att.mime || "application/octet-stream",
+          "Content-Disposition": `inline; filename="${encodeURIComponent(att.name)}"`,
+          "Content-Length": buffer.length
+        });
+        return response.end(buffer);
       }
 
       if (request.method === "GET" && parsedUrl.pathname === "/api/support/overview") {

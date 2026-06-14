@@ -2581,8 +2581,10 @@ async function renderKb() {
     [$("kbTitle"), $("kbCategory"), $("kbTags"), $("kbBody")].forEach((i) => { i.readOnly = !canManage; });
     $("kbSave").style.display = canManage ? "" : "none";
     $("kbModalError").style.display = "none";
+    renderKbAttachments(article);
     overlay.style.display = "flex";
   };
+  window._kbActiveId = () => activeId;
   const close = () => { overlay.style.display = "none"; activeId = null; };
   $("kbCancel").addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
@@ -2601,6 +2603,68 @@ async function renderKb() {
     } catch (e) { err.textContent = e.message; err.style.display = ""; }
   });
 })();
+
+function renderKbAttachments(article) {
+  const area = document.getElementById("kbAttachmentsArea");
+  if (!area) return;
+  if (!article || !article.id) {
+    area.innerHTML = `<small class="cell-muted">💾 Salve o artigo primeiro para anexar arquivos (PDF, TXT, vídeos...).</small>`;
+    return;
+  }
+  const canManage = hasPermission("kb:manage");
+  const atts = article.attachments || [];
+  area.innerHTML = `
+    <div class="kb-att-title">Anexos</div>
+    <div class="kb-att-list">
+      ${atts.length ? atts.map((a) => `
+        <div class="kb-att-item">
+          <a href="/api/kb/files/${a.id}" target="_blank" rel="noopener">📎 ${escapeHtml(a.name)}</a>
+          <span class="cell-muted">${formatBytes(a.size)}</span>
+          ${canManage ? `<button class="btn btn-sm" data-kb-delfile="${a.id}" title="Remover">×</button>` : ""}
+        </div>`).join("") : `<small class="cell-muted">Nenhum anexo ainda.</small>`}
+    </div>
+    ${canManage ? `<label class="btn btn-sm" style="margin-top:8px;display:inline-block">+ Anexar arquivo<input type="file" id="kbFileInput" style="display:none"></label>` : ""}`;
+  area.querySelectorAll("[data-kb-delfile]").forEach((b) => b.addEventListener("click", () => deleteKbFile(article.id, b.dataset.kbDelfile)));
+  document.getElementById("kbFileInput")?.addEventListener("change", (e) => uploadKbFile(article.id, e.target.files[0]));
+}
+
+async function uploadKbFile(articleId, file) {
+  if (!file) return;
+  if (file.size > 30 * 1024 * 1024) { setStatus("Arquivo muito grande (máx 30MB)"); return; }
+  setStatus("Enviando arquivo...");
+  try {
+    const dataBase64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(",")[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    await api(`/api/kb/${articleId}/files`, { method: "POST", body: JSON.stringify({ name: file.name, mime: file.type, dataBase64 }) });
+    setStatus("Arquivo anexado");
+    await reopenKbArticle(articleId);
+  } catch (e) { setStatus(`Erro: ${e.message}`); }
+}
+
+async function deleteKbFile(articleId, fileId) {
+  if (!window.confirm("Remover este anexo?")) return;
+  try { await api(`/api/kb/files/${fileId}`, { method: "DELETE" }); await reopenKbArticle(articleId); }
+  catch (e) { setStatus(`Erro: ${e.message}`); }
+}
+
+async function reopenKbArticle(articleId) {
+  const res = await api("/api/kb").catch(() => ({ data: [] }));
+  kbList = res.data || [];
+  const a = kbList.find((x) => x.id === articleId);
+  if (a) window.openKbModal(a);
+  renderKb();
+}
+
+function formatBytes(n) {
+  if (!n) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1048576) return (n / 1024).toFixed(0) + " KB";
+  return (n / 1048576).toFixed(1) + " MB";
+}
 
 document.getElementById("kbSearch")?.addEventListener("input", () => renderKb());
 
@@ -3029,6 +3093,11 @@ function renderInboxContext(ticket) {
       <h4>🤖 Classificação IA <span class="ctx-confidence">${Math.round((ai.confidence || 0) * 100)}%</span></h4>
       <p>${escapeHtml(ai.reasoning || "—")}</p>
     </div>` : ""}
+    ${hasPermission("kb:view") ? `<div class="ctx-section ctx-assist">
+      <h4>💡 Apoio da base</h4>
+      <button class="btn btn-sm" id="inboxAssistBtn" type="button">Sugerir conteúdo</button>
+      <div id="inboxAssistResult"></div>
+    </div>` : ""}
     ${isClosed ? `<div class="ctx-section"><span class="badge badge-success">Atendimento encerrado</span></div>` : `
     <div class="ctx-section ctx-actions">
       <h4>Ações</h4>
@@ -3054,7 +3123,36 @@ function renderInboxContext(ticket) {
     document.getElementById("inboxCustomerSelect")?.addEventListener("change", (e) => inboxLinkCustomer(e.target.value));
   }
   document.getElementById("inboxVaultBtn")?.addEventListener("click", () => openVault(ticket.customerId, ticket.customerName));
+  document.getElementById("inboxAssistBtn")?.addEventListener("click", inboxAssist);
   startInboxTimerTick(ticket);
+}
+
+async function inboxAssist() {
+  const ticket = state.inbox.activeTicket;
+  const msgs = ticket?.conversation?.messages || [];
+  const lastInbound = [...msgs].reverse().find((m) => m.direction === "inbound");
+  const message = (lastInbound?.body || ticket?.subject || "").trim();
+  const result = document.getElementById("inboxAssistResult");
+  if (!message) { result.innerHTML = `<small class="cell-muted">Sem mensagem do cliente para analisar.</small>`; return; }
+  result.innerHTML = `<small class="cell-muted">Analisando a base...</small>`;
+  try {
+    const res = await api("/api/kb/assist", { method: "POST", body: JSON.stringify({ message }) });
+    if (!res.suggestions?.length) {
+      result.innerHTML = `<small class="cell-muted">${escapeHtml(res.guidance || "Nada encontrado na base.")}</small>`;
+      return;
+    }
+    result.innerHTML = `
+      ${res.guidance ? `<p class="assist-guidance">${escapeHtml(res.guidance)}</p>` : ""}
+      ${res.suggestions.map((s) => `<div class="assist-item" data-kb-open="${s.id}"><strong>${escapeHtml(s.title)}</strong><small>${escapeHtml(s.reason)}</small></div>`).join("")}`;
+    result.querySelectorAll("[data-kb-open]").forEach((el) => el.addEventListener("click", async () => {
+      const r = await api("/api/kb").catch(() => ({ data: [] }));
+      kbList = r.data || [];
+      const a = kbList.find((x) => x.id === el.dataset.kbOpen);
+      if (a) window.openKbModal(a);
+    }));
+  } catch (e) {
+    result.innerHTML = `<small style="color:var(--rose)">Erro: ${escapeHtml(e.message)}</small>`;
+  }
 }
 
 function formatMoney(value) {
