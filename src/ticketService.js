@@ -34,6 +34,11 @@ export class TicketService {
       closedAt: null,
       closedBy: null,
       closureNote: null,
+      timeTracking: {
+        status: "stopped",
+        accumulatedSeconds: 0,
+        lastStartedAt: null
+      },
       aiClassification: aiClassification ? {
         model: aiClassification.model || "claude-haiku-4-5-20251001",
         confidence: aiClassification.confidence || 0,
@@ -81,21 +86,64 @@ export class TicketService {
       throw new Error("Ticket not found");
     }
 
+    // Para o cronômetro automaticamente ao encerrar o atendimento.
+    const timeTracking = this._finalizeTimer(ticket.timeTracking, "stopped");
+
     const updated = this.store.update("tickets", ticketId, {
       status: "closed",
       closedAt: new Date().toISOString(),
       closedBy,
-      closureNote
+      closureNote,
+      timeTracking
     });
 
     this._addLog(ticketId, {
       type: "closed",
       note: `Ticket fechado${closureNote ? ": " + closureNote : ""}`,
       actor: closedBy,
-      metadata: { closureNote }
+      metadata: { closureNote, totalSeconds: timeTracking.accumulatedSeconds }
     });
 
     return updated;
+  }
+
+  // ===== Cronômetro de atendimento (controle de horas) =====
+  setTimer(ticketId, tenantId, action, actor = "system") {
+    const ticket = this.store.findById("tickets", ticketId);
+    if (!ticket || ticket.tenantId !== tenantId) {
+      throw new Error("Ticket not found");
+    }
+    if (!["start", "pause", "stop"].includes(action)) {
+      throw new Error("Ação de cronômetro inválida");
+    }
+
+    let tt = ticket.timeTracking || { status: "stopped", accumulatedSeconds: 0, lastStartedAt: null };
+    if (action === "start") {
+      if (tt.status !== "running") {
+        tt = { ...tt, status: "running", lastStartedAt: new Date().toISOString() };
+      }
+    } else {
+      tt = this._finalizeTimer(tt, action === "pause" ? "paused" : "stopped");
+    }
+
+    const updated = this.store.update("tickets", ticketId, { timeTracking: tt });
+    this._addLog(ticketId, {
+      type: `timer_${action}`,
+      note: `Cronômetro ${action === "start" ? "iniciado" : action === "pause" ? "pausado" : "encerrado"}`,
+      actor,
+      metadata: { accumulatedSeconds: tt.accumulatedSeconds }
+    });
+    return updated;
+  }
+
+  // Consolida o tempo corrido no acumulado e define o novo status.
+  _finalizeTimer(tt, nextStatus) {
+    const current = tt || { status: "stopped", accumulatedSeconds: 0, lastStartedAt: null };
+    let accumulated = current.accumulatedSeconds || 0;
+    if (current.status === "running" && current.lastStartedAt) {
+      accumulated += Math.max(0, Math.floor((Date.now() - new Date(current.lastStartedAt).getTime()) / 1000));
+    }
+    return { status: nextStatus, accumulatedSeconds: accumulated, lastStartedAt: null };
   }
 
   transferTicket(ticketId, newAnalystId, tenantId, actor = "system") {

@@ -80,13 +80,22 @@ Esta é a fase atual de execução.
 - [ ] Frontend renderiza nome/cor/logo do tenant ativo
 - [ ] Deploy ECS espelhando padrão `allassist` (cluster, ECR, task-definition, GitHub Actions)
 
-### Fase 2 — Semana seguinte (~7-10 dias)
-- [ ] Suporte a **mídia** — envio/recebimento de imagens, áudio, PDF (Meta API + Evolution)
-- [ ] Copy/paste de imagens na tela de atendimento (Ctrl+C/Ctrl+V)
-- [ ] **Relatórios** — volume por analista, tempo médio de resposta, SLA cumprido, tickets por categoria
-- [ ] **Notas internas** — analista adiciona notas no ticket sem cliente ver
-- [ ] **API pública** `POST /api/tickets` — qualquer integração externa pode abrir ticket
-- [ ] **Certificado SSL dinâmico** para domínio do cliente (ACM SAN ou Let's Encrypt automatizado)
+### Fase 2 — Central de Atendimento completa (visão Anderson 2026-06-14)
+Estas demandas vêm da visão detalhada do dono. Ver memória `allassist-visao-produto`.
+
+- [x] **Central de Atendimento** (#inbox) — fila + chat + contexto/ações (3 colunas)
+- [x] Unificar atendimento — remover "Conversas" (redundante); Kanban vira "Tickets (gestão)"
+- [ ] **Config de integração WhatsApp acessível** — escolher por tenant entre **Meta API oficial** ou **Evolution API** (a Central precisa levar a essa config)
+- [ ] **Controle de horas** — cronômetro por atendimento (iniciar/pausar/encerrar), **desacoplado do chat**; config por cliente (manual OU inicia/encerra junto com o atendimento); base para faturamento por hora
+- [ ] **Cadastro/vínculo de contatos** — contato novo do WhatsApp pode ser cadastrado ou vinculado a um cliente existente; vínculo aparece no chat
+- [ ] **Mídia no chat** — enviar imagem (inclusive print via Ctrl+C/Ctrl+V), enviar áudio e ouvir áudios recebidos (Meta API + Evolution)
+- [ ] **Cofre de senhas** (estilo Bitwarden) por cliente — guardar credenciais/conexões de BD criptografadas para uso no atendimento. ⚠️ Exige alinhamento de segurança (criptografia, chave mestra) antes de codar
+- [ ] **Bot/IA de atendimento inicial** — atende a primeira interação e encaminha para fila/analista; configurável
+- [ ] **Base de conhecimento** — artigos/FAQ para apoiar analistas (e alimentar o bot)
+- [ ] **Relatórios** — volume por analista, tempo médio de resposta, SLA, horas faturáveis
+- [ ] **Notas internas** no ticket (analista, sem o cliente ver)
+- [ ] **API pública** `POST /api/tickets` — integração externa abre ticket
+- [ ] **Certificado SSL dinâmico** para domínio do cliente (ACM SAN ou Let's Encrypt)
 
 ### Fase 3 — Cérebro AllHub (semanas 3-4)
 - [ ] **Agente IA Respondedor** — responde primeira mensagem se for dúvida frequente (FAQ vinculada a base de conhecimento)

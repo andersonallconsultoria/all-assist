@@ -98,6 +98,28 @@ test("operações rejeitam ticket de outro tenant", () => {
   assert.equal(service.getTicket(ticket.id, other.id), null);
 });
 
+test("cronômetro: start, pause consolida e fechar encerra o timer", () => {
+  const { service, tenant, contact, conversation } = createService();
+  const ticket = service.createTicket({ tenantId: tenant.id, contactId: contact.id, conversationId: conversation.id, firstMessage: "x" });
+  assert.equal(ticket.timeTracking.status, "stopped");
+  assert.equal(ticket.timeTracking.accumulatedSeconds, 0);
+
+  const started = service.setTimer(ticket.id, tenant.id, "start");
+  assert.equal(started.timeTracking.status, "running");
+  assert.ok(started.timeTracking.lastStartedAt);
+
+  const paused = service.setTimer(ticket.id, tenant.id, "pause");
+  assert.equal(paused.timeTracking.status, "paused");
+  assert.equal(paused.timeTracking.lastStartedAt, null);
+  assert.ok(paused.timeTracking.accumulatedSeconds >= 0);
+
+  service.setTimer(ticket.id, tenant.id, "start");
+  const closed = service.closeTicket(ticket.id, tenant.id, "ok", "us_1");
+  assert.equal(closed.timeTracking.status, "stopped", "fechar para o cronômetro");
+
+  assert.throws(() => service.setTimer(ticket.id, tenant.id, "xyz"), /inválida/i);
+});
+
 function silentLogger() {
   return { debug() {}, info() {}, warn() {}, error() {} };
 }

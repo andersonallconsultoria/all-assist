@@ -325,9 +325,6 @@ function renderContactsTable() {
               <td style="display:flex;gap:6px;align-items:center">
                 <button class="btn btn-sm contact-edit-btn"
                   data-contact-id="${escapeHtml(contact.id)}">Editar</button>
-                ${contact.phone
-                  ? `<button class="btn btn-sm" data-contact-phone="${escapeHtml(contact.phone)}" data-contact-name="${escapeHtml(contact.name)}" onclick="openContactConversations(this)">Conversas</button>`
-                  : ""}
               </td>
             </tr>
           `;
@@ -2609,6 +2606,16 @@ function renderInboxContext(ticket) {
       </div>
       <small class="ctx-meta">Aberto há ${ticketTimeOpen(ticket.openedAt)}</small>
     </div>
+    <div class="ctx-section ctx-timer">
+      <h4>Tempo de atendimento</h4>
+      <div class="timer-display" id="inboxTimerDisplay">${formatDuration(timerTotalSeconds(ticket.timeTracking))}</div>
+      <div class="timer-state" id="inboxTimerState">${timerStateLabel(ticket.timeTracking)}</div>
+      ${!isClosed ? `<div class="timer-controls">
+        <button class="btn btn-secondary" data-timer="start" type="button" title="Iniciar">▶</button>
+        <button class="btn btn-secondary" data-timer="pause" type="button" title="Pausar">⏸</button>
+        <button class="btn btn-secondary" data-timer="stop" type="button" title="Encerrar tempo">⏹</button>
+      </div>` : ""}
+    </div>
     ${ai ? `<div class="ctx-section ctx-ai">
       <h4>🤖 Classificação IA <span class="ctx-confidence">${Math.round((ai.confidence || 0) * 100)}%</span></h4>
       <p>${escapeHtml(ai.reasoning || "—")}</p>
@@ -2634,6 +2641,53 @@ function renderInboxContext(ticket) {
     document.getElementById("inboxAssignSelect")?.addEventListener("change", (e) => inboxAssign(e.target.value || null));
     ctx.querySelectorAll("[data-inbox-status]").forEach((b) => b.addEventListener("click", () => inboxSetStatus(b.dataset.inboxStatus)));
     document.getElementById("inboxCloseBtn")?.addEventListener("click", inboxClose);
+    ctx.querySelectorAll("[data-timer]").forEach((b) => b.addEventListener("click", () => inboxTimer(b.dataset.timer)));
+  }
+  startInboxTimerTick(ticket);
+}
+
+// ===== Cronômetro (display em tempo real) =====
+function formatDuration(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds || 0));
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function timerTotalSeconds(tt) {
+  if (!tt) return 0;
+  let total = tt.accumulatedSeconds || 0;
+  if (tt.status === "running" && tt.lastStartedAt) {
+    total += Math.max(0, Math.floor((Date.now() - new Date(tt.lastStartedAt).getTime()) / 1000));
+  }
+  return total;
+}
+
+function timerStateLabel(tt) {
+  const map = { running: "● Em andamento", paused: "❚❚ Pausado", stopped: "■ Parado" };
+  return map[tt?.status] || map.stopped;
+}
+
+function startInboxTimerTick(ticket) {
+  if (state.inbox.timerInterval) { clearInterval(state.inbox.timerInterval); state.inbox.timerInterval = null; }
+  const tt = ticket?.timeTracking;
+  if (tt?.status !== "running") return;
+  state.inbox.timerInterval = setInterval(() => {
+    const display = document.getElementById("inboxTimerDisplay");
+    if (!display) { clearInterval(state.inbox.timerInterval); state.inbox.timerInterval = null; return; }
+    display.textContent = formatDuration(timerTotalSeconds(tt));
+  }, 1000);
+}
+
+async function inboxTimer(action) {
+  if (!state.inbox.activeId) return;
+  try {
+    const updated = await api(`/api/tickets/${state.inbox.activeId}/timer`, { method: "POST", body: JSON.stringify({ action }) });
+    if (state.inbox.activeTicket) state.inbox.activeTicket.timeTracking = updated.timeTracking;
+    renderInboxContext(state.inbox.activeTicket);
+  } catch (error) {
+    setStatus(`Erro no cronômetro: ${error.message}`);
   }
 }
 

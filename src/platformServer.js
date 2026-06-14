@@ -1114,6 +1114,19 @@ export function startPlatformServer({ config, logger, store, conversationService
         }
       }
 
+      const ticketTimerMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/timer$/);
+      if (request.method === "POST" && ticketTimerMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const body = await readJson(request);
+        try {
+          const updated = ticketService.setTimer(ticketTimerMatch[1], tenantContext.tenantId, body.action, user.id);
+          store.save();
+          return sendJson(response, 200, enrichTicket(updated));
+        } catch (error) {
+          return sendJson(response, 400, { error: error.message });
+        }
+      }
+
       const ticketMessageMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/messages$/);
       if (request.method === "POST" && ticketMessageMatch) {
         if (!requirePermission(response, authService, user, "tickets:respond")) return;

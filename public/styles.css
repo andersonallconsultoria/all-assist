@@ -3792,6 +3792,11 @@ nav a.active::after {
 .ctx-status-row .btn { flex: 1; padding: 8px 6px; font-size: 12px; }
 .ctx-status-row .btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
 .ctx-actions .btn-danger { width: 100%; }
+.ctx-timer { gap: 6px; }
+.timer-display { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: center; letter-spacing: 1px; color: var(--ink); }
+.timer-state { text-align: center; font-size: 11px; color: var(--muted); }
+.timer-controls { display: flex; gap: 6px; margin-top: 4px; }
+.timer-controls .btn { flex: 1; font-size: 15px; padding: 8px; }
 .inbox-empty {
   flex: 1;
   display: flex;
