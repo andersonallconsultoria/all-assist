@@ -2752,10 +2752,10 @@ function showVaultForm() {
       </select>
       <input id="vfLabel" class="search-input" placeholder="Rótulo (ex: Banco de produção) *">
       <select id="vfType" class="search-input">${vaultTypeOptions("access")}</select>
-      <input id="vfAccessId" class="search-input vf-conn" placeholder="ID / Endereço (TeamViewer, AnyDesk)">
-      <input id="vfHost" class="search-input vf-conn" placeholder="Host / IP">
-      <input id="vfPort" class="search-input vf-conn" placeholder="Porta">
-      <input id="vfUsername" class="search-input" placeholder="Usuário">
+      <input id="vfAccessId" class="search-input vf-id" placeholder="ID / Endereço (TeamViewer, AnyDesk)">
+      <input id="vfHost" class="search-input vf-net" placeholder="Host / IP">
+      <input id="vfPort" class="search-input vf-net" placeholder="Porta">
+      <input id="vfUsername" class="search-input vf-user" placeholder="Usuário">
       <input id="vfPassword" class="search-input" placeholder="Senha">
       <textarea id="vfNotes" class="search-input" rows="2" placeholder="Notas (opcional)"></textarea>
       <div class="vault-form-actions">
@@ -2764,14 +2764,23 @@ function showVaultForm() {
       </div>
     </div>`;
   const catSel = document.getElementById("vfCategory");
-  const applyCategory = () => {
+  const typeSel = document.getElementById("vfType");
+  const show = (sel, on) => el.querySelectorAll(sel).forEach((f) => { f.style.display = on ? "" : "none"; });
+  const applyVisibility = () => {
     const isConn = catSel.value === "connection";
-    document.getElementById("vfType").innerHTML = vaultTypeOptions(catSel.value);
-    // Campos de rede só para conexões remotas; acessos pedem apenas usuário e senha.
-    el.querySelectorAll(".vf-conn").forEach((f) => { f.style.display = isConn ? "" : "none"; });
+    const type = typeSel.value;
+    // ID+senha para TeamViewer/AnyDesk; host/porta/usuário para RDP/VNC/SSH/outro.
+    const idOnly = isConn && (type === "teamviewer" || type === "anydesk");
+    const netType = isConn && !idOnly;
+    show(".vf-id", idOnly);
+    show(".vf-net", netType);
+    show(".vf-user", netType); // acesso (banco) usa usuário/senha; mostra também
+    if (!isConn) show(".vf-user", true); // acesso pede usuário e senha
   };
-  catSel.addEventListener("change", applyCategory);
-  applyCategory();
+  const refreshTypes = () => { typeSel.innerHTML = vaultTypeOptions(catSel.value); applyVisibility(); };
+  catSel.addEventListener("change", refreshTypes);
+  typeSel.addEventListener("change", applyVisibility);
+  applyVisibility();
   document.getElementById("vfCancel").addEventListener("click", renderVaultFooter);
   document.getElementById("vfSave").addEventListener("click", saveVaultCred);
 }
