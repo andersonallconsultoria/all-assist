@@ -118,6 +118,7 @@ document.querySelectorAll("nav a").forEach((link) => {
     if (link.getAttribute("href") === "#inbox") renderInbox();
     if (link.getAttribute("href") === "#customers") renderCustomers();
     if (link.getAttribute("href") === "#reports") renderReports();
+    if (link.getAttribute("href") === "#kb") renderKb();
   });
 });
 
@@ -2533,6 +2534,75 @@ function renderCustomers() {
     } catch (error) { err.textContent = error.message; err.style.display = ""; }
   });
 })();
+
+// ===== Base de conhecimento =====
+let kbList = [];
+
+async function renderKb() {
+  const target = document.getElementById("kbContent");
+  if (!target) return;
+  const q = document.getElementById("kbSearch")?.value || "";
+  try {
+    const res = await api(`/api/kb${q ? "?q=" + encodeURIComponent(q) : ""}`);
+    kbList = res.data || [];
+  } catch (e) {
+    target.innerHTML = `<div class="empty-state">Erro: ${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  if (!kbList.length) {
+    target.innerHTML = `<div class="empty-state">${q ? "Nenhum artigo encontrado." : 'Nenhum artigo ainda. Clique em "+ Novo artigo".'}</div>`;
+    return;
+  }
+  target.innerHTML = `<div class="kb-grid">${kbList.map((a) => `
+    <article class="kb-card" data-kb-id="${a.id}">
+      <div class="kb-card-head">
+        <strong>${escapeHtml(a.title)}</strong>
+        ${a.category ? `<span class="badge badge-info">${escapeHtml(a.category)}</span>` : ""}
+      </div>
+      <p class="kb-card-excerpt">${escapeHtml((a.content || "").slice(0, 160))}${(a.content || "").length > 160 ? "…" : ""}</p>
+      <div class="kb-card-tags">${(a.tags || []).map((t) => `<span class="kb-tag">#${escapeHtml(t)}</span>`).join("")}</div>
+    </article>`).join("")}</div>`;
+  target.querySelectorAll("[data-kb-id]").forEach((el) => el.addEventListener("click", () => openKbModal(kbList.find((a) => a.id === el.dataset.kbId))));
+}
+
+(function setupKbModal() {
+  const overlay = document.getElementById("kbOverlay");
+  if (!overlay) return;
+  let activeId = null;
+  const $ = (id) => document.getElementById(id);
+  window.openKbModal = (article) => {
+    activeId = article?.id || null;
+    const canManage = hasPermission("kb:manage");
+    $("kbModalTitle").textContent = article ? (canManage ? "Editar artigo" : article.title) : "Novo artigo";
+    $("kbTitle").value = article?.title || "";
+    $("kbCategory").value = article?.category || "";
+    $("kbTags").value = (article?.tags || []).join(", ");
+    $("kbBody").value = article?.content || "";
+    [$("kbTitle"), $("kbCategory"), $("kbTags"), $("kbBody")].forEach((i) => { i.readOnly = !canManage; });
+    $("kbSave").style.display = canManage ? "" : "none";
+    $("kbModalError").style.display = "none";
+    overlay.style.display = "flex";
+  };
+  const close = () => { overlay.style.display = "none"; activeId = null; };
+  $("kbCancel").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  $("newKbBtn")?.addEventListener("click", () => window.openKbModal(null));
+  $("kbSave").addEventListener("click", async () => {
+    const title = $("kbTitle").value.trim();
+    const err = $("kbModalError");
+    if (!title) { err.textContent = "Título é obrigatório."; err.style.display = ""; return; }
+    const payload = { title, category: $("kbCategory").value.trim(), tags: $("kbTags").value, content: $("kbBody").value };
+    try {
+      if (activeId) await api(`/api/kb/${activeId}`, { method: "PATCH", body: JSON.stringify(payload) });
+      else await api("/api/kb", { method: "POST", body: JSON.stringify(payload) });
+      close();
+      renderKb();
+      setStatus("Artigo salvo");
+    } catch (e) { err.textContent = e.message; err.style.display = ""; }
+  });
+})();
+
+document.getElementById("kbSearch")?.addEventListener("input", () => renderKb());
 
 // ===== Relatório de horas =====
 function hoursLabel(seconds) {

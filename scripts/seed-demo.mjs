@@ -19,7 +19,7 @@ const admin = store.findOne("users", (u) => (u.email || "").includes("admin")) |
 const ticketService = new TicketService(store, { debug() {}, info() {}, warn() {}, error() {} });
 
 // Limpa demo anterior
-for (const coll of ["tickets", "messages", "conversations", "contacts", "customers", "credentials"]) {
+for (const coll of ["tickets", "messages", "conversations", "contacts", "customers", "credentials", "kbArticles"]) {
   const ids = store.list(coll).filter((r) => r.demo).map((r) => r.id);
   ids.forEach((id) => store.remove(coll, id));
 }
@@ -102,6 +102,14 @@ const DEMO = [
     subject: "Erro ao fazer login",
     msgs: [["in","Não consigo entrar na minha conta."],["out","Vou te ajudar. Pode me dizer o e-mail cadastrado?"],["in","roberto@email.com"]] }
 ];
+
+// Base de conhecimento de exemplo
+const kbDefs = [
+  { title: "Como gerar o Bloco K no SPED Fiscal", category: "Fiscal", tags: ["sped", "bloco k", "fiscal"], content: "1. Acesse o módulo de SPED.\n2. Confira o cadastro de produtos e fichas técnicas.\n3. Gere o registro K200 (estoque) e K230 (produção).\n4. Valide no PVA antes de transmitir." },
+  { title: "Reset de senha do sistema ERP do cliente", category: "Sistema", tags: ["senha", "erp", "acesso"], content: "Acesse o painel administrativo do ERP > Usuários > selecione o usuário > Redefinir senha. Caso não tenha acesso, use as credenciais do cofre (aba Acessos do cliente)." },
+  { title: "Diferença entre Lucro Real e Presumido", category: "Tributário", tags: ["regime", "tributos"], content: "Lucro Real: tributação sobre o lucro efetivo, exige escrituração completa. Lucro Presumido: base de cálculo presumida por percentual da receita. A escolha depende da margem e do faturamento do cliente." }
+];
+for (const a of kbDefs) store.insert("kbArticles", { tenantId: tenant.id, ...a, demo: true });
 
 const analistas = store.findAll("users", (u) => u.tenantId === tenant.id && u.roleId === analistaRole?.id);
 let count = 0;

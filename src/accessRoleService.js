@@ -27,6 +27,11 @@ export const PERMISSION_CATALOG = [
     permissions: ["vault:view", "vault:manage"]
   },
   {
+    module: "conhecimento",
+    name: "Base de conhecimento",
+    permissions: ["kb:view", "kb:manage"]
+  },
+  {
     module: "conversas",
     name: "Conversas WhatsApp",
     permissions: ["conversations:view", "conversations:write"]

@@ -142,6 +142,57 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 200, buildHoursReport(store, tenantContext.tenantId, from, to));
       }
 
+      // ===== Base de conhecimento =====
+      if (request.method === "GET" && parsedUrl.pathname === "/api/kb") {
+        if (!requirePermission(response, authService, user, "kb:view")) return;
+        const q = normalizeSearch(parsedUrl.searchParams.get("q") || "");
+        let data = store.findAll("kbArticles", (a) => a.tenantId === tenantContext.tenantId);
+        if (q) data = data.filter((a) => normalizeSearch(`${a.title} ${a.content} ${(a.tags || []).join(" ")} ${a.category}`).includes(q));
+        data = data.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+        return sendJson(response, 200, { data });
+      }
+
+      if (request.method === "POST" && parsedUrl.pathname === "/api/kb") {
+        if (!requirePermission(response, authService, user, "kb:manage")) return;
+        const body = await readJson(request);
+        if (!String(body.title || "").trim()) return sendJson(response, 400, { error: "title_required" });
+        const created = store.insert("kbArticles", {
+          tenantId: tenantContext.tenantId,
+          title: String(body.title).trim(),
+          content: String(body.content || ""),
+          category: String(body.category || "").trim(),
+          tags: Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean) : String(body.tags || "").split(",").map((t) => t.trim()).filter(Boolean),
+          createdBy: user.id
+        });
+        store.save();
+        return sendJson(response, 201, created);
+      }
+
+      const kbItemMatch = parsedUrl.pathname.match(/^\/api\/kb\/([^/]+)$/);
+      if (request.method === "PATCH" && kbItemMatch) {
+        if (!requirePermission(response, authService, user, "kb:manage")) return;
+        const article = store.findById("kbArticles", kbItemMatch[1]);
+        if (!article || article.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "article_not_found" });
+        const body = await readJson(request);
+        const patch = {};
+        if (body.title !== undefined) patch.title = String(body.title).trim();
+        if (body.content !== undefined) patch.content = String(body.content);
+        if (body.category !== undefined) patch.category = String(body.category).trim();
+        if (body.tags !== undefined) patch.tags = Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean) : String(body.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
+        const updated = store.update("kbArticles", article.id, patch);
+        store.save();
+        return sendJson(response, 200, updated);
+      }
+
+      if (request.method === "DELETE" && kbItemMatch) {
+        if (!requirePermission(response, authService, user, "kb:manage")) return;
+        const article = store.findById("kbArticles", kbItemMatch[1]);
+        if (!article || article.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "article_not_found" });
+        store.remove("kbArticles", article.id);
+        store.save();
+        return sendJson(response, 200, { ok: true });
+      }
+
       if (request.method === "GET" && parsedUrl.pathname === "/api/support/overview") {
         if (!requirePermission(response, authService, user, "support:view")) return;
         return sendJson(response, 200, observabilityService.getSupportOverview());
@@ -1358,6 +1409,11 @@ function customerFieldsFromBody(body) {
     hourlyBilling: Boolean(body.hourlyBilling),
     notes: String(body.notes || "").trim()
   };
+}
+
+// Normaliza texto para busca (sem acentos, minúsculo).
+function normalizeSearch(value) {
+  return String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 }
 
 // Total de segundos cronometrados num ticket (acumulado + tempo correndo).

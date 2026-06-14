@@ -7,6 +7,8 @@ const ALL_PERMISSIONS = [
   "contacts:write",
   "vault:view",
   "vault:manage",
+  "kb:view",
+  "kb:manage",
   "conversations:view",
   "conversations:write",
   "tickets:view",
@@ -63,7 +65,8 @@ export class AuthService {
       "conversations:view",
       "contacts:view",
       "contacts:write",
-      "vault:view"
+      "vault:view",
+      "kb:view"
     ]);
 
     const adminEmail = this.config.auth.bootstrapAdminEmail.toLowerCase();
