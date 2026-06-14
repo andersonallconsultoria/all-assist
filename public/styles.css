@@ -3747,6 +3747,17 @@ nav a.active::after {
   gap: 10px;
 }
 .inbox-reply-box { border-top: 1px solid var(--line); padding: 10px 14px; background: var(--panel); }
+.inbox-icon-btn { background: var(--panel-soft); border: 1px solid var(--line); border-radius: 9px; width: 38px; height: 38px; font-size: 17px; cursor: pointer; flex-shrink: 0; color: var(--ink); }
+.inbox-icon-btn:hover { border-color: var(--accent); }
+.inbox-icon-btn.recording { background: rgba(244,63,94,0.18); border-color: var(--rose); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .5; } }
+.inbox-media-preview { display: flex; align-items: center; gap: 10px; padding: 8px; margin-bottom: 8px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 10px; }
+.media-preview-img { max-height: 80px; max-width: 140px; border-radius: 6px; }
+.media-preview-doc { font-size: 13px; color: var(--muted); flex: 1; }
+.msg-media-img { max-width: 240px; max-height: 280px; border-radius: 8px; display: block; cursor: pointer; }
+.msg-media-audio { max-width: 240px; height: 40px; }
+.msg-media-video { max-width: 260px; border-radius: 8px; }
+.msg-media-doc { color: inherit; text-decoration: underline; font-size: 13px; }
 .inbox-quick-replies { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .quick-reply-chip {
   font-size: 11px;

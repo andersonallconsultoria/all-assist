@@ -3,6 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
+import { randomId } from "./util.js";
 
 export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, fileStore, classifierAgent, assistantAgent }) {
   const publicDir = path.resolve("public");
@@ -1422,6 +1423,47 @@ export function startPlatformServer({ config, logger, store, conversationService
         });
         store.save();
         return sendJson(response, 201, message);
+      }
+
+      // Enviar mídia (imagem/áudio/documento) num atendimento — base64
+      const ticketMediaMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/media$/);
+      if (request.method === "POST" && ticketMediaMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const ticket = ticketService.getTicket(ticketMediaMatch[1], tenantContext.tenantId);
+        if (!ticket || !ticket.conversationId) return sendJson(response, 404, { error: "ticket_not_found" });
+        const body = await readJson(request);
+        const data = String(body.dataBase64 || "").replace(/^data:[^;]+;base64,/, "");
+        if (!data) return sendJson(response, 400, { error: "file_required" });
+        const buffer = Buffer.from(data, "base64");
+        if (buffer.length > 30 * 1024 * 1024) return sendJson(response, 413, { error: "file_too_large", max: "30MB" });
+        const mime = String(body.mime || "application/octet-stream");
+        const mediaType = mime.startsWith("image/") ? "image" : mime.startsWith("audio/") ? "audio" : mime.startsWith("video/") ? "video" : "document";
+        const mediaId = `med_${randomId()}`;
+        fileStore.save(mediaId, buffer);
+        const message = await conversationService.sendMedia(ticket.conversationId, {
+          mediaId, mediaMime: mime, mediaName: String(body.name || mediaType), mediaType, caption: String(body.caption || "")
+        }, "analyst", tenantContext.tenantId, user.id);
+        if (!ticket.firstResponseAt) store.update("tickets", ticket.id, { firstResponseAt: new Date().toISOString() });
+        ticketService.addLog(ticket.id, tenantContext.tenantId, { type: "reply", note: `Analista enviou ${mediaType}`, actor: user.id });
+        store.save();
+        return sendJson(response, 201, message);
+      }
+
+      // Servir mídia de mensagens (imagens/áudios do chat)
+      const mediaMatch = parsedUrl.pathname.match(/^\/api\/media\/([^/]+)$/);
+      if (request.method === "GET" && mediaMatch) {
+        if (!requirePermission(response, authService, user, "tickets:view")) return;
+        const mediaId = mediaMatch[1];
+        const msg = store.findOne("messages", (m) => m.mediaId === mediaId && m.tenantId === tenantContext.tenantId);
+        if (!msg) return sendJson(response, 404, { error: "media_not_found" });
+        const buffer = fileStore.read(mediaId);
+        if (!buffer) return sendJson(response, 404, { error: "media_not_found" });
+        response.writeHead(200, {
+          "Content-Type": msg.mediaMime || "application/octet-stream",
+          "Content-Disposition": `inline; filename="${encodeURIComponent(msg.mediaName || "midia")}"`,
+          "Content-Length": buffer.length
+        });
+        return response.end(buffer);
       }
 
       if (parsedUrl.pathname.startsWith("/api/")) {

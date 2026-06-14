@@ -219,8 +219,12 @@
             </div>
             <div id="inboxReplyBox" class="inbox-reply-box" hidden>
               <div id="inboxQuickReplies" class="inbox-quick-replies"></div>
+              <div id="inboxMediaPreview" class="inbox-media-preview" hidden></div>
               <div class="inbox-reply-row">
-                <textarea id="inboxReplyText" class="inbox-reply-input" placeholder="Digite sua resposta..." rows="1"></textarea>
+                <button id="inboxAttachBtn" class="inbox-icon-btn" type="button" title="Anexar imagem/arquivo">📎</button>
+                <button id="inboxRecordBtn" class="inbox-icon-btn" type="button" title="Gravar áudio">🎤</button>
+                <input id="inboxFileInput" type="file" accept="image/*,audio/*,video/*,application/pdf" style="display:none">
+                <textarea id="inboxReplyText" class="inbox-reply-input" placeholder="Digite sua resposta (ou cole um print com Ctrl+V)..." rows="1"></textarea>
                 <button id="inboxReplyBtn" class="btn btn-primary" type="button">Enviar</button>
               </div>
             </div>

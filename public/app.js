@@ -3017,13 +3017,24 @@ function renderInboxHeader(ticket) {
     </div>`;
 }
 
+function inboxMsgContent(m) {
+  const url = m.mediaId ? `/api/media/${m.mediaId}` : "";
+  let media = "";
+  if (url && m.type === "image") media = `<a href="${url}" target="_blank" rel="noopener"><img class="msg-media-img" src="${url}" alt="imagem"></a>`;
+  else if (url && m.type === "audio") media = `<audio controls src="${url}" class="msg-media-audio"></audio>`;
+  else if (url && m.type === "video") media = `<video controls class="msg-media-video" src="${url}"></video>`;
+  else if (url && m.type === "document") media = `<a class="msg-media-doc" href="${url}" target="_blank" rel="noopener">📎 ${escapeHtml(m.mediaName || "documento")}</a>`;
+  const text = m.body ? `<p>${escapeHtml(m.body)}</p>` : "";
+  return media + text;
+}
+
 function renderInboxChat(ticket) {
   const chat = document.getElementById("inboxChat");
   const messages = ticket.conversation?.messages || [];
   chat.innerHTML = messages.length
     ? messages.map((m) => `
         <div class="message ${m.direction}">
-          <p>${escapeHtml(m.body)}</p>
+          ${inboxMsgContent(m)}
           <div class="msg-meta">
             <small>${formatDateTime(m.createdAt)}</small>
             ${m.direction === "outbound" ? renderMsgStatus(m.status) : ""}
@@ -3227,15 +3238,81 @@ async function inboxAction(path, body, successMsg) {
   }
 }
 
+let inboxPendingMedia = null; // { dataBase64, name, mime }
+let inboxRecorder = null, inboxChunks = [];
+
 async function inboxReply() {
   const ticket = state.inbox.activeTicket;
   if (!ticket) return;
   const input = document.getElementById("inboxReplyText");
-  const body = input.value.trim();
-  if (!body) return;
+  const caption = input.value.trim();
+  if (inboxPendingMedia) {
+    const media = inboxPendingMedia;
+    clearPendingMedia();
+    input.value = "";
+    input.style.height = "auto";
+    await inboxAction(`/api/tickets/${ticket.id}/media`, { name: media.name, mime: media.mime, dataBase64: media.dataBase64, caption }, "Mídia enviada");
+    return;
+  }
+  if (!caption) return;
   input.value = "";
   input.style.height = "auto";
-  await inboxAction(`/api/tickets/${ticket.id}/messages`, { body }, "Mensagem enviada");
+  await inboxAction(`/api/tickets/${ticket.id}/messages`, { body: caption }, "Mensagem enviada");
+}
+
+function setPendingMedia(file) {
+  if (!file) return;
+  if (file.size > 30 * 1024 * 1024) { setStatus("Arquivo muito grande (máx 30MB)"); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    inboxPendingMedia = { dataBase64: String(reader.result).split(",")[1], name: file.name || "anexo", mime: file.type || "application/octet-stream" };
+    const el = document.getElementById("inboxMediaPreview");
+    el.hidden = false;
+    const url = URL.createObjectURL(file);
+    const mime = file.type || "";
+    el.innerHTML = `
+      ${mime.startsWith("image/") ? `<img src="${url}" class="media-preview-img">`
+        : mime.startsWith("audio/") ? `<audio controls src="${url}"></audio>`
+        : `<span class="media-preview-doc">📎 ${escapeHtml(file.name || "anexo")}</span>`}
+      <button class="inbox-icon-btn" id="inboxMediaClear" type="button" title="Remover">✕</button>`;
+    document.getElementById("inboxMediaClear").addEventListener("click", clearPendingMedia);
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPendingMedia() {
+  inboxPendingMedia = null;
+  const el = document.getElementById("inboxMediaPreview");
+  if (el) { el.hidden = true; el.innerHTML = ""; }
+}
+
+async function toggleInboxRecord() {
+  const btn = document.getElementById("inboxRecordBtn");
+  if (inboxRecorder && inboxRecorder.state === "recording") { inboxRecorder.stop(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+    setStatus("Gravação de áudio não suportada neste navegador");
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    inboxChunks = [];
+    inboxRecorder = new MediaRecorder(stream);
+    inboxRecorder.ondataavailable = (e) => { if (e.data.size) inboxChunks.push(e.data); };
+    inboxRecorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(inboxChunks, { type: inboxChunks[0]?.type || "audio/webm" });
+      setPendingMedia(new File([blob], `audio-${Date.now()}.webm`, { type: blob.type }));
+      btn.classList.remove("recording");
+      btn.textContent = "🎤";
+      setStatus("Áudio pronto — clique em Enviar");
+    };
+    inboxRecorder.start();
+    btn.classList.add("recording");
+    btn.textContent = "⏹";
+    setStatus("Gravando áudio... clique no botão para parar");
+  } catch {
+    setStatus("Não foi possível acessar o microfone");
+  }
 }
 
 async function inboxAssign(analystId) {
@@ -3270,6 +3347,16 @@ function wireInboxEvents() {
     replyInput.style.height = "auto";
     replyInput.style.height = Math.min(replyInput.scrollHeight, 120) + "px";
   });
+  // Colar print (Ctrl+V) com imagem
+  replyInput?.addEventListener("paste", (e) => {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+    if (item) { const file = item.getAsFile(); if (file) { e.preventDefault(); setPendingMedia(file); } }
+  });
+  // Anexar arquivo
+  document.getElementById("inboxAttachBtn")?.addEventListener("click", () => document.getElementById("inboxFileInput").click());
+  document.getElementById("inboxFileInput")?.addEventListener("change", (e) => { if (e.target.files[0]) setPendingMedia(e.target.files[0]); e.target.value = ""; });
+  // Gravar áudio
+  document.getElementById("inboxRecordBtn")?.addEventListener("click", toggleInboxRecord);
 }
 
 wireInboxEvents();
