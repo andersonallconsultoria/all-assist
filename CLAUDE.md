@@ -85,14 +85,14 @@ Estas demandas vêm da visão detalhada do dono. Ver memória `allassist-visao-p
 
 - [x] **Central de Atendimento** (#inbox) — fila + chat + contexto/ações (3 colunas)
 - [x] Unificar atendimento — remover "Conversas" (redundante); Kanban vira "Tickets (gestão)"
-- [ ] **Config de integração WhatsApp acessível** — escolher por tenant entre **Meta API oficial** ou **Evolution API** (a Central precisa levar a essa config)
-- [ ] **Controle de horas** — cronômetro por atendimento (iniciar/pausar/encerrar), **desacoplado do chat**; config por cliente (manual OU inicia/encerra junto com o atendimento); base para faturamento por hora
-- [ ] **Cadastro/vínculo de contatos** — contato novo do WhatsApp pode ser cadastrado ou vinculado a um cliente existente; vínculo aparece no chat
-- [ ] **Mídia no chat** — enviar imagem (inclusive print via Ctrl+C/Ctrl+V), enviar áudio e ouvir áudios recebidos (Meta API + Evolution)
-- [ ] **Cofre de senhas** (estilo Bitwarden) por cliente — guardar credenciais/conexões de BD criptografadas para uso no atendimento. ⚠️ Exige alinhamento de segurança (criptografia, chave mestra) antes de codar
-- [ ] **Bot/IA de atendimento inicial** — atende a primeira interação e encaminha para fila/analista; configurável
-- [ ] **Base de conhecimento** — artigos/FAQ para apoiar analistas (e alimentar o bot)
-- [ ] **Relatórios** — volume por analista, tempo médio de resposta, SLA, horas faturáveis
+- [x] **Controle de horas** — cronômetro por atendimento (iniciar/pausar/encerrar), desacoplado do chat; para automaticamente ao encerrar
+- [x] **Cadastro/vínculo de contatos** — entidade Cliente (empresa) com dados fiscais; contatos vinculados; vínculo aparece e é editável no atendimento
+- [x] **Cofre de acessos** — credenciais (banco) e conexões remotas (RDP/TeamViewer/AnyDesk) por cliente, criptografadas (AES-256-GCM, `ALLASSIST_VAULT_KEY`); acesso separado no cliente + atalho no atendimento
+- [x] **Base de conhecimento** — artigos/FAQ para apoiar analistas (base para o bot)
+- [x] **Relatório de horas** — consolidado por cliente e por analista, com filtro de período
+- [ ] **Config de integração WhatsApp acessível** — escolher por tenant entre **Meta API oficial** ou **Evolution API** (organizar a tela)
+- [ ] **Mídia no chat** — enviar imagem (inclusive print via Ctrl+C/Ctrl+V), enviar áudio e ouvir áudios recebidos (Meta API + Evolution). Requer storage de mídia + endpoints de media das APIs
+- [ ] **Bot/IA de atendimento inicial** — atende a primeira interação e encaminha para fila/analista; configurável (usa a base de conhecimento)
 - [ ] **Notas internas** no ticket (analista, sem o cliente ver)
 - [ ] **API pública** `POST /api/tickets` — integração externa abre ticket
 - [ ] **Certificado SSL dinâmico** para domínio do cliente (ACM SAN ou Let's Encrypt)
