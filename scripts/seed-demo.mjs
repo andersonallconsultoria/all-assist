@@ -3,6 +3,7 @@
 // Idempotente: remove os dados marcados como demo antes de recriar.
 import { CrmDataStore } from "../src/crmDataStore.js";
 import { TicketService } from "../src/ticketService.js";
+import { AuthService } from "../src/authService.js";
 
 const DATA_FILE = process.env.CRM_DATA_FILE || "data/crm.json";
 const store = new CrmDataStore(DATA_FILE);
@@ -24,38 +25,67 @@ for (const coll of ["tickets", "messages", "conversations", "contacts", "custome
 
 const hoursAgo = (h) => new Date(Date.now() - h * 3600 * 1000).toISOString();
 
-// Clientes (empresas) de exemplo
+// Clientes (empresas) de exemplo — dados reais de cadastro fiscal
 const customerDefs = [
-  { key: "big", name: "Supermercado Big", document: "12.345.678/0001-90", billing: { mode: "auto", ratePerHour: 180 } },
-  { key: "lobato", name: "Materiais Lobato", document: "04.044.355/0001-33", billing: { mode: "manual", ratePerHour: 120 } },
-  { key: "boa", name: "Boa Vista Pisos", document: "98.765.432/0001-10", billing: { mode: "manual", ratePerHour: 0 } }
+  { key: "verdi", name: "Comercial de Alimentos e Lanchonete São José Ltda", fantasia: "Supermercado Verdi Bairro", cnpj: "10.927.402/0001-90", ie: "0752309000138", uf: "DF", regime: "real", atividade: "comercio", matrizFilial: "matriz", blocoK: false, hourlyBilling: true },
+  { key: "jao", name: "Comércio de Alimentos Jaó Ltda", fantasia: "Mercadinho Jaó", cnpj: "00.065.979/0001-86", ie: "100495729", uf: "GO", regime: "real", atividade: "comercio", matrizFilial: "matriz", blocoK: false, hourlyBilling: false },
+  { key: "varanda", name: "Varanda Frutas e Mercearia Ltda", fantasia: "Varanda Frutas", cnpj: "62.498.365/0001-45", ie: "112607253116", uf: "SP", regime: "real", atividade: "comercio", matrizFilial: "matriz", blocoK: false, hourlyBilling: true },
+  { key: "superbig", name: "Mello & Silva Ltda", fantasia: "SuperBig Supermercado - Loja 01", cnpj: "090.979.930/0001-36", ie: "294032223", uf: "TO", regime: "real", atividade: "comercio_atacado", matrizFilial: "matriz", blocoK: true, hourlyBilling: true },
+  { key: "genial", name: "Genial Comércio Atacadista de Produtos Alimentícios Eireli", fantasia: "Genial Distribuidora", cnpj: "22.417.045/0001-07", ie: "0772629100103", uf: "DF", regime: "real", atividade: "atacado", matrizFilial: "matriz", blocoK: true, hourlyBilling: false }
 ];
 const customers = {};
 for (const c of customerDefs) {
-  customers[c.key] = store.insert("customers", { tenantId: tenant.id, name: c.name, document: c.document, billing: c.billing, demo: true });
+  const { key, ...fields } = c;
+  customers[key] = store.insert("customers", { tenantId: tenant.id, ...fields, demo: true });
+}
+
+// Analistas (equipe de atendimento) — role analista
+const ANALISTAS = [
+  ["Anderson Santos", "anderson.santos.fconsultoria@gmail.com"],
+  ["Anna Caroline", "annacaroline159159@gmail.com"],
+  ["Cassius Gabriel", "cassius.gabriel.contabil@gmail.com"],
+  ["Cleidiane França", "cleidiane.franca.contabil@gmail.com"],
+  ["Daiani Devens", "daiani.devens.contabil@gmail.com"],
+  ["Desielle Farias", "desielle.farias.contabil@gmail.com"],
+  ["Gustavo Melo", "gustavo.freitasconsultoria@gmail.com"],
+  ["Keli Cristina", "keli.freitas.contabil@gmail.com"],
+  ["Luana Viera", "contabil.luana.vieira@gmail.com"],
+  ["Maria Betania", "mariabetaniafreitascontabilida@gmail.com"],
+  ["Tayane Ferreira", "fiscal.contabilfreitas@gmail.com"]
+];
+const analistaRole = store.findOne("roles", (r) => r.key === "analista");
+const auth = new AuthService(store, { auth: {} }, { debug() {}, info() {}, warn() {}, error() {} });
+const DEFAULT_PASSWORD = process.env.SEED_ANALYST_PASSWORD || "Freitas@2026";
+let analistasCriados = 0;
+for (const [nome, email] of ANALISTAS) {
+  const existing = store.findOne("users", (u) => u.email === email.toLowerCase());
+  if (existing) continue;
+  auth.createUser({ name: nome, email, password: DEFAULT_PASSWORD, roleId: analistaRole?.id, tenantId: tenant.id, status: "active", emailVerifiedAt: new Date().toISOString() });
+  analistasCriados++;
 }
 
 const DEMO = [
-  { name: "Maria Silva", cust: "big", phone: "5534998810001", category: "complaint", priority: "high", assign: true, status: "waiting_customer", openH: 3,
+  { name: "Maria Silva", cust: "superbig", phone: "5534998810001", category: "complaint", priority: "high", assign: true, status: "waiting_customer", openH: 3,
     subject: "Pedido atrasado há 5 dias",
     msgs: [["in","Bom dia, meu pedido está atrasado há 5 dias e ninguém me responde!"],["out","Olá Maria, sinto muito pelo transtorno. Vou verificar agora mesmo o status do seu pedido."],["in","Por favor, preciso disso com urgência."],["out","Entendo. Localizei seu pedido, está em trânsito e chega até amanhã. Vou te enviar o rastreio."]] },
-  { name: "João Souza", cust: "big", phone: "5534998810002", category: "question", priority: "medium", assign: false, status: "open", openH: 0.3,
+  { name: "João Souza", cust: "verdi", phone: "5534998810002", category: "question", priority: "medium", assign: false, status: "open", openH: 0.3,
     subject: "Dúvida sobre horário de funcionamento",
     msgs: [["in","Oi, vocês atendem aos sábados?"]] },
-  { name: "Ana Costa", cust: "lobato", phone: "5534998810003", category: "support", priority: "critical", assign: false, status: "open", openH: 0.1,
+  { name: "Ana Costa", cust: "jao", phone: "5534998810003", category: "support", priority: "critical", assign: false, status: "open", openH: 0.1,
     subject: "Sistema fora do ar",
     msgs: [["in","O sistema parou de funcionar aqui na loja!"],["in","Não consigo emitir nota, preciso de ajuda AGORA."]] },
-  { name: "Pedro Lima", cust: "big", phone: "5534998810004", category: "sales", priority: "low", assign: true, status: "open", openH: 6,
+  { name: "Pedro Lima", cust: "superbig", phone: "5534998810004", category: "sales", priority: "low", assign: true, status: "open", openH: 6,
     subject: "Orçamento de novo plano",
     msgs: [["in","Gostaria de saber sobre planos maiores."],["out","Claro, Pedro! Temos o plano Pro. Posso te enviar os detalhes?"]] },
-  { name: "Carla Dias", cust: "boa", phone: "5534998810005", category: "compliment", priority: "low", assign: false, status: "open", openH: 26,
+  { name: "Carla Dias", cust: "varanda", phone: "5534998810005", category: "compliment", priority: "low", assign: false, status: "open", openH: 26,
     subject: "Elogio ao atendimento",
     msgs: [["in","Só queria agradecer, o atendimento de vocês é excelente!"]] },
-  { name: "Roberto Alves", cust: "lobato", phone: "5534998810006", category: "support", priority: "medium", assign: true, status: "waiting_analyst", openH: 1.5,
+  { name: "Roberto Alves", cust: "genial", phone: "5534998810006", category: "support", priority: "medium", assign: true, status: "waiting_analyst", openH: 1.5,
     subject: "Erro ao fazer login",
     msgs: [["in","Não consigo entrar na minha conta."],["out","Vou te ajudar. Pode me dizer o e-mail cadastrado?"],["in","roberto@email.com"]] }
 ];
 
+const analistas = store.findAll("users", (u) => u.tenantId === tenant.id && u.roleId === analistaRole?.id);
 let count = 0;
 for (const d of DEMO) {
   const contact = store.insert("contacts", { tenantId: tenant.id, name: d.name, phone: d.phone, customerId: customers[d.cust]?.id || null, source: "demo", demo: true });
@@ -80,12 +110,14 @@ for (const d of DEMO) {
     aiClassification: { category: d.category, priority: d.priority, subject: d.subject, confidence: 0.85 + Math.round(Math.random() * 10) / 100, reasoning: `Mensagem classificada como ${d.category} de prioridade ${d.priority}.` }
   });
   const patch = { openedAt: hoursAgo(d.openH), demo: true };
-  if (d.assign && admin) patch.assignedAnalystId = admin.id;
+  const analyst = analistas.length ? analistas[count % analistas.length] : admin;
+  if (d.assign && analyst) patch.assignedAnalystId = analyst.id;
   if (d.status !== "open") { patch.status = d.status; patch.firstResponseAt = hoursAgo(d.openH - 0.1); }
   store.update("tickets", ticket.id, patch);
   count++;
 }
 
 store.save();
-console.log(`✓ ${count} atendimentos de exemplo criados no tenant "${tenant.name}".`);
+console.log(`✓ ${count} atendimentos, ${customerDefs.length} clientes e ${analistasCriados} analistas de exemplo no tenant "${tenant.name}".`);
+if (analistasCriados > 0) console.log(`  Senha inicial dos analistas: ${DEFAULT_PASSWORD}`);
 console.log("  Suba o servidor e abra o menu Atendimento para ver a Central populada.");

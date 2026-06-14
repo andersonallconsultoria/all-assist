@@ -2430,6 +2430,16 @@ function wireTicketEvents() {
 wireTicketEvents();
 
 // ===== Clientes (empresas) =====
+const ATIVIDADE_LABELS = {
+  comercio: "Comércio",
+  atacado: "Atacado",
+  comercio_atacado: "Comércio/Atacado",
+  deposito: "Depósito",
+  industria: "Indústria",
+  servicos: "Serviços",
+  outro: "Outro"
+};
+
 function renderCustomers() {
   const target = document.getElementById("customersContent");
   if (!target) return;
@@ -2441,15 +2451,17 @@ function renderCustomers() {
   }
   target.innerHTML = `
     <table class="data-table">
-      <thead><tr><th>Cliente</th><th>Contatos</th><th>Atendimentos</th><th>Horas</th><th>Valor/h</th><th></th></tr></thead>
+      <thead><tr><th>Cliente</th><th>CNPJ</th><th>UF</th><th>Atividade</th><th>Contatos</th><th>Horas</th><th>Cobrança</th><th></th></tr></thead>
       <tbody>
         ${items.map((c) => `
           <tr>
-            <td><div class="table-name-cell"><span class="table-avatar">${escapeHtml(initials(c.name))}</span><div><strong>${escapeHtml(c.name)}</strong><small>${escapeHtml(c.document || "")}</small></div></div></td>
+            <td><div class="table-name-cell"><span class="table-avatar">${escapeHtml(initials(c.fantasia || c.name))}</span><div><strong>${escapeHtml(c.fantasia || c.name)}</strong><small>${escapeHtml(c.fantasia ? c.name : "")}</small></div></div></td>
+            <td class="cell-muted">${escapeHtml(c.cnpj || "—")}</td>
+            <td class="cell-muted">${escapeHtml(c.uf || "—")}</td>
+            <td class="cell-muted">${escapeHtml(ATIVIDADE_LABELS[c.atividade] || c.atividade || "—")}</td>
             <td class="cell-muted">${c.contactsCount || 0}</td>
-            <td class="cell-muted">${c.ticketsCount || 0}${c.openTicketsCount ? ` <span class="badge badge-warning">${c.openTicketsCount} aberto${c.openTicketsCount > 1 ? "s" : ""}</span>` : ""}</td>
-            <td><strong>${formatDuration(c.totalSeconds || 0)}</strong></td>
-            <td class="cell-muted">${c.billing?.ratePerHour ? formatMoney(c.billing.ratePerHour) : "—"}${c.billing?.mode === "auto" ? ` <span class="badge badge-info">auto</span>` : ""}</td>
+            <td><strong>${formatDuration(c.totalSeconds || 0)}</strong>${c.openTicketsCount ? ` <span class="badge badge-warning">${c.openTicketsCount}</span>` : ""}</td>
+            <td>${c.hourlyBilling ? `<span class="badge badge-success">Por horas</span>` : `<span class="badge badge-neutral">—</span>`}</td>
             <td><button class="btn btn-sm customer-edit-btn" data-customer-id="${escapeHtml(c.id)}">Editar</button></td>
           </tr>`).join("")}
       </tbody>
@@ -2469,9 +2481,15 @@ function renderCustomers() {
     activeId = customer?.id || null;
     $("customerModalTitle").textContent = customer ? "Editar cliente" : "Novo cliente";
     $("customerName").value = customer?.name || "";
-    $("customerDocument").value = customer?.document || "";
-    $("customerBillingMode").value = customer?.billing?.mode || "manual";
-    $("customerRate").value = customer?.billing?.ratePerHour || "";
+    $("customerFantasia").value = customer?.fantasia || "";
+    $("customerCnpj").value = customer?.cnpj || "";
+    $("customerIe").value = customer?.ie || "";
+    $("customerUf").value = customer?.uf || "";
+    $("customerRegime").value = customer?.regime || "";
+    $("customerAtividade").value = customer?.atividade || "";
+    $("customerMatrizFilial").value = customer?.matrizFilial || "matriz";
+    $("customerBlocoK").checked = Boolean(customer?.blocoK);
+    $("customerHourly").checked = Boolean(customer?.hourlyBilling);
     $("customerNotes").value = customer?.notes || "";
     $("customerModalError").style.display = "none";
     overlay.style.display = "flex";
@@ -2486,9 +2504,16 @@ function renderCustomers() {
     if (!name) { err.textContent = "Nome é obrigatório."; err.style.display = ""; return; }
     const payload = {
       name,
-      document: $("customerDocument").value.trim(),
-      notes: $("customerNotes").value.trim(),
-      billing: { mode: $("customerBillingMode").value, ratePerHour: Number($("customerRate").value) || 0 }
+      fantasia: $("customerFantasia").value.trim(),
+      cnpj: $("customerCnpj").value.trim(),
+      ie: $("customerIe").value.trim(),
+      uf: $("customerUf").value.trim(),
+      regime: $("customerRegime").value,
+      atividade: $("customerAtividade").value,
+      matrizFilial: $("customerMatrizFilial").value,
+      blocoK: $("customerBlocoK").checked,
+      hourlyBilling: $("customerHourly").checked,
+      notes: $("customerNotes").value.trim()
     };
     try {
       if (activeId) await api(`/api/customers/${activeId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -2700,9 +2725,7 @@ function renderInboxContext(ticket) {
       <h4>Tempo de atendimento</h4>
       <div class="timer-display" id="inboxTimerDisplay">${formatDuration(timerTotalSeconds(ticket.timeTracking))}</div>
       <div class="timer-state" id="inboxTimerState">${timerStateLabel(ticket.timeTracking)}</div>
-      ${ticket.customerBilling?.ratePerHour > 0
-        ? `<small class="timer-cost">${formatMoney((timerTotalSeconds(ticket.timeTracking) / 3600) * ticket.customerBilling.ratePerHour)} · ${formatMoney(ticket.customerBilling.ratePerHour)}/h</small>`
-        : ""}
+      ${ticket.customerHourlyBilling ? `<small class="timer-cost">Cliente com cobrança por horas</small>` : ""}
       ${!isClosed ? `<div class="timer-controls">
         <button class="btn btn-secondary" data-timer="start" type="button" title="Iniciar">▶</button>
         <button class="btn btn-secondary" data-timer="pause" type="button" title="Pausar">⏸</button>

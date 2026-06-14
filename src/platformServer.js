@@ -489,13 +489,7 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (!String(body.name || "").trim()) return sendJson(response, 400, { error: "name_required" });
         const created = store.insert("customers", {
           tenantId: tenantContext.tenantId,
-          name: String(body.name).trim(),
-          document: String(body.document || "").trim(),
-          notes: String(body.notes || "").trim(),
-          billing: {
-            mode: body.billing?.mode === "auto" ? "auto" : "manual",
-            ratePerHour: Number(body.billing?.ratePerHour) || 0
-          }
+          ...customerFieldsFromBody(body)
         });
         store.save();
         return sendJson(response, 201, created);
@@ -528,17 +522,8 @@ export function startPlatformServer({ config, logger, store, conversationService
         const customer = store.findById("customers", customerPatchMatch[1]);
         if (!customer || customer.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "customer_not_found" });
         const body = await readJson(request);
-        const patch = {};
-        if (body.name !== undefined) patch.name = String(body.name).trim();
-        if (body.document !== undefined) patch.document = String(body.document).trim();
-        if (body.notes !== undefined) patch.notes = String(body.notes).trim();
-        if (body.billing !== undefined) {
-          patch.billing = {
-            mode: body.billing?.mode === "auto" ? "auto" : "manual",
-            ratePerHour: Number(body.billing?.ratePerHour) || 0
-          };
-        }
-        const updated = store.update("customers", customer.id, patch);
+        if (body.name !== undefined && !String(body.name).trim()) return sendJson(response, 400, { error: "name_required" });
+        const updated = store.update("customers", customer.id, customerFieldsFromBody(body));
         store.save();
         return sendJson(response, 200, updated);
       }
@@ -1122,8 +1107,8 @@ export function startPlatformServer({ config, logger, store, conversationService
           contactPhone: contact?.phone || "",
           analystName: analyst?.name || null,
           customerId: customer?.id || null,
-          customerName: customer?.name || null,
-          customerBilling: customer?.billing || null
+          customerName: customer ? (customer.fantasia || customer.name) : null,
+          customerHourlyBilling: customer?.hourlyBilling || false
         };
       };
 
@@ -1288,6 +1273,24 @@ export function startPlatformServer({ config, logger, store, conversationService
   });
 
   return server;
+}
+
+// Campos do cliente (empresa) — dados cadastrais/fiscais. "Cobrança por horas"
+// é só um indicador (sem valor monetário nesta fase).
+function customerFieldsFromBody(body) {
+  return {
+    name: String(body.name || "").trim(),
+    fantasia: String(body.fantasia || "").trim(),
+    cnpj: String(body.cnpj || "").trim(),
+    ie: String(body.ie || "").trim(),
+    uf: String(body.uf || "").trim().toUpperCase().slice(0, 2),
+    regime: String(body.regime || "").trim(),
+    atividade: String(body.atividade || "").trim(),
+    matrizFilial: body.matrizFilial === "filial" ? "filial" : "matriz",
+    blocoK: Boolean(body.blocoK),
+    hourlyBilling: Boolean(body.hourlyBilling),
+    notes: String(body.notes || "").trim()
+  };
 }
 
 // Total de segundos cronometrados num ticket (acumulado + tempo correndo).
