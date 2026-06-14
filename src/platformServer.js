@@ -4,7 +4,7 @@ import path from "node:path";
 import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
 
-export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, classifierAgent }) {
+export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, classifierAgent }) {
   const publicDir = path.resolve("public");
 
   const server = http.createServer(async (request, response) => {
@@ -526,6 +526,65 @@ export function startPlatformServer({ config, logger, store, conversationService
         const updated = store.update("customers", customer.id, customerFieldsFromBody(body));
         store.save();
         return sendJson(response, 200, updated);
+      }
+
+      // ===== Cofre de acessos (credenciais por cliente) =====
+      const credListMatch = parsedUrl.pathname.match(/^\/api\/customers\/([^/]+)\/credentials$/);
+      if (request.method === "GET" && credListMatch) {
+        if (!requirePermission(response, authService, user, "vault:view")) return;
+        const customer = store.findById("customers", credListMatch[1]);
+        if (!customer || customer.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "customer_not_found" });
+        return sendJson(response, 200, { data: vaultService.listByCustomer(tenantContext.tenantId, credListMatch[1]) });
+      }
+
+      if (request.method === "POST" && credListMatch) {
+        if (!requirePermission(response, authService, user, "vault:manage")) return;
+        const customer = store.findById("customers", credListMatch[1]);
+        if (!customer || customer.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "customer_not_found" });
+        try {
+          const created = vaultService.createCredential(tenantContext.tenantId, credListMatch[1], await readJson(request), user.id);
+          observabilityService?.recordAudit({ tenantId: tenantContext.tenantId, userId: user.id, action: "vault.credential.created", entityType: "credential", entityId: created.id });
+          store.save();
+          return sendJson(response, 201, created);
+        } catch (error) {
+          return sendJson(response, 400, { error: error.message });
+        }
+      }
+
+      const credRevealMatch = parsedUrl.pathname.match(/^\/api\/credentials\/([^/]+)\/reveal$/);
+      if (request.method === "GET" && credRevealMatch) {
+        if (!requirePermission(response, authService, user, "vault:view")) return;
+        try {
+          const revealed = vaultService.revealCredential(credRevealMatch[1], tenantContext.tenantId);
+          observabilityService?.recordAudit({ tenantId: tenantContext.tenantId, userId: user.id, action: "vault.credential.revealed", entityType: "credential", entityId: credRevealMatch[1] });
+          store.save();
+          return sendJson(response, 200, revealed);
+        } catch (error) {
+          return sendJson(response, 404, { error: error.message });
+        }
+      }
+
+      const credItemMatch = parsedUrl.pathname.match(/^\/api\/credentials\/([^/]+)$/);
+      if (request.method === "PATCH" && credItemMatch) {
+        if (!requirePermission(response, authService, user, "vault:manage")) return;
+        try {
+          const updated = vaultService.updateCredential(credItemMatch[1], tenantContext.tenantId, await readJson(request), user.id);
+          store.save();
+          return sendJson(response, 200, updated);
+        } catch (error) {
+          return sendJson(response, 404, { error: error.message });
+        }
+      }
+
+      if (request.method === "DELETE" && credItemMatch) {
+        if (!requirePermission(response, authService, user, "vault:manage")) return;
+        try {
+          vaultService.deleteCredential(credItemMatch[1], tenantContext.tenantId);
+          store.save();
+          return sendJson(response, 200, { ok: true });
+        } catch (error) {
+          return sendJson(response, 404, { error: error.message });
+        }
       }
 
       const contactPatchMatch = parsedUrl.pathname.match(/^\/api\/contacts\/([^/]+)$/);
@@ -1108,7 +1167,8 @@ export function startPlatformServer({ config, logger, store, conversationService
           analystName: analyst?.name || null,
           customerId: customer?.id || null,
           customerName: customer ? (customer.fantasia || customer.name) : null,
-          customerHourlyBilling: customer?.hourlyBilling || false
+          customerHourlyBilling: customer?.hourlyBilling || false,
+          customerCredentialsCount: customer ? store.findAll("credentials", (c) => c.customerId === customer.id).length : 0
         };
       };
 

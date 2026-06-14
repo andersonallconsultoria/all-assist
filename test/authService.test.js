@@ -11,7 +11,7 @@ test("AuthService bootstraps admin role and user", () => {
 
   const admin = auth.bootstrap();
 
-  assert.equal(store.list("roles").length, 4);
+  assert.equal(store.list("roles").length, 3);
   assert.equal(store.list("users").length, 1);
   assert.equal(admin.email, "admin@allassist.local");
   assert.equal(admin.passwordHash, undefined);
@@ -36,19 +36,19 @@ test("AuthService rejects invalid password", () => {
   assert.equal(auth.authenticate("admin@allassist.local", "wrong"), null);
 });
 
-test("AuthService creates seller user with role", () => {
+test("AuthService creates analyst user with role", () => {
   const { auth, store } = createAuthService();
   auth.bootstrap();
-  const sellerRole = store.findOne("roles", (role) => role.key === "seller");
+  const analistaRole = store.findOne("roles", (role) => role.key === "analista");
 
-  const seller = auth.createUser({
-    name: "Vendedor",
-    email: "seller@example.com",
+  const analyst = auth.createUser({
+    name: "Analista",
+    email: "analista@example.com",
     password: "123456",
-    roleId: sellerRole.id
+    roleId: analistaRole.id
   });
 
-  assert.equal(seller.email, "seller@example.com");
+  assert.equal(analyst.email, "analista@example.com");
   assert.equal(auth.listUsers().length, 2);
 });
 

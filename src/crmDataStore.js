@@ -96,6 +96,7 @@ function createEmptyData() {
     version: 1,
     tenants: [],
     customers: [],
+    credentials: [],
     contacts: [],
     conversations: [],
     messages: [],
@@ -134,7 +135,7 @@ function migrateData(data) {
 
   const defaultTenantId = data.tenants[0]?.id || "tenant_default";
 
-  for (const collection of ["customers", "contacts", "conversations", "messages", "tickets", "integrationEvents", "auditEvents", "requestMetrics", "users", "userInvites", "emailVerifications", "oauthIdentities"]) {
+  for (const collection of ["customers", "credentials", "contacts", "conversations", "messages", "tickets", "integrationEvents", "auditEvents", "requestMetrics", "users", "userInvites", "emailVerifications", "oauthIdentities"]) {
     for (const record of data[collection] || []) {
       if (!record.tenantId) record.tenantId = defaultTenantId;
     }
@@ -149,6 +150,7 @@ function prefixForCollection(collection) {
   const prefixes = {
     contacts: "ct",
     customers: "cli",
+    credentials: "cred",
     tenants: "tn",
     conversations: "cv",
     messages: "msg",

@@ -2462,13 +2462,19 @@ function renderCustomers() {
             <td class="cell-muted">${c.contactsCount || 0}</td>
             <td><strong>${formatDuration(c.totalSeconds || 0)}</strong>${c.openTicketsCount ? ` <span class="badge badge-warning">${c.openTicketsCount}</span>` : ""}</td>
             <td>${c.hourlyBilling ? `<span class="badge badge-success">Por horas</span>` : `<span class="badge badge-neutral">—</span>`}</td>
-            <td><button class="btn btn-sm customer-edit-btn" data-customer-id="${escapeHtml(c.id)}">Editar</button></td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-sm customer-vault-btn" data-customer-id="${escapeHtml(c.id)}" data-customer-name="${escapeHtml(c.fantasia || c.name)}">🔑 Acessos</button>
+              <button class="btn btn-sm customer-edit-btn" data-customer-id="${escapeHtml(c.id)}">Editar</button>
+            </td>
           </tr>`).join("")}
       </tbody>
     </table>
     <div class="table-footer"><small>${items.length} cliente(s)</small></div>`;
   target.querySelectorAll(".customer-edit-btn").forEach((b) =>
     b.addEventListener("click", () => openCustomerModal((state.customers || []).find((c) => c.id === b.dataset.customerId)))
+  );
+  target.querySelectorAll(".customer-vault-btn").forEach((b) =>
+    b.addEventListener("click", () => openVault(b.dataset.customerId, b.dataset.customerName))
   );
 }
 
@@ -2526,6 +2532,128 @@ function renderCustomers() {
     } catch (error) { err.textContent = error.message; err.style.display = ""; }
   });
 })();
+
+// ===== Cofre de acessos (credenciais por cliente) =====
+const vaultState = { customerId: null, customerName: "", list: [] };
+const VAULT_TYPE_LABELS = { database: "Banco de dados", server: "Servidor", erp: "ERP", ftp: "FTP", api: "API", other: "Outro" };
+
+async function openVault(customerId, customerName) {
+  if (!customerId) { setStatus("Vincule o contato a um cliente primeiro"); return; }
+  vaultState.customerId = customerId;
+  vaultState.customerName = customerName || "Cliente";
+  document.getElementById("vaultCustomerName").textContent = vaultState.customerName;
+  document.getElementById("vaultOverlay").style.display = "flex";
+  document.getElementById("vaultList").innerHTML = `<div class="inbox-empty small"><p>Carregando...</p></div>`;
+  document.getElementById("vaultFooter").innerHTML = "";
+  await loadVaultList();
+}
+
+function closeVault() { document.getElementById("vaultOverlay").style.display = "none"; }
+
+async function loadVaultList() {
+  try {
+    const res = await api(`/api/customers/${vaultState.customerId}/credentials`);
+    vaultState.list = res.data || [];
+  } catch { vaultState.list = []; }
+  renderVaultList();
+  renderVaultFooter();
+}
+
+function renderVaultList() {
+  const el = document.getElementById("vaultList");
+  if (!vaultState.list.length) {
+    el.innerHTML = `<div class="inbox-empty small"><p>Nenhum acesso cadastrado para este cliente.</p></div>`;
+    return;
+  }
+  el.innerHTML = vaultState.list.map((c) => `
+    <div class="vault-item">
+      <div class="vault-item-head">
+        <div><strong>${escapeHtml(c.label)}</strong><small>${escapeHtml(VAULT_TYPE_LABELS[c.type] || c.type || "Acesso")}</small></div>
+        <div class="vault-item-actions">
+          <button class="btn btn-sm" data-vault-reveal="${c.id}">Abrir</button>
+          ${hasPermission("vault:manage") ? `<button class="btn btn-sm" data-vault-del="${c.id}">Excluir</button>` : ""}
+        </div>
+      </div>
+      <div class="vault-item-detail" id="vaultDetail-${c.id}"></div>
+    </div>`).join("");
+  el.querySelectorAll("[data-vault-reveal]").forEach((b) => b.addEventListener("click", () => revealVaultCred(b.dataset.vaultReveal)));
+  el.querySelectorAll("[data-vault-del]").forEach((b) => b.addEventListener("click", () => deleteVaultCred(b.dataset.vaultDel)));
+}
+
+async function revealVaultCred(id) {
+  const detail = document.getElementById(`vaultDetail-${id}`);
+  if (detail.dataset.open === "1") { detail.innerHTML = ""; detail.dataset.open = "0"; return; }
+  detail.innerHTML = "Carregando...";
+  try {
+    const c = await api(`/api/credentials/${id}/reveal`);
+    const rows = [["Host", c.host], ["Porta", c.port], ["Banco", c.database], ["Usuário", c.username], ["Senha", c.password], ["URL", c.url], ["Notas", c.notes]].filter(([, v]) => v);
+    detail.innerHTML = rows.length ? rows.map(([k, v]) => `
+      <div class="vault-field">
+        <span class="vault-field-label">${k}</span>
+        <code class="vault-field-value">${escapeHtml(v)}</code>
+        <button class="btn btn-sm vault-copy" data-copy="${escapeHtml(v)}">Copiar</button>
+      </div>`).join("") : `<small class="cell-muted">Sem dados de conexão.</small>`;
+    detail.dataset.open = "1";
+    detail.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => {
+      navigator.clipboard?.writeText(b.dataset.copy);
+      setStatus("Copiado para a área de transferência");
+      setTimeout(() => setStatus("Online"), 1500);
+    }));
+  } catch (e) {
+    detail.innerHTML = `<span style="color:var(--rose)">Erro: ${escapeHtml(e.message)}</span>`;
+  }
+}
+
+function renderVaultFooter() {
+  const el = document.getElementById("vaultFooter");
+  if (!hasPermission("vault:manage")) { el.innerHTML = `<small class="cell-muted">Acesso somente leitura</small>`; return; }
+  el.innerHTML = `<button class="btn btn-primary" id="vaultAddBtn" type="button">+ Nova credencial</button>`;
+  document.getElementById("vaultAddBtn").addEventListener("click", showVaultForm);
+}
+
+function showVaultForm() {
+  const el = document.getElementById("vaultFooter");
+  el.innerHTML = `
+    <div class="vault-form">
+      <input id="vfLabel" class="search-input" placeholder="Rótulo (ex: Banco de produção) *">
+      <select id="vfType" class="search-input">
+        ${Object.entries(VAULT_TYPE_LABELS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}
+      </select>
+      <input id="vfHost" class="search-input" placeholder="Host / IP">
+      <input id="vfPort" class="search-input" placeholder="Porta">
+      <input id="vfDatabase" class="search-input" placeholder="Banco / instância">
+      <input id="vfUsername" class="search-input" placeholder="Usuário">
+      <input id="vfPassword" class="search-input" placeholder="Senha">
+      <input id="vfUrl" class="search-input" placeholder="URL (opcional)">
+      <textarea id="vfNotes" class="search-input" rows="2" placeholder="Notas (opcional)"></textarea>
+      <div class="vault-form-actions">
+        <button class="btn btn-secondary" id="vfCancel" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="vfSave" type="button">Salvar acesso</button>
+      </div>
+    </div>`;
+  document.getElementById("vfCancel").addEventListener("click", renderVaultFooter);
+  document.getElementById("vfSave").addEventListener("click", saveVaultCred);
+}
+
+async function saveVaultCred() {
+  const g = (id) => document.getElementById(id).value.trim();
+  if (!g("vfLabel")) { setStatus("Informe o rótulo do acesso"); return; }
+  const payload = { label: g("vfLabel"), type: document.getElementById("vfType").value, host: g("vfHost"), port: g("vfPort"), database: g("vfDatabase"), username: g("vfUsername"), password: g("vfPassword"), url: g("vfUrl"), notes: g("vfNotes") };
+  try {
+    await api(`/api/customers/${vaultState.customerId}/credentials`, { method: "POST", body: JSON.stringify(payload) });
+    setStatus("Acesso salvo");
+    await loadVaultList();
+  } catch (e) { setStatus(`Erro: ${e.message}`); }
+}
+
+async function deleteVaultCred(id) {
+  if (!window.confirm("Excluir este acesso?")) return;
+  try { await api(`/api/credentials/${id}`, { method: "DELETE" }); await loadVaultList(); }
+  catch (e) { setStatus(`Erro: ${e.message}`); }
+}
+
+document.getElementById("vaultClose")?.addEventListener("click", closeVault);
+document.getElementById("vaultOverlay")?.addEventListener("click", (e) => { if (e.target.id === "vaultOverlay") closeVault(); });
 
 // ===== Central de Atendimento (inbox) =====
 const QUICK_REPLIES = [
@@ -2705,7 +2833,10 @@ function renderInboxContext(ticket) {
       <strong>${escapeHtml(ticket.contactName)}</strong>
       <small>${escapeHtml(ticket.contactPhone || "")}</small>
       ${ticket.customerName
-        ? `<span class="ctx-customer-tag">🏢 ${escapeHtml(ticket.customerName)}</span>`
+        ? `<span class="ctx-customer-tag">🏢 ${escapeHtml(ticket.customerName)}</span>
+           ${ticket.customerId && hasPermission("vault:view")
+             ? `<button class="btn btn-sm" id="inboxVaultBtn" type="button">🔑 Acessos${ticket.customerCredentialsCount ? ` (${ticket.customerCredentialsCount})` : ""}</button>`
+             : ""}`
         : (isClosed ? "" : `<select id="inboxCustomerSelect" class="search-input">
             <option value="">🏢 Vincular a um cliente…</option>
             ${(state.customers || []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
@@ -2760,6 +2891,7 @@ function renderInboxContext(ticket) {
     ctx.querySelectorAll("[data-timer]").forEach((b) => b.addEventListener("click", () => inboxTimer(b.dataset.timer)));
     document.getElementById("inboxCustomerSelect")?.addEventListener("change", (e) => inboxLinkCustomer(e.target.value));
   }
+  document.getElementById("inboxVaultBtn")?.addEventListener("click", () => openVault(ticket.customerId, ticket.customerName));
   startInboxTimerTick(ticket);
 }
 

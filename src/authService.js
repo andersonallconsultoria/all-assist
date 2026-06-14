@@ -5,6 +5,8 @@ const ALL_PERMISSIONS = [
   "reports:view",
   "contacts:view",
   "contacts:write",
+  "vault:view",
+  "vault:manage",
   "conversations:view",
   "conversations:write",
   "tickets:view",
@@ -33,63 +35,36 @@ export class AuthService {
     this.logger = logger;
   }
 
+  // Garante um role de sistema com o conjunto de permissões esperado.
+  ensureSystemRole(key, name, description, permissions) {
+    const existing = this.store.findOne("roles", (role) => role.key === key);
+    if (!existing) {
+      return this.store.insert("roles", { key, name, description, permissions });
+    }
+    if (JSON.stringify(existing.permissions || []) !== JSON.stringify(permissions)) {
+      return this.store.update("roles", existing.id, { permissions });
+    }
+    return existing;
+  }
+
   bootstrap() {
     this.ensureSeedTenants();
     const defaultTenant = this.ensureDefaultTenant();
-    let masterRole = this.store.findOne("roles", (role) => role.key === "master");
-    if (!masterRole) {
-      masterRole = this.store.insert("roles", {
-        key: "master",
-        name: "Master ALL Assist",
-        description: "Acesso global para suporte, observabilidade e administracao SaaS",
-        permissions: MASTER_PERMISSIONS
-      });
-    }
 
-    let adminRole = this.store.findOne("roles", (role) => role.key === "admin");
-    if (!adminRole) {
-      adminRole = this.store.insert("roles", {
-        key: "admin",
-        name: "Administrador",
-        description: "Acesso total ao ALL Assist",
-        permissions: ALL_PERMISSIONS
-      });
-    }
-
-    const sellerRole = this.store.findOne("roles", (role) => role.key === "seller");
-    if (!sellerRole) {
-      this.store.insert("roles", {
-        key: "seller",
-        name: "Vendedor",
-        description: "Atendimento, conversas e negocios",
-        permissions: [
-          "dashboard:view",
-          "contacts:view",
-          "deals:view",
-          "deals:write",
-          "conversations:view",
-          "conversations:write"
-        ]
-      });
-    }
-
-    const analyzeRole = this.store.findOne("roles", (role) => role.key === "analista");
-    if (!analyzeRole) {
-      this.store.insert("roles", {
-        key: "analista",
-        name: "Analista",
-        description: "Atendimento de tickets e conversas",
-        permissions: [
-          "tickets:view",
-          "tickets:respond",
-          "tickets:close",
-          "tickets:transfer",
-          "conversations:view",
-          "contacts:view",
-          "contacts:write"
-        ]
-      });
-    }
+    // Roles de sistema: cria se não existir e mantém as permissões em dia
+    // (importante em upgrades — novas permissões chegam aos roles existentes).
+    const masterRole = this.ensureSystemRole("master", "Master ALL Assist", "Acesso global para suporte, observabilidade e administracao SaaS", MASTER_PERMISSIONS);
+    const adminRole = this.ensureSystemRole("admin", "Administrador", "Acesso total ao ALL Assist", ALL_PERMISSIONS);
+    this.ensureSystemRole("analista", "Analista", "Atendimento de tickets e conversas", [
+      "tickets:view",
+      "tickets:respond",
+      "tickets:close",
+      "tickets:transfer",
+      "conversations:view",
+      "contacts:view",
+      "contacts:write",
+      "vault:view"
+    ]);
 
     const adminEmail = this.config.auth.bootstrapAdminEmail.toLowerCase();
     let adminUser = this.store.findOne("users", (user) => user.email === adminEmail);

@@ -4,6 +4,7 @@
 import { CrmDataStore } from "../src/crmDataStore.js";
 import { TicketService } from "../src/ticketService.js";
 import { AuthService } from "../src/authService.js";
+import { VaultService } from "../src/vaultService.js";
 
 const DATA_FILE = process.env.CRM_DATA_FILE || "data/crm.json";
 const store = new CrmDataStore(DATA_FILE);
@@ -18,7 +19,7 @@ const admin = store.findOne("users", (u) => (u.email || "").includes("admin")) |
 const ticketService = new TicketService(store, { debug() {}, info() {}, warn() {}, error() {} });
 
 // Limpa demo anterior
-for (const coll of ["tickets", "messages", "conversations", "contacts", "customers"]) {
+for (const coll of ["tickets", "messages", "conversations", "contacts", "customers", "credentials"]) {
   const ids = store.list(coll).filter((r) => r.demo).map((r) => r.id);
   ids.forEach((id) => store.remove(coll, id));
 }
@@ -37,6 +38,21 @@ const customers = {};
 for (const c of customerDefs) {
   const { key, ...fields } = c;
   customers[key] = store.insert("customers", { tenantId: tenant.id, ...fields, demo: true });
+}
+
+// Cofre de acessos de exemplo (criptografado)
+const vault = new VaultService(store, { debug() {}, info() {}, warn() {}, error() {} });
+const credDefs = [
+  { cust: "superbig", label: "Banco de dados ERP", type: "database", host: "192.168.0.10", port: "5432", database: "erp_prod", username: "consulta", password: "Big@2026db" },
+  { cust: "superbig", label: "Servidor (RDP)", type: "server", host: "187.10.20.30", port: "3389", username: "administrador", password: "Rdp#Big2026" },
+  { cust: "verdi", label: "Banco SQL Verdi", type: "database", host: "10.0.0.5", port: "1433", database: "VERDI", username: "sa", password: "Verdi$2026" }
+];
+for (const cd of credDefs) {
+  const cust = customers[cd.cust];
+  if (!cust) continue;
+  const { cust: _omit, ...fields } = cd;
+  const created = vault.createCredential(tenant.id, cust.id, fields, "seed");
+  store.update("credentials", created.id, { demo: true });
 }
 
 // Analistas (equipe de atendimento) — role analista

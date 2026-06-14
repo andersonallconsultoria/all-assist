@@ -4,6 +4,7 @@ import { AuthService } from "./authService.js";
 import { AlertService } from "./alertService.js";
 import { AccessRoleService } from "./accessRoleService.js";
 import { TicketService } from "./ticketService.js";
+import { VaultService } from "./vaultService.js";
 import { ClassifierAgent } from "./agents/classifier.js";
 import { createLogger } from "./logger.js";
 import { ObservabilityService } from "./observabilityService.js";
@@ -36,6 +37,7 @@ async function main() {
   const evolutionInstanceService = new EvolutionInstanceService(store, logger);
   const conversationService = new ConversationService(store, whatsappClient, logger, evolutionInstanceService);
   const ticketService = new TicketService(store, logger);
+  const vaultService = new VaultService(store, logger);
   const classifierAgent = new ClassifierAgent(config, logger);
 
   if (config.syncOnce) {
@@ -56,6 +58,7 @@ async function main() {
     alertService,
     evolutionInstanceService,
     ticketService,
+    vaultService,
     classifierAgent
   });
 }

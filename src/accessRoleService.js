@@ -22,6 +22,11 @@ export const PERMISSION_CATALOG = [
     permissions: ["contacts:view", "contacts:write"]
   },
   {
+    module: "cofre",
+    name: "Cofre de acessos",
+    permissions: ["vault:view", "vault:manage"]
+  },
+  {
     module: "conversas",
     name: "Conversas WhatsApp",
     permissions: ["conversations:view", "conversations:write"]

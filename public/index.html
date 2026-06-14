@@ -960,6 +960,18 @@
       </div>
     </div>
 
+    <!-- Modal: Cofre de acessos (credenciais do cliente) -->
+    <div id="vaultOverlay" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;width:600px;max-width:96vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.45)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line)">
+          <h3 style="margin:0;font-size:16px">🔑 Acessos — <span id="vaultCustomerName"></span></h3>
+          <button id="vaultClose" class="icon-button" type="button" aria-label="Fechar">&times;</button>
+        </div>
+        <div id="vaultList" style="flex:1;overflow-y:auto;padding:16px 22px;display:flex;flex-direction:column;gap:10px"></div>
+        <div id="vaultFooter" style="padding:14px 22px;border-top:1px solid var(--line)"></div>
+      </div>
+    </div>
+
     <!-- Modal: Editar telefone do contato -->
     <div id="phoneEditOverlay" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
       <div style="background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#2a2a3e);border-radius:14px;padding:24px;width:340px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.4)">
