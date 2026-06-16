@@ -1,4 +1,4 @@
-const CACHE_NAME = "allassist-shell-v1";
+const CACHE_NAME = "freitas-assist-shell-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -40,13 +40,13 @@ self.addEventListener("fetch", (event) => {
 
   if (request.method !== "GET" || url.pathname.startsWith("/api/")) return;
 
+  // Network-first: sempre busca a versão mais recente; usa o cache apenas como
+  // fallback offline. Evita servir telas/CSS desatualizados.
   event.respondWith(
-    caches.match(request).then((cached) => (
-      cached || fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return response;
-      }).catch(() => caches.match("/index.html"))
-    ))
+    fetch(request).then((response) => {
+      const copy = response.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+      return response;
+    }).catch(() => caches.match(request).then((cached) => cached || caches.match("/index.html")))
   );
 });
