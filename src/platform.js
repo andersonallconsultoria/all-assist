@@ -9,6 +9,7 @@ import { VaultService } from "./vaultService.js";
 import { FileStore } from "./fileStore.js";
 import { ClassifierAgent } from "./agents/classifier.js";
 import { AssistantAgent } from "./agents/assistant.js";
+import { BotAgent } from "./agents/bot.js";
 import { createLogger } from "./logger.js";
 import { ObservabilityService } from "./observabilityService.js";
 import { loadPlatformConfig } from "./platformConfig.js";
@@ -44,6 +45,7 @@ async function main() {
   const vaultService = new VaultService(store, logger);
   const classifierAgent = new ClassifierAgent(config, logger);
   const assistantAgent = new AssistantAgent(config, logger);
+  const botAgent = new BotAgent(config, logger);
 
   if (config.syncOnce) {
     process.exit(0);
@@ -66,7 +68,8 @@ async function main() {
     vaultService,
     fileStore,
     classifierAgent,
-    assistantAgent
+    assistantAgent,
+    botAgent
   });
 }
 

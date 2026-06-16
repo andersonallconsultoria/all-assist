@@ -5,7 +5,7 @@ import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
 import { randomId } from "./util.js";
 
-export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, fileStore, classifierAgent, assistantAgent }) {
+export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, fileStore, classifierAgent, assistantAgent, botAgent }) {
   const publicDir = path.resolve("public");
 
   const server = http.createServer(async (request, response) => {
@@ -141,6 +141,27 @@ export function startPlatformServer({ config, logger, store, conversationService
         const from = parsedUrl.searchParams.get("from");
         const to = parsedUrl.searchParams.get("to");
         return sendJson(response, 200, buildHoursReport(store, tenantContext.tenantId, from, to));
+      }
+
+      // ===== Bot de atendimento (config) =====
+      if (request.method === "GET" && parsedUrl.pathname === "/api/bot/config") {
+        if (!requirePermission(response, authService, user, "settings:manage")) return;
+        const tenant = store.findById("tenants", tenantContext.tenantId);
+        return sendJson(response, 200, tenant?.botConfig || { enabled: false, greeting: "", handoffMessage: "" });
+      }
+      if (request.method === "PUT" && parsedUrl.pathname === "/api/bot/config") {
+        if (!requirePermission(response, authService, user, "settings:manage")) return;
+        const tenant = store.findById("tenants", tenantContext.tenantId);
+        if (!tenant) return sendJson(response, 404, { error: "tenant_not_found" });
+        const body = await readJson(request);
+        const botConfig = {
+          enabled: Boolean(body.enabled),
+          greeting: String(body.greeting || "").trim(),
+          handoffMessage: String(body.handoffMessage || "").trim()
+        };
+        store.update("tenants", tenant.id, { botConfig });
+        store.save();
+        return sendJson(response, 200, botConfig);
       }
 
       // ===== Base de conhecimento =====
@@ -910,7 +931,9 @@ export function startPlatformServer({ config, logger, store, conversationService
               ticketService,
               classifierAgent,
               store,
-              logger
+              logger,
+              botAgent,
+              conversationService
             );
           }
         }
@@ -982,7 +1005,9 @@ export function startPlatformServer({ config, logger, store, conversationService
                 ticketService,
                 classifierAgent,
                 store,
-                logger
+                logger,
+                botAgent,
+                conversationService
               );
             }
             store.save();
@@ -1669,7 +1694,7 @@ function buildSupportDashboard(store, tenantId) {
   };
 }
 
-async function _createTicketForConversation(conversation, message, contact, ticketService, classifierAgent, store, logger) {
+async function _createTicketForConversation(conversation, message, contact, ticketService, classifierAgent, store, logger, botAgent = null, conversationService = null) {
   try {
     if (!conversation || !ticketService) return;
 
@@ -1705,6 +1730,35 @@ async function _createTicketForConversation(conversation, message, contact, tick
       category: ticket.category,
       priority: ticket.priority
     });
+
+    // Bot de atendimento inicial (se habilitado no tenant)
+    const tenant = store.findById("tenants", conversation.tenantId);
+    const botConfig = tenant?.botConfig || {};
+    if (botConfig.enabled && botAgent && conversationService) {
+      try {
+        const articles = store.findAll("kbArticles", (a) => a.tenantId === conversation.tenantId).map((a) => ({
+          title: a.title, category: a.category, content: a.content,
+          attachmentsText: (a.attachments || []).map((x) => `${x.name} ${x.textExtract || ""}`).join(" ")
+        }));
+        const result = await botAgent.reply({
+          message: message.body || "",
+          contactName: contact.name || contact.phone,
+          botConfig: { ...botConfig, companyName: tenant?.displayName || tenant?.name },
+          articles
+        });
+        await conversationService.sendText(conversation.id, result.reply, "bot", conversation.tenantId, null);
+        ticketService.addLog(ticket.id, conversation.tenantId, { type: "bot_reply", note: `Bot respondeu${result.handoff ? " e encaminhou para análise" : ""}`, actor: "bot" });
+        store.update("tickets", ticket.id, {
+          firstResponseAt: new Date().toISOString(),
+          botHandled: true,
+          status: result.handoff ? "waiting_analyst" : "waiting_customer"
+        });
+        store.save();
+        logger.info("bot_handled_ticket", { ticketId: ticket.id, handoff: result.handoff, source: result.source });
+      } catch (botError) {
+        logger.warn("bot_reply_failed", { error: botError.message, ticketId: ticket.id });
+      }
+    }
   } catch (error) {
     logger.error("ticket_creation_failed", {
       error: error.message,

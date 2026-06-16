@@ -1527,63 +1527,32 @@ function closeWaModal() {
 /* ══════════════════════════════════════
    AUTOMAÇÕES WHATSAPP
 ══════════════════════════════════════ */
-function renderAutomations() {
-  const kpisEl = document.getElementById("automationKpis");
-  if (kpisEl) {
-    const convs = state.conversations || [];
-    const totalUnread = convs.reduce((s, c) => s + (c.unreadCount || 0), 0);
-    const openConvs = convs.filter((c) => c.status === "open" || !c.status).length;
-    kpisEl.innerHTML = [
-      { label: "Conversas abertas", value: openConvs, sub: "aguardando resposta", color: "metric-accent" },
-      { label: "Nao lidas", value: totalUnread, sub: "mensagens pendentes", color: "metric-amber" },
-      { label: "Contatos com WhatsApp", value: (state.contacts || []).filter((c) => c.phone).length, sub: "telefones cadastrados", color: "metric-cyan" },
-      { label: "Regras ativas", value: 0, sub: "automacoes configuradas", color: "metric-blue" }
-    ].map((card) => `
-      <article class="metric-card ${card.color}">
-        <span>${card.label}</span>
-        <strong>${card.value}</strong>
-        <small>${card.sub}</small>
-      </article>
-    `).join("");
-  }
-
-  const rulesEl = document.getElementById("automationRulesList");
-  if (rulesEl) {
-    rulesEl.innerHTML = `
-      <div class="automation-empty">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
-        <strong>Nenhuma regra criada ainda</strong>
-        <p>As regras de automacao permitem disparar mensagens automaticamente quando um negocio muda de etapa, quando um cliente nao responde, ou em datas especificas.</p>
-        <button class="btn-primary" type="button" onclick="setStatus('Automacoes — disponivel em breve');setTimeout(()=>setStatus('Online'),3000)">
-          Criar primeira regra
-        </button>
-      </div>
-    `;
-  }
-
-  const templatesEl = document.getElementById("automationTemplatesList");
-  if (templatesEl) {
-    const builtinTemplates = [
-      { name: "Boas-vindas", trigger: "Novo contato", status: "draft" },
-      { name: "Follow-up 7 dias", trigger: "Sem resposta em 7 dias", status: "draft" },
-      { name: "Confirmacao de pedido", trigger: "Pedido aprovado", status: "draft" }
-    ];
-    templatesEl.innerHTML = builtinTemplates.map((tpl) => `
-      <div class="template-row">
-        <div>
-          <strong>${escapeHtml(tpl.name)}</strong>
-          <small>${escapeHtml(tpl.trigger)}</small>
-        </div>
-        <span class="badge badge-neutral">Rascunho</span>
-      </div>
-    `).join("");
-  }
-
-  const historyEl = document.getElementById("automationHistoryList");
-  if (historyEl) {
-    historyEl.innerHTML = `<div class="empty-state compact">Nenhum disparo automatico realizado ainda.</div>`;
+async function renderAutomations() {
+  if (!document.getElementById("botEnabled")) return;
+  if (!hasPermission("settings:manage")) return;
+  try {
+    const cfg = await api("/api/bot/config");
+    document.getElementById("botEnabled").checked = Boolean(cfg.enabled);
+    document.getElementById("botGreeting").value = cfg.greeting || "";
+    document.getElementById("botHandoff").value = cfg.handoffMessage || "";
+    document.getElementById("botStatus").textContent = cfg.enabled ? "Bot ativo: responde a primeira mensagem automaticamente." : "Bot desativado.";
+  } catch (e) {
+    document.getElementById("botStatus").textContent = "Erro ao carregar: " + e.message;
   }
 }
+
+document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
+  const payload = {
+    enabled: document.getElementById("botEnabled").checked,
+    greeting: document.getElementById("botGreeting").value.trim(),
+    handoffMessage: document.getElementById("botHandoff").value.trim()
+  };
+  try {
+    await api("/api/bot/config", { method: "PUT", body: JSON.stringify(payload) });
+    document.getElementById("botStatus").textContent = payload.enabled ? "Bot ativo: responde a primeira mensagem automaticamente." : "Bot desativado.";
+    setStatus("Configuração do bot salva");
+  } catch (e) { setStatus("Erro: " + e.message); }
+});
 
 /* ══════════════════════════════════════
    MODAL DE CONVITE

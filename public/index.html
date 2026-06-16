@@ -775,37 +775,35 @@
         <div class="view-header">
           <div>
             <p class="eyebrow">Freitas Assist</p>
-            <h1>Automacoes WhatsApp</h1>
-          </div>
-          <div class="view-header-actions">
-            <button class="btn-primary" type="button" id="newAutomationBtn">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Nova regra
-            </button>
+            <h1>Bot de atendimento</h1>
           </div>
         </div>
-        <div class="automation-kpis" id="automationKpis"></div>
-        <div class="dashboard-main-grid" style="margin-top:24px">
+        <div style="max-width:680px">
           <section class="panel">
             <div class="panel-title">
-              <div><h2>Regras ativas</h2><span>Disparos e fluxos configurados</span></div>
+              <div>
+                <h2>Atendimento automático inicial</h2>
+                <span>O bot recebe a 1ª mensagem, responde usando a base de conhecimento e encaminha para um analista quando necessário</span>
+              </div>
             </div>
-            <div id="automationRulesList"></div>
-          </section>
-          <section class="panel">
-            <div class="panel-title">
-              <div><h2>Templates de mensagem</h2><span>Mensagens pre-aprovadas</span></div>
-              <button type="button" class="link-button" id="newTemplateBtn">+ Template</button>
+            <div style="padding:8px 4px;display:flex;flex-direction:column;gap:16px">
+              <label style="display:flex;align-items:center;gap:10px;font-size:14px">
+                <input type="checkbox" id="botEnabled" style="width:18px;height:18px">
+                <span>Ativar bot de atendimento inicial</span>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
+                Saudação inicial
+                <textarea id="botGreeting" rows="3" class="search-input" style="resize:vertical" placeholder="Olá! Sou o assistente virtual de atendimento. Como posso ajudar?"></textarea>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
+                Mensagem ao encaminhar para um analista
+                <textarea id="botHandoff" rows="2" class="search-input" style="resize:vertical" placeholder="Vou encaminhar você para um de nossos analistas. Um momento, por favor."></textarea>
+              </label>
+              <p id="botStatus" style="font-size:12px;color:var(--muted);margin:0"></p>
+              <button id="botSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-start">Salvar configuração</button>
             </div>
-            <div id="automationTemplatesList"></div>
           </section>
         </div>
-        <section class="panel" style="margin-top:0">
-          <div class="panel-title">
-            <div><h2>Historico de disparos</h2><span>Ultimas mensagens automatizadas</span></div>
-          </div>
-          <div id="automationHistoryList"></div>
-        </section>
       </section>
 
       <!-- ═══ CONFIGURAÇÕES ═══ -->
