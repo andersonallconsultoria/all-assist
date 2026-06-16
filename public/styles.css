@@ -3747,6 +3747,13 @@ nav a.active::after {
   gap: 10px;
 }
 .inbox-reply-box { border-top: 1px solid var(--line); padding: 10px 14px; background: var(--panel); }
+.ctx-claimed { font-size: 12px; color: var(--accent-strong); background: var(--accent-soft); padding: 8px 10px; border-radius: 8px; text-align: center; }
+.message-note { align-self: center; max-width: 88%; background: rgba(245,158,11,0.12); border: 1px dashed rgba(245,158,11,0.5); border-radius: 10px; padding: 8px 12px; }
+.message-note .note-head { font-size: 11px; color: #fbbf24; font-weight: 700; margin-bottom: 3px; }
+.message-note p { margin: 0; font-size: 13px; color: var(--ink); white-space: pre-wrap; }
+.message-note small { color: var(--muted); font-size: 10px; }
+.inbox-icon-btn.active { background: rgba(245,158,11,0.2); border-color: #f59e0b; }
+.inbox-reply-box.note-mode .inbox-reply-input { border-color: #f59e0b; background: rgba(245,158,11,0.06); }
 .inbox-icon-btn { background: var(--panel-soft); border: 1px solid var(--line); border-radius: 9px; width: 38px; height: 38px; font-size: 17px; cursor: pointer; flex-shrink: 0; color: var(--ink); }
 .inbox-icon-btn:hover { border-color: var(--accent); }
 .inbox-icon-btn.recording { background: rgba(244,63,94,0.18); border-color: var(--rose); animation: pulse 1s infinite; }

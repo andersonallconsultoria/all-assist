@@ -3032,8 +3032,13 @@ function renderInboxChat(ticket) {
   const chat = document.getElementById("inboxChat");
   const messages = ticket.conversation?.messages || [];
   chat.innerHTML = messages.length
-    ? messages.map((m) => `
-        <div class="message ${m.direction}">
+    ? messages.map((m) => m.direction === "internal"
+      ? `<div class="message-note">
+          <div class="note-head">🔒 Nota interna${m.authorName ? ` · ${escapeHtml(m.authorName)}` : ""}</div>
+          <p>${escapeHtml(m.body)}</p>
+          <small>${formatDateTime(m.createdAt)}</small>
+        </div>`
+      : `<div class="message ${m.direction}">
           ${inboxMsgContent(m)}
           <div class="msg-meta">
             <small>${formatDateTime(m.createdAt)}</small>
@@ -3112,6 +3117,9 @@ function renderInboxContext(ticket) {
     ${isClosed ? `<div class="ctx-section"><span class="badge badge-success">Atendimento encerrado</span></div>` : `
     <div class="ctx-section ctx-actions">
       <h4>Ações</h4>
+      ${ticket.assignedAnalystId === state.currentUser?.id
+        ? `<span class="ctx-claimed">✓ Você é o responsável por este atendimento</span>`
+        : `<button class="btn btn-primary" id="inboxClaimBtn" type="button">✋ Assumir atendimento${ticket.analystName ? ` (de ${escapeHtml(ticket.analystName)})` : ""}</button>`}
       <label class="ctx-field">
         <span>Analista responsável</span>
         <select id="inboxAssignSelect" class="search-input">
@@ -3132,6 +3140,7 @@ function renderInboxContext(ticket) {
     document.getElementById("inboxCloseBtn")?.addEventListener("click", inboxClose);
     ctx.querySelectorAll("[data-timer]").forEach((b) => b.addEventListener("click", () => inboxTimer(b.dataset.timer)));
     document.getElementById("inboxCustomerSelect")?.addEventListener("change", (e) => inboxLinkCustomer(e.target.value));
+    document.getElementById("inboxClaimBtn")?.addEventListener("click", () => inboxAssign(state.currentUser?.id));
   }
   document.getElementById("inboxVaultBtn")?.addEventListener("click", () => openVault(ticket.customerId, ticket.customerName));
   document.getElementById("inboxAssistBtn")?.addEventListener("click", inboxAssist);
@@ -3240,12 +3249,32 @@ async function inboxAction(path, body, successMsg) {
 
 let inboxPendingMedia = null; // { dataBase64, name, mime }
 let inboxRecorder = null, inboxChunks = [];
+let inboxNoteMode = false;
+
+function setInboxNoteMode(on) {
+  inboxNoteMode = on;
+  const btn = document.getElementById("inboxNoteToggle");
+  const input = document.getElementById("inboxReplyText");
+  const box = document.getElementById("inboxReplyBox");
+  if (btn) btn.classList.toggle("active", on);
+  if (box) box.classList.toggle("note-mode", on);
+  if (input) input.placeholder = on ? "Nota interna (só a equipe vê)..." : "Digite sua resposta (ou cole um print com Ctrl+V)...";
+}
 
 async function inboxReply() {
   const ticket = state.inbox.activeTicket;
   if (!ticket) return;
   const input = document.getElementById("inboxReplyText");
   const caption = input.value.trim();
+  // Nota interna: não vai pro cliente
+  if (inboxNoteMode && !inboxPendingMedia) {
+    if (!caption) return;
+    input.value = "";
+    input.style.height = "auto";
+    setInboxNoteMode(false);
+    await inboxAction(`/api/tickets/${ticket.id}/note`, { body: caption }, "Nota interna adicionada");
+    return;
+  }
   if (inboxPendingMedia) {
     const media = inboxPendingMedia;
     clearPendingMedia();
@@ -3357,6 +3386,8 @@ function wireInboxEvents() {
   document.getElementById("inboxFileInput")?.addEventListener("change", (e) => { if (e.target.files[0]) setPendingMedia(e.target.files[0]); e.target.value = ""; });
   // Gravar áudio
   document.getElementById("inboxRecordBtn")?.addEventListener("click", toggleInboxRecord);
+  // Nota interna (toggle)
+  document.getElementById("inboxNoteToggle")?.addEventListener("click", () => setInboxNoteMode(!inboxNoteMode));
 }
 
 wireInboxEvents();

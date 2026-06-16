@@ -1425,6 +1425,32 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 201, message);
       }
 
+      // Nota interna — visível só para a equipe, NÃO vai para o cliente
+      const ticketNoteMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/note$/);
+      if (request.method === "POST" && ticketNoteMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const ticket = ticketService.getTicket(ticketNoteMatch[1], tenantContext.tenantId);
+        if (!ticket || !ticket.conversationId) return sendJson(response, 404, { error: "ticket_not_found" });
+        const body = await readJson(request);
+        const text = String(body.body || "").trim();
+        if (!text) return sendJson(response, 400, { error: "note_required" });
+        const message = store.insert("messages", {
+          tenantId: tenantContext.tenantId,
+          conversationId: ticket.conversationId,
+          contactId: ticket.contactId,
+          direction: "internal",
+          channel: "internal",
+          type: "note",
+          body: text,
+          status: "internal",
+          actor: user.id,
+          authorName: user.name
+        });
+        ticketService.addLog(ticket.id, tenantContext.tenantId, { type: "note", note: "Nota interna adicionada", actor: user.id });
+        store.save();
+        return sendJson(response, 201, message);
+      }
+
       // Enviar mídia (imagem/áudio/documento) num atendimento — base64
       const ticketMediaMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/media$/);
       if (request.method === "POST" && ticketMediaMatch) {
