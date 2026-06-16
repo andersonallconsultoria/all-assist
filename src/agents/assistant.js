@@ -72,6 +72,38 @@ export class AssistantAgent {
     }
   }
 
+  // Extrai o conteúdo textual de um documento (PDF) para indexar na base.
+  // Usa o suporte nativo a PDF da Claude API. Retorna "" se não houver chave.
+  async extractDocument({ base64, mime, name }) {
+    if (!this.apiKey || mime !== "application/pdf") return "";
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": this.apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: 2000,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64 } },
+              { type: "text", text: `Extraia o conteúdo textual e os pontos-chave deste documento "${name}" para uma base de conhecimento de atendimento. Responda apenas com o texto/resumo objetivo, sem comentários.` }
+            ]
+          }]
+        })
+      });
+      if (!response.ok) {
+        this.logger.warn("extract_document_api_error", { status: response.status });
+        return "";
+      }
+      const data = await response.json();
+      return (data.content?.find((b) => b.type === "text")?.text || "").slice(0, 20000);
+    } catch (error) {
+      this.logger.warn("extract_document_failed", { error: error.message });
+      return "";
+    }
+  }
+
   _keywordFallback(message, articles) {
     const stop = new Set(["para", "como", "the", "and", "que", "com", "uma", "dos", "das", "por", "meu", "minha", "está", "esta", "não", "sim"]);
     const terms = normalize(message).split(/\s+/).filter((w) => w.length > 3 && !stop.has(w));

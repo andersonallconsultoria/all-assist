@@ -227,11 +227,14 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (buffer.length > MAX) return sendJson(response, 413, { error: "file_too_large", max: "30MB" });
         const fileId = `kbf_${randomId()}`;
         fileStore.save(fileId, buffer);
-        // TXT: indexa o texto para a IA usar; outros tipos guardam só metadados.
+        // Indexa o conteúdo para a IA usar: TXT direto; PDF via Claude (se houver
+        // ANTHROPIC_API_KEY). Outros tipos guardam só metadados.
         const mime = String(body.mime || "application/octet-stream");
         let textExtract = "";
         if (mime.startsWith("text/") || name.toLowerCase().endsWith(".txt")) {
           textExtract = buffer.toString("utf8").slice(0, 20000);
+        } else if (mime === "application/pdf" && assistantAgent) {
+          textExtract = await assistantAgent.extractDocument({ base64: data, mime, name });
         }
         const attachment = { id: fileId, name, mime, size: buffer.length, textExtract, createdAt: new Date().toISOString() };
         const attachments = [...(article.attachments || []), attachment];
