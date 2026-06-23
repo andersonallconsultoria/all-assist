@@ -29,8 +29,9 @@ export class EvolutionApiClient {
     return this._request("POST", "/instance/create", {
       instanceName: name,
       qrcode: true,
-      integration: "WHATSAPP-BAILEYS",
-      webhook: { url: webhookUrl, byEvents: false, base64: false, events: WEBHOOK_EVENTS }
+      webhook: webhookUrl,
+      webhook_by_events: false,
+      events: WEBHOOK_EVENTS
     });
   }
 
