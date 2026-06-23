@@ -1159,7 +1159,7 @@ export function startPlatformServer({ config, logger, store, conversationService
         }
         const { EvolutionApiClient } = await import("./evolutionApiClient.js");
         const evoClient = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
-        const webhookUrl = `${config.appUrl || `http://localhost:${config.port}`}/webhooks/evolution`;
+        const webhookUrl = `${config.publicBaseUrl}/webhooks/evolution`;
         try {
           await evoClient.createInstance(instance.instanceName, webhookUrl).catch(() => null);
           const result = await evoClient.connectInstance(instance.instanceName);
@@ -1259,7 +1259,7 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (!instance) return sendJson(response, 400, { error: "Configure a instância antes de conectar" });
         const { EvolutionApiClient } = await import("./evolutionApiClient.js");
         const evoClient = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
-        const webhookUrl = `${config.appUrl || `http://localhost:${config.port}`}/webhooks/evolution`;
+        const webhookUrl = `${config.publicBaseUrl}/webhooks/evolution`;
         try {
           await evoClient.createInstance(instance.instanceName, webhookUrl).catch(() => null);
           const result = await evoClient.connectInstance(instance.instanceName);
