@@ -26,12 +26,17 @@ export class EvolutionApiClient {
   }
 
   async createInstance(name, webhookUrl) {
+    // Evolution API v2: webhook é objeto aninhado e exige integration.
     return this._request("POST", "/instance/create", {
       instanceName: name,
       qrcode: true,
-      webhook: webhookUrl,
-      webhook_by_events: false,
-      events: WEBHOOK_EVENTS
+      integration: "WHATSAPP-BAILEYS",
+      webhook: {
+        url: webhookUrl,
+        byEvents: false,
+        base64: false,
+        events: WEBHOOK_EVENTS
+      }
     });
   }
 
@@ -45,17 +50,22 @@ export class EvolutionApiClient {
 
   async setWebhook(name, webhookUrl) {
     return this._request("POST", `/webhook/set/${encodeURIComponent(name)}`, {
-      url: webhookUrl,
-      webhook_by_events: false,
-      events: WEBHOOK_EVENTS
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        byEvents: false,
+        base64: false,
+        events: WEBHOOK_EVENTS
+      }
     });
   }
 
   async sendText(name, to, text, delayMs = 1200) {
+    // Evolution API v2: payload simplificado (number + text direto).
     return this._request("POST", `/message/sendText/${encodeURIComponent(name)}`, {
       number: to,
-      options: { delay: delayMs, presence: "composing" },
-      textMessage: { text }
+      text,
+      delay: delayMs
     });
   }
 

@@ -2026,6 +2026,10 @@ function startQrPoll() {
         setTimeout(() => setStatus("Online"), 4000);
       } else if (result.status === "disconnected") {
         hideEvoQr();
+      } else if (result.qrCode) {
+        // Evolution v2: o QR chega async via status — exibe/atualiza aqui
+        showEvoQr(result.qrCode);
+        setStatus("Escaneie o QR code com seu WhatsApp");
       }
     } catch { /**/ }
   }, 5000);

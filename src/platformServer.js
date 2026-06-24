@@ -1188,7 +1188,12 @@ export function startPlatformServer({ config, logger, store, conversationService
           const state = result?.instance?.state || result?.state || "close";
           const status = state === "open" ? "connected" : state === "connecting" ? "connecting" : "disconnected";
           if (status !== instance.status) evolutionInstanceService.updateStatus(instance.id, status);
-          return sendJson(response, 200, { status, instanceName: instance.instanceName });
+          // Na Evolution v2 o QR chega async pelo webhook (não na resposta do
+          // connect). Devolve o último QR salvo enquanto não conecta, para o
+          // frontend exibir via polling do status.
+          const fresh = evolutionInstanceService.getByUser(tenantContext.tenantId, user.id);
+          const qrCode = status === "connected" ? null : (fresh?.lastQrCode || null);
+          return sendJson(response, 200, { status, instanceName: instance.instanceName, qrCode });
         } catch (error) {
           return sendJson(response, 200, { status: "disconnected", error: error.message });
         }
