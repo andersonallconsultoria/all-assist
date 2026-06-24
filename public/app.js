@@ -112,7 +112,10 @@ document.querySelectorAll("nav a").forEach((link) => {
     document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
     link.classList.add("active");
     document.querySelector(link.getAttribute("href")).classList.add("active");
-    document.getElementById("pageTitle").textContent = link.textContent.trim();
+    // Usa só os nós de texto diretos do link (ignora o badge de contagem,
+    // que fazia o título virar "Atendimento 1").
+    const labelText = Array.from(link.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim();
+    document.getElementById("pageTitle").textContent = labelText || link.textContent.trim();
     if (link.getAttribute("href") === "#whatsapp-chat") renderWhatsAppChat();
     if (link.getAttribute("href") === "#tickets") renderTickets();
     if (link.getAttribute("href") === "#inbox") renderInbox();
@@ -1593,6 +1596,8 @@ async function renderAutomations() {
     document.getElementById("botEnabled").checked = Boolean(cfg.enabled);
     document.getElementById("botGreeting").value = cfg.greeting || "";
     document.getElementById("botHandoff").value = cfg.handoffMessage || "";
+    document.getElementById("botFarewellEnabled").checked = Boolean(cfg.farewellEnabled);
+    document.getElementById("botFarewell").value = cfg.farewellMessage || "";
     document.getElementById("botMenuEnabled").checked = Boolean(cfg.menuEnabled);
     document.getElementById("botMenuMode").value = cfg.menuMode === "poll" ? "poll" : "text";
     document.getElementById("botMenuIntro").value = cfg.menuIntro || "";
@@ -1608,6 +1613,8 @@ document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
     enabled: document.getElementById("botEnabled").checked,
     greeting: document.getElementById("botGreeting").value.trim(),
     handoffMessage: document.getElementById("botHandoff").value.trim(),
+    farewellEnabled: document.getElementById("botFarewellEnabled").checked,
+    farewellMessage: document.getElementById("botFarewell").value.trim(),
     menuEnabled: document.getElementById("botMenuEnabled").checked,
     menuMode: document.getElementById("botMenuMode").value,
     menuIntro: document.getElementById("botMenuIntro").value.trim(),
@@ -3046,11 +3053,15 @@ async function selectInboxTicket(id) {
 function renderInboxHeader(ticket) {
   const header = document.getElementById("inboxChatHeader");
   header.hidden = false;
+  const avatar = ticket.contactAvatar
+    ? `<img class="avatar-mini avatar-photo" src="${escapeHtml(ticket.contactAvatar)}" alt="" onerror="this.outerHTML='<span class=&quot;avatar-mini&quot;>${escapeHtml(initials(ticket.contactName))}</span>'">`
+    : `<span class="avatar-mini">${escapeHtml(initials(ticket.contactName))}</span>`;
   header.innerHTML = `
-    <span class="avatar-mini">${escapeHtml(initials(ticket.contactName))}</span>
+    ${avatar}
     <div class="ich-info">
       <strong>${escapeHtml(ticket.contactName)}</strong>
-      <small>${escapeHtml(ticket.contactPhone || "")}</small>
+      <small>${escapeHtml(ticket.contactPhone || "")}${ticket.customerName ? ` · 🏢 ${escapeHtml(ticket.customerName)}` : ""}</small>
+      <small class="ich-sub">${ticket.analystName ? `👤 ${escapeHtml(ticket.analystName)}` : "⏳ Sem analista"}${ticket.queue ? ` · 📋 ${escapeHtml(ticket.queue)}` : ""}</small>
     </div>
     <div class="ich-tags">
       <span class="badge ${TICKET_PRIORITY_BADGE[ticket.priority] || "badge-neutral"}">${TICKET_PRIORITY_LABELS[ticket.priority] || ticket.priority}</span>
@@ -3135,6 +3146,21 @@ async function inboxEditContactPhone(contactId) {
   }
 }
 
+async function inboxAddTag(contactId) {
+  const tag = await uiPrompt("Nova tag:", "", { title: "Adicionar tag", placeholder: "Ex.: VIP, Urgente, Cliente novo" });
+  if (!tag) return;
+  await _saveContactTags(contactId, [...(state.inbox.activeTicket?.contactTags || []), tag]);
+}
+async function inboxRemoveTag(contactId, tag) {
+  await _saveContactTags(contactId, (state.inbox.activeTicket?.contactTags || []).filter((t) => t !== tag));
+}
+async function _saveContactTags(contactId, tags) {
+  try {
+    await api(`/api/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify({ tags: [...new Set(tags.map((t) => t.trim()).filter(Boolean))] }) });
+    if (state.inbox.activeId) selectInboxTicket(state.inbox.activeId);
+  } catch (error) { uiAlert(`Erro ao salvar tag: ${error.message}`); }
+}
+
 function renderInboxContext(ticket) {
   const ctx = document.getElementById("inboxContext");
   const ai = ticket.aiClassification;
@@ -3165,6 +3191,13 @@ function renderInboxContext(ticket) {
             <option value="">🏢 Vincular a um cliente…</option>
             ${(state.customers || []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
           </select>`)}
+    </div>
+    <div class="ctx-section ctx-tags">
+      <h4>Tags</h4>
+      <div class="ctx-tag-list">
+        ${(ticket.contactTags || []).map((t) => `<span class="ctx-tag">${escapeHtml(t)} <button type="button" onclick="inboxRemoveTag('${ticket.contactId}','${escapeHtml(t).replaceAll("'", "\\'")}')">×</button></span>`).join("")}
+        <button class="btn-link-inline" type="button" onclick="inboxAddTag('${ticket.contactId}')">+ tag</button>
+      </div>
     </div>
     <div class="ctx-section">
       <h4>Ticket</h4>

@@ -4136,3 +4136,8 @@ nav a.active::after {
 @keyframes uiFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes uiPop { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 .badge-queue { background: #ecfdf5; color: #047857; }
+.ich-sub { display:block; font-size:11px; opacity:0.7; margin-top:1px; }
+.avatar-mini.avatar-photo { object-fit:cover; }
+.ctx-tag-list { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+.ctx-tag { display:inline-flex; align-items:center; gap:4px; font-size:11px; background:var(--accent-soft); color:var(--accent-strong); padding:3px 8px; border-radius:999px; }
+.ctx-tag button { background:none; border:none; color:inherit; cursor:pointer; font-size:13px; line-height:1; padding:0; }

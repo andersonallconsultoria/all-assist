@@ -158,6 +158,8 @@ export function startPlatformServer({ config, logger, store, conversationService
           enabled: Boolean(body.enabled),
           greeting: String(body.greeting || "").trim(),
           handoffMessage: String(body.handoffMessage || "").trim(),
+          farewellEnabled: Boolean(body.farewellEnabled),
+          farewellMessage: String(body.farewellMessage || "").trim(),
           menuEnabled: Boolean(body.menuEnabled),
           menuMode: body.menuMode === "poll" ? "poll" : "text",
           menuIntro: String(body.menuIntro || "").trim(),
@@ -764,6 +766,7 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (body.document !== undefined) patch.document = String(body.document || "").trim();
         if (body.notes !== undefined) patch.notes = String(body.notes || "").trim();
         if (body.customerId !== undefined) patch.customerId = body.customerId || null;
+        if (Array.isArray(body.tags)) patch.tags = body.tags.map((t) => String(t || "").trim()).filter(Boolean).slice(0, 20);
         const updated = store.update("contacts", contactId, patch);
         observabilityService?.recordAudit({
           tenantId: tenantContext.tenantId,
@@ -1344,6 +1347,7 @@ export function startPlatformServer({ config, logger, store, conversationService
           contactAvatar: contact?.avatarUrl || null,
           contactEmail: contact?.email || "",
           contactCity: contact?.city || "",
+          contactTags: Array.isArray(contact?.tags) ? contact.tags : [],
           analystName: analyst?.name || null,
           customerId: customer?.id || null,
           customerName: customer ? (customer.fantasia || customer.name) : null,
@@ -1438,6 +1442,12 @@ export function startPlatformServer({ config, logger, store, conversationService
         try {
           const updated = ticketService.closeTicket(ticketCloseMatch[1], tenantContext.tenantId, body.closureNote || "", user.id);
           store.save();
+          // Despedida automática ao cliente (configurável no Bot).
+          const tnt = store.findById("tenants", tenantContext.tenantId);
+          const farewell = tnt?.botConfig?.farewellMessage;
+          if (tnt?.botConfig?.farewellEnabled && farewell && updated.conversationId) {
+            conversationService.sendText(updated.conversationId, farewell, "bot", tenantContext.tenantId, null).catch(() => {});
+          }
           return sendJson(response, 200, enrichTicket(updated));
         } catch (error) {
           return sendJson(response, 404, { error: "ticket_not_found" });
