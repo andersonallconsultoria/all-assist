@@ -3095,7 +3095,9 @@ function renderInboxContext(ticket) {
 
   ctx.innerHTML = `
     <div class="ctx-section ctx-client">
-      <span class="avatar-lg">${escapeHtml(initials(ticket.contactName))}</span>
+      ${ticket.contactAvatar
+        ? `<img class="avatar-lg avatar-photo" src="${escapeHtml(ticket.contactAvatar)}" alt="" onerror="this.outerHTML='<span class=&quot;avatar-lg&quot;>${escapeHtml(initials(ticket.contactName))}</span>'">`
+        : `<span class="avatar-lg">${escapeHtml(initials(ticket.contactName))}</span>`}
       <strong>${escapeHtml(ticket.contactName)}</strong>
       ${isLikelyLid(ticket.contactPhone)
         ? `<small class="ctx-phone-warn">⚠️ número oculto (privacidade do WhatsApp)

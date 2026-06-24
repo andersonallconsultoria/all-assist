@@ -96,6 +96,22 @@ export class ConversationService {
     return d.length >= 10 && d.length <= 13;
   }
 
+  async _fetchEvolutionAvatar(instanceName, remoteJid, contact, tenantId) {
+    if (!this.evolutionInstanceService || !instanceName || !remoteJid) return;
+    // Renova a foto no máximo 1x/dia (a URL do WhatsApp expira).
+    const fresh = this.store.findById("contacts", contact.id) || contact;
+    const last = fresh.avatarFetchedAt ? Date.parse(fresh.avatarFetchedAt) : 0;
+    if (fresh.avatarUrl && Date.now() - last < 24 * 60 * 60 * 1000) return;
+    const instance = this.evolutionInstanceService.getByTenant(tenantId);
+    if (!instance) return;
+    const { EvolutionApiClient } = await import("./evolutionApiClient.js");
+    const evo = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
+    const res = await evo.fetchProfilePictureUrl(instanceName, remoteJid);
+    const url = res?.profilePictureUrl || res?.profilePicUrl || null;
+    this.store.update("contacts", contact.id, { avatarUrl: url || fresh.avatarUrl || null, avatarFetchedAt: new Date().toISOString() });
+    this.store.save();
+  }
+
   _resolveWhatsappNumber(contact) {
     const candidates = [];
     if (contact.customerId) {
@@ -291,6 +307,10 @@ export class ConversationService {
 
       const contact = this.upsertContactFromWhatsApp({ from: phone, profileName, body, timestamp }, tenantId);
       const conversation = this.openConversation(contact, { timestamp, body }, "evolution", payload._instanceId || null);
+
+      // Busca a foto de perfil do contato (assíncrono, sem bloquear o webhook).
+      // Funciona mesmo com LID — a Evolution entrega a foto pelo remoteJid.
+      this._fetchEvolutionAvatar(instanceName, remoteJid, contact, tenantId).catch(() => {});
 
       const message = this.store.insert("messages", {
         tenantId,

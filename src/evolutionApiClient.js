@@ -89,6 +89,10 @@ export class EvolutionApiClient {
     });
   }
 
+  async fetchProfilePictureUrl(name, number) {
+    return this._request("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(name)}`, { number });
+  }
+
   async logout(name) {
     return this._request("DELETE", `/instance/logout/${encodeURIComponent(name)}`);
   }

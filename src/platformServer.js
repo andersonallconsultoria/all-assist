@@ -1332,6 +1332,9 @@ export function startPlatformServer({ config, logger, store, conversationService
           ...ticket,
           contactName: contact?.name || "Cliente",
           contactPhone: contact?.phone || "",
+          contactAvatar: contact?.avatarUrl || null,
+          contactEmail: contact?.email || "",
+          contactCity: contact?.city || "",
           analystName: analyst?.name || null,
           customerId: customer?.id || null,
           customerName: customer ? (customer.fantasia || customer.name) : null,
@@ -1374,6 +1377,15 @@ export function startPlatformServer({ config, logger, store, conversationService
         const conversation = ticket.conversationId
           ? conversationService.getConversation(ticket.conversationId, tenantContext.tenantId)
           : null;
+        // Backfill da foto: contatos antigos (criados antes da captura) ganham
+        // a foto ao abrir o atendimento. Assíncrono — aparece no próximo refresh.
+        const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
+        if (contact && !contact.avatarUrl && conversation?.provider === "evolution") {
+          const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);
+          if (inst?.instanceName && contact.phone) {
+            conversationService._fetchEvolutionAvatar(inst.instanceName, contact.phone, contact, tenantContext.tenantId).catch(() => {});
+          }
+        }
         return sendJson(response, 200, {
           ...enrichTicket(ticket),
           conversation
