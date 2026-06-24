@@ -1,7 +1,10 @@
 import { normalizeToE164 } from "./whatsappMetaClient.js";
 
 const META_STATUS_MAP = { sent: "sent", delivered: "delivered", read: "read", failed: "failed" };
-const EVO_STATUS_MAP = { 0: "failed", 1: "sending", 2: "sent", 3: "delivered", 4: "read", 5: "read" };
+const EVO_STATUS_MAP = {
+  0: "failed", 1: "sending", 2: "sent", 3: "delivered", 4: "read", 5: "read",
+  ERROR: "failed", PENDING: "sending", SERVER_ACK: "sent", DELIVERY_ACK: "delivered", READ: "read", PLAYED: "read"
+};
 const MSG_STATUS_ORDER = ["sending", "queued", "sent", "delivered", "read"];
 
 export class ConversationService {

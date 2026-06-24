@@ -2963,6 +2963,7 @@ async function selectInboxTicket(id) {
   try {
     const ticket = await api(`/api/tickets/${id}`);
     state.inbox.activeTicket = ticket;
+    inboxChatSig = chatSignature(ticket);
     renderInboxHeader(ticket);
     renderInboxChat(ticket);
     renderInboxContext(ticket);
@@ -2997,8 +2998,10 @@ function inboxMsgContent(m) {
   return media + text;
 }
 
-function renderInboxChat(ticket) {
+function renderInboxChat(ticket, opts = {}) {
   const chat = document.getElementById("inboxChat");
+  const wasAtBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
+  const prevScroll = chat.scrollTop;
   const messages = ticket.conversation?.messages || [];
   chat.innerHTML = messages.length
     ? messages.map((m) => m.direction === "internal"
@@ -3015,7 +3018,9 @@ function renderInboxChat(ticket) {
           </div>
         </div>`).join("")
     : `<div class="inbox-empty small"><p>Sem mensagens nesta conversa ainda.</p></div>`;
-  chat.scrollTop = chat.scrollHeight;
+  // Mantém a posição quando é refresh automático e o usuário rolou pra cima
+  if (opts.keepScroll && !wasAtBottom) chat.scrollTop = prevScroll;
+  else chat.scrollTop = chat.scrollHeight;
 
   const replyBox = document.getElementById("inboxReplyBox");
   replyBox.hidden = ticket.status === "closed";
@@ -3329,6 +3334,40 @@ async function inboxClose() {
   await inboxAction(`/api/tickets/${state.inbox.activeId}/close`, { closureNote: note }, "Atendimento encerrado");
 }
 
+// ===== Refresh automático da Central =====
+let inboxPollTimer = null;
+let inboxChatSig = "";
+
+function chatSignature(ticket) {
+  return (ticket?.conversation?.messages || []).map((m) => `${m.id}:${m.status}`).join(",");
+}
+
+function startInboxPolling() {
+  if (inboxPollTimer) return;
+  inboxPollTimer = setInterval(pollInbox, 6000);
+}
+
+async function pollInbox() {
+  if (document.hidden) return;
+  const view = document.getElementById("inbox");
+  if (!view || !view.classList.contains("active")) return;
+  try {
+    const res = await api("/api/tickets");
+    state.tickets = res.data || [];
+    renderInboxQueue();
+    updateInboxBadge();
+    if (state.inbox.activeId) {
+      const ticket = await api(`/api/tickets/${state.inbox.activeId}`);
+      const sig = chatSignature(ticket);
+      if (sig !== inboxChatSig) {
+        inboxChatSig = sig;
+        state.inbox.activeTicket = ticket;
+        renderInboxChat(ticket, { keepScroll: true });
+      }
+    }
+  } catch { /* silencioso: rede instável não deve poluir a tela */ }
+}
+
 function wireInboxEvents() {
   document.querySelectorAll(".inbox-tab").forEach((tab) => {
     tab.addEventListener("click", () => { state.inbox.tab = tab.dataset.inboxTab; renderInboxQueue(); });
@@ -3360,6 +3399,7 @@ function wireInboxEvents() {
 }
 
 wireInboxEvents();
+startInboxPolling();
 
 loadAll().then(() => {
   const hash = window.location.hash;

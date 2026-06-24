@@ -991,6 +991,12 @@ export function startPlatformServer({ config, logger, store, conversationService
           return sendJson(response, 200, { ok: true });
         }
 
+        // Atualização de status (entregue / lido — os checks do WhatsApp)
+        if (payload.event === "messages.update") {
+          conversationService.receiveEvolutionWebhook(payload, instance.tenantId);
+          return sendJson(response, 200, { ok: true });
+        }
+
         // Mensagem recebida
         if (payload.event === "messages.upsert") {
           payload._instanceId = instance.id;
