@@ -1072,17 +1072,23 @@ function formatBrazilianDate(value, options = {}) {
   if (!date) return value;
 
   const hasTime = options.includeTime || /[T ]\d{2}:\d{2}/.test(text);
+  // Datas com hora vêm em UTC do backend; força horário de Brasília para
+  // exibir certo em qualquer máquina/navegador. Datas sem hora não recebem
+  // timeZone para não deslocar o dia.
+  const tz = hasTime ? { timeZone: "America/Sao_Paulo" } : {};
   const datePart = date.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric"
+    year: "numeric",
+    ...tz
   });
 
   if (!hasTime) return datePart;
 
   const timePart = date.toLocaleTimeString("pt-BR", {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
+    ...tz
   });
   return `${datePart} ${timePart}`;
 }
