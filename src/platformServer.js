@@ -1444,6 +1444,31 @@ export function startPlatformServer({ config, logger, store, conversationService
         });
       }
 
+      // Chat ativo: o analista inicia um atendimento com um contato.
+      if (request.method === "POST" && parsedUrl.pathname === "/api/tickets/start") {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const body = await readJson(request);
+        const contact = store.findById("contacts", body.contactId);
+        if (!contact || contact.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "contact_not_found" });
+        const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);
+        const now = new Date().toISOString();
+        const conversation = conversationService.openConversation(contact, { timestamp: now, body: "" }, "evolution", inst?.id || null);
+        let ticket = store.findOne("tickets", (t) => t.conversationId === conversation.id && t.status !== "closed");
+        if (!ticket) {
+          ticket = ticketService.createTicket({
+            tenantId: tenantContext.tenantId,
+            contactId: contact.id,
+            conversationId: conversation.id,
+            firstMessage: "(atendimento iniciado pelo analista)",
+            contactName: contact.name || contact.phone,
+            aiClassification: null
+          });
+          store.update("tickets", ticket.id, { assignedAnalystId: user.id, status: "open" });
+        }
+        store.save();
+        return sendJson(response, 200, enrichTicket(store.findById("tickets", ticket.id)));
+      }
+
       const ticketAssignMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/assign$/);
       if (request.method === "POST" && ticketAssignMatch) {
         if (!requirePermission(response, authService, user, "tickets:respond")) return;

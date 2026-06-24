@@ -351,6 +351,7 @@ function renderContactsTable() {
               </td>
               <td class="cell-muted">${escapeHtml(sourceLabel(contact.source || "manual"))}</td>
               <td style="display:flex;gap:6px;align-items:center">
+                ${contact.phone ? `<button class="btn btn-sm btn-primary contact-atender-btn" data-contact-id="${escapeHtml(contact.id)}">💬 Atender</button>` : ""}
                 <button class="btn btn-sm contact-edit-btn"
                   data-contact-id="${escapeHtml(contact.id)}">Editar</button>
               </td>
@@ -677,6 +678,58 @@ document.getElementById("importContactsBtn")?.addEventListener("click", async ()
     await uiAlert(`Erro ao importar: ${error.message}`);
   }
 });
+
+// Chat ativo: inicia um atendimento com o contato e abre na Central.
+async function startAtendimento(contactId) {
+  try {
+    setStatus("Iniciando atendimento...");
+    const ticket = await api("/api/tickets/start", { method: "POST", body: JSON.stringify({ contactId }) });
+    document.querySelector('nav a[href="#inbox"]')?.click();
+    await renderInbox();
+    await selectInboxTicket(ticket.id);
+    setStatus("Online");
+  } catch (error) {
+    setStatus("Online");
+    await uiAlert(`Erro ao iniciar atendimento: ${error.message}`);
+  }
+}
+
+// Modal de busca de contato para iniciar um novo atendimento.
+async function openNovoAtendimento() {
+  if (!state.contacts || !state.contacts.length) {
+    const res = await api("/api/contacts").catch(() => ({ data: [] }));
+    state.contacts = res.data || [];
+  }
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(480px,calc(100vw - 40px))">
+      <h3 class="ui-dialog-title">Novo atendimento</h3>
+      <input class="ui-dialog-input" id="novoAtdSearch" placeholder="Buscar contato por nome ou número...">
+      <div id="novoAtdList" class="novo-atd-list"></div>
+      <div class="ui-dialog-actions"><button type="button" class="btn btn-secondary" id="novoAtdCancel">Fechar</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const search = overlay.querySelector("#novoAtdSearch");
+  const list = overlay.querySelector("#novoAtdList");
+  const render = () => {
+    const q = search.value.trim().toLowerCase();
+    const contacts = (state.contacts || []).filter((c) => !q || `${c.name || ""} ${c.phone || ""}`.toLowerCase().includes(q)).slice(0, 40);
+    list.innerHTML = contacts.length
+      ? contacts.map((c) => `<button type="button" class="novo-atd-item" data-id="${c.id}"><strong>${escapeHtml(c.name || c.phone)}</strong><small>${escapeHtml(c.phone || "")}</small></button>`).join("")
+      : `<p class="novo-atd-empty">Nenhum contato encontrado. Cadastre ou importe na tela Contatos.</p>`;
+  };
+  search.addEventListener("input", render);
+  list.addEventListener("click", (e) => {
+    const btn = e.target.closest(".novo-atd-item");
+    if (btn) { overlay.remove(); startAtendimento(btn.dataset.id); }
+  });
+  overlay.querySelector("#novoAtdCancel").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+  render();
+  setTimeout(() => search.focus(), 30);
+}
+document.getElementById("inboxNovoBtn")?.addEventListener("click", openNovoAtendimento);
 
 function openContactConversations(btn) {
   const phone = btn.dataset.contactPhone;
@@ -1905,6 +1958,12 @@ setInterval(async () => {
     if (!btn) return;
     event.stopPropagation();
     openContactEdit(btn);
+  });
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest(".contact-atender-btn");
+    if (!btn) return;
+    event.stopPropagation();
+    startAtendimento(btn.dataset.contactId);
   });
 })();
 
