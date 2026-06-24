@@ -89,6 +89,10 @@ export class EvolutionApiClient {
     });
   }
 
+  async findContacts(name) {
+    return this._request("POST", `/chat/findContacts/${encodeURIComponent(name)}`, {});
+  }
+
   async fetchProfilePictureUrl(name, number) {
     return this._request("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(name)}`, { number });
   }

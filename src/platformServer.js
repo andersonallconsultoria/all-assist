@@ -602,6 +602,41 @@ export function startPlatformServer({ config, logger, store, conversationService
         });
       }
 
+      if (request.method === "POST" && parsedUrl.pathname === "/api/contacts/import-whatsapp") {
+        if (!requirePermission(response, authService, user, "contacts:write")) return;
+        const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);
+        if (!inst?.instanceName || inst.status !== "connected") {
+          return sendJson(response, 400, { error: "WhatsApp não está conectado. Conecte o número antes de importar." });
+        }
+        const { EvolutionApiClient } = await import("./evolutionApiClient.js");
+        const evo = new EvolutionApiClient(inst.apiUrl, inst.apiKey);
+        let list = [];
+        try { list = await evo.findContacts(inst.instanceName); } catch (e) { return sendJson(response, 502, { error: "Falha ao buscar contatos: " + e.message }); }
+        let imported = 0, skipped = 0;
+        for (const c of (Array.isArray(list) ? list : [])) {
+          const jid = c.remoteJid || "";
+          // Pula grupos e LID (sem número real) — não dá para usar como contato.
+          if (!jid || jid.endsWith("@g.us") || jid.endsWith("@lid")) { skipped++; continue; }
+          const digits = jid.replace(/@.*/, "").replace(/\D/g, "");
+          if (digits.length < 12 || digits.length > 13) { skipped++; continue; }
+          const exists = store.findOne("contacts", (x) => x.tenantId === tenantContext.tenantId
+            && conversationService._brKey(x.phone) === conversationService._brKey(digits));
+          if (exists) { skipped++; continue; }
+          store.insert("contacts", {
+            tenantId: tenantContext.tenantId,
+            name: c.pushName || digits,
+            phone: digits,
+            whatsappJid: jid,
+            avatarUrl: c.profilePicUrl || null,
+            source: "whatsapp-import",
+            lastSeenAt: new Date().toISOString()
+          });
+          imported++;
+        }
+        store.save();
+        return sendJson(response, 200, { imported, skipped, total: (Array.isArray(list) ? list.length : 0) });
+      }
+
       if (request.method === "POST" && parsedUrl.pathname === "/api/contacts") {
         if (!requirePermission(response, authService, user, "contacts:write")) return;
         const body = await readJson(request);

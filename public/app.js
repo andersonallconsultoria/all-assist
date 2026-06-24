@@ -641,6 +641,22 @@ function renderContacts() {
   renderContactsTable();
 }
 
+document.getElementById("importContactsBtn")?.addEventListener("click", async () => {
+  if (!await uiConfirm("Importar os contatos do WhatsApp conectado para a ferramenta?\n\nContatos já existentes não são duplicados.", { title: "Importar contatos", okText: "Importar" })) return;
+  setStatus("Importando contatos do WhatsApp...");
+  try {
+    const r = await api("/api/contacts/import-whatsapp", { method: "POST", body: "{}" });
+    const res = await api("/api/contacts").catch(() => ({ data: [] }));
+    state.contacts = res.data || [];
+    renderContactsTable();
+    await uiAlert(`Importação concluída!\n\n✅ ${r.imported} novo(s) contato(s)\n↩️ ${r.skipped} já existiam ou sem número válido`, { title: "Contatos importados" });
+    setStatus("Online");
+  } catch (error) {
+    setStatus("Online");
+    await uiAlert(`Erro ao importar: ${error.message}`);
+  }
+});
+
 function openContactConversations(btn) {
   const phone = btn.dataset.contactPhone;
   const name = btn.dataset.contactName;
