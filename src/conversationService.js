@@ -96,6 +96,15 @@ export class ConversationService {
     return d.length >= 10 && d.length <= 13;
   }
 
+  // Chave canônica para casar o mesmo contato BR com/sem o nono dígito.
+  // Ex.: 5546999812497 e 554699812497 → "4699812497" (mesma pessoa).
+  _brKey(raw) {
+    let d = String(raw || "").replace(/\D/g, "");
+    if (d.startsWith("55")) d = d.slice(2);              // remove país
+    if (d.length === 11 && d[2] === "9") d = d.slice(0, 2) + d.slice(3); // remove nono dígito
+    return d;
+  }
+
   async _fetchEvolutionAvatar(instanceName, remoteJid, contact, tenantId) {
     if (!this.evolutionInstanceService || !instanceName || !remoteJid) return;
     // Renova a foto no máximo 1x/dia (a URL do WhatsApp expira).
@@ -368,18 +377,34 @@ export class ConversationService {
   }
 
   upsertContactFromWhatsApp(event, tenantId = defaultTenantId(this.store)) {
-    const phone = normalizeToE164(event.from).replace(/^55/, "");
-    let contact = this.store.findOne("contacts", (item) => (
-      item.tenantId === tenantId && normalizeToE164(item.phone) === normalizeToE164(event.from)
-    ));
+    const jid = event.whatsappJid || "";
+    const isLid = jid.endsWith("@lid");
+    const rawDigits = String(event.from || "").replace(/\D/g, "");
+    // Número confiável (não-LID) é guardado já com o 55 (E.164 BR).
+    const phone = (!isLid && rawDigits)
+      ? (rawDigits.startsWith("55") ? rawDigits : `55${rawDigits}`)
+      : "";
+    const key = this._brKey(event.from);
+
+    // Casa o contato por identificador do WhatsApp OU por número canônico
+    // (com/sem nono dígito) — evita duplicar o mesmo cliente.
+    let contact = this.store.findOne("contacts", (item) => {
+      if (item.tenantId !== tenantId) return false;
+      if (jid && item.whatsappJid && item.whatsappJid === jid) return true;
+      if (key && item.phone && this._brKey(item.phone) === key) return true;
+      return false;
+    });
+
     const patch = {
       tenantId: contact?.tenantId || tenantId,
       name: event.profileName || contact?.name || event.from,
-      phone,
       source: "whatsapp",
       lastSeenAt: new Date().toISOString()
     };
-    if (event.whatsappJid) patch.whatsappJid = event.whatsappJid;
+    // Só sobrescreve o telefone quando temos um número real (não-LID).
+    if (phone) patch.phone = phone;
+    else if (!contact?.phone) patch.phone = rawDigits;
+    if (jid) patch.whatsappJid = jid;
 
     if (contact) return this.store.update("contacts", contact.id, patch);
     return this.store.insert("contacts", patch);
