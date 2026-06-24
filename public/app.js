@@ -3293,12 +3293,32 @@ function setInboxNoteMode(on) {
   if (input) input.placeholder = on ? "Nota interna (só a equipe vê)..." : "Digite sua resposta (ou cole um print com Ctrl+V)...";
 }
 
+// Antes de responder ao cliente, se o atendimento não é do analista atual,
+// pergunta se ele deseja assumir — e vincula o atendimento a ele.
+async function ensureAtendimentoAssumido(ticket) {
+  const meuId = state.currentUser?.id;
+  if (!meuId || ticket.assignedAnalystId === meuId) return true;
+  const msg = ticket.assignedAnalystId
+    ? `Este atendimento é de ${ticket.analystName || "outro analista"}.\n\nDeseja assumir para você?`
+    : `Este atendimento ainda não tem analista responsável.\n\nDeseja assumir para você?`;
+  if (!confirm(msg)) return false;
+  try {
+    await api(`/api/tickets/${ticket.id}/assign`, { method: "POST", body: JSON.stringify({ analystId: meuId }) });
+    ticket.assignedAnalystId = meuId;
+    setStatus("Você assumiu este atendimento ✓");
+    return true;
+  } catch (error) {
+    setStatus(`Erro ao assumir: ${error.message}`);
+    return false;
+  }
+}
+
 async function inboxReply() {
   const ticket = state.inbox.activeTicket;
   if (!ticket) return;
   const input = document.getElementById("inboxReplyText");
   const caption = input.value.trim();
-  // Nota interna: não vai pro cliente
+  // Nota interna: não vai pro cliente (não exige assumir)
   if (inboxNoteMode && !inboxPendingMedia) {
     if (!caption) return;
     input.value = "";
@@ -3308,6 +3328,8 @@ async function inboxReply() {
     return;
   }
   if (inboxPendingMedia) {
+    // confirma assumir antes de limpar a mídia pendente
+    if (!await ensureAtendimentoAssumido(ticket)) return;
     const media = inboxPendingMedia;
     clearPendingMedia();
     input.value = "";
@@ -3316,6 +3338,7 @@ async function inboxReply() {
     return;
   }
   if (!caption) return;
+  if (!await ensureAtendimentoAssumido(ticket)) return;
   input.value = "";
   input.style.height = "auto";
   await inboxAction(`/api/tickets/${ticket.id}/messages`, { body: caption }, "Mensagem enviada");
