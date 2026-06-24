@@ -124,6 +124,9 @@ export class ConversationService {
       const digits = String(c || "").replace(/\D/g, "");
       if (this._looksLikePhone(digits)) return digits;
     }
+    // Fallback: usa o JID original do WhatsApp (inclui o LID). A Evolution
+    // v2.3.7+ resolve o LID para o número real na hora de enviar.
+    if (contact.whatsappJid) return contact.whatsappJid;
     throw new Error("Número do cliente não identificado (privacidade do WhatsApp). Informe o número real no contato para responder.");
   }
 
@@ -305,7 +308,7 @@ export class ConversationService {
         }
       }
 
-      const contact = this.upsertContactFromWhatsApp({ from: phone, profileName, body, timestamp }, tenantId);
+      const contact = this.upsertContactFromWhatsApp({ from: phone, profileName, body, timestamp, whatsappJid: remoteJid }, tenantId);
       const conversation = this.openConversation(contact, { timestamp, body }, "evolution", payload._instanceId || null);
 
       // Busca a foto de perfil do contato (assíncrono, sem bloquear o webhook).
@@ -376,6 +379,7 @@ export class ConversationService {
       source: "whatsapp",
       lastSeenAt: new Date().toISOString()
     };
+    if (event.whatsappJid) patch.whatsappJid = event.whatsappJid;
 
     if (contact) return this.store.update("contacts", contact.id, patch);
     return this.store.insert("contacts", patch);
