@@ -1008,19 +1008,22 @@ export function startPlatformServer({ config, logger, store, conversationService
           payload._instanceId = instance.id;
           const result = conversationService.receiveEvolutionWebhook(payload, instance.tenantId);
           if (result) {
-            // Criar ticket para mensagem inbound
+            // Criar ticket para mensagem inbound (ou processar escolha de menu)
             if (result.message.direction === "inbound" && ticketService) {
-              await _createTicketForConversation(
-                result.conversation,
-                result.message,
-                result.contact,
-                ticketService,
-                classifierAgent,
-                store,
-                logger,
-                botAgent,
-                conversationService
-              );
+              const handledChoice = await _tryHandleMenuChoice(result.conversation, result.message, store, ticketService, conversationService, logger);
+              if (!handledChoice) {
+                await _createTicketForConversation(
+                  result.conversation,
+                  result.message,
+                  result.contact,
+                  ticketService,
+                  classifierAgent,
+                  store,
+                  logger,
+                  botAgent,
+                  conversationService
+                );
+              }
             }
             store.save();
             alertService?.notify({
@@ -1739,6 +1742,33 @@ function buildSupportDashboard(store, tenantId) {
   };
 }
 
+// Quando o cliente responde ao menu inicial, direciona o ticket para a fila
+// escolhida (pelo número da opção) e avisa que está sendo encaminhado.
+// Retorna true se tratou a escolha (e então não cria um novo ticket).
+async function _tryHandleMenuChoice(conversation, message, store, ticketService, conversationService, logger) {
+  const ticket = store.findOne("tickets", (t) => t.conversationId === conversation.id && t.status !== "closed");
+  if (!ticket || !ticket.awaitingMenuChoice || !Array.isArray(ticket.menuOptions) || !ticket.menuOptions.length) return false;
+
+  const text = String(message.body || "").trim();
+  const num = parseInt((text.match(/\d+/) || [])[0] || "", 10);
+  let chosen = null;
+  if (num >= 1 && num <= ticket.menuOptions.length) chosen = ticket.menuOptions[num - 1];
+  if (!chosen) {
+    const low = text.toLowerCase();
+    chosen = ticket.menuOptions.find((o) => low && (low.includes(o.toLowerCase()) || o.toLowerCase().includes(low))) || null;
+  }
+  if (!chosen) {
+    await conversationService.sendText(conversation.id, `Não entendi sua escolha. 😅\nPor favor, responda com o número da opção (1 a ${ticket.menuOptions.length}).`, "bot", conversation.tenantId, null).catch(() => {});
+    return true;
+  }
+  store.update("tickets", ticket.id, { queue: chosen, awaitingMenuChoice: false, menuOptions: [], status: "waiting_analyst" });
+  ticketService.addLog(ticket.id, conversation.tenantId, { type: "queue", note: `Cliente escolheu a fila: ${chosen}`, actor: "bot" });
+  store.save();
+  await conversationService.sendText(conversation.id, `Perfeito! Estou te encaminhando para *${chosen}*. 📋\nUm de nossos analistas vai te atender em instantes. 🙂`, "bot", conversation.tenantId, null).catch(() => {});
+  logger.info("menu_choice_handled", { ticketId: ticket.id, queue: chosen });
+  return true;
+}
+
 async function _createTicketForConversation(conversation, message, contact, ticketService, classifierAgent, store, logger, botAgent = null, conversationService = null) {
   try {
     if (!conversation || !ticketService) return;
@@ -1797,10 +1827,15 @@ async function _createTicketForConversation(conversation, message, contact, tick
           await conversationService.sendPoll(conversation.id, result.poll, "bot", conversation.tenantId, null).catch((e) => logger.warn("bot_poll_failed", { error: e.message }));
         }
         ticketService.addLog(ticket.id, conversation.tenantId, { type: "bot_reply", note: `Bot respondeu${result.handoff ? " e encaminhou para análise" : ""}`, actor: "bot" });
+        // Se enviou um menu, o ticket fica aguardando a escolha do cliente
+        // (para direcionar à fila correspondente na próxima resposta).
+        const isMenu = result.source === "menu-text" || result.source === "menu-poll";
         store.update("tickets", ticket.id, {
           firstResponseAt: new Date().toISOString(),
           botHandled: true,
-          status: result.handoff ? "waiting_analyst" : "waiting_customer"
+          status: isMenu ? "waiting_customer" : (result.handoff ? "waiting_analyst" : "waiting_customer"),
+          awaitingMenuChoice: isMenu,
+          menuOptions: isMenu ? (result.poll?.options || botConfig.menuOptions || []) : []
         });
         store.save();
         logger.info("bot_handled_ticket", { ticketId: ticket.id, handoff: result.handoff, source: result.source });

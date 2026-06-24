@@ -3173,6 +3173,7 @@ function renderInboxContext(ticket) {
         <span class="badge ${TICKET_PRIORITY_BADGE[ticket.priority] || "badge-neutral"}">${TICKET_PRIORITY_LABELS[ticket.priority] || ticket.priority}</span>
         <span class="badge badge-info">${TICKET_CATEGORY_LABELS[ticket.category] || ticket.category}</span>
         <span class="badge badge-neutral">${TICKET_STATUS_LABELS[ticket.status] || ticket.status}</span>
+        ${ticket.queue ? `<span class="badge badge-queue">📋 ${escapeHtml(ticket.queue)}</span>` : ""}
       </div>
       <small class="ctx-meta">Aberto há ${ticketTimeOpen(ticket.openedAt)}</small>
     </div>

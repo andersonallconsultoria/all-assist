@@ -4135,3 +4135,4 @@ nav a.active::after {
 .ui-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @keyframes uiFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes uiPop { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.badge-queue { background: #ecfdf5; color: #047857; }
