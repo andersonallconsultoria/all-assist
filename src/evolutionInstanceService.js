@@ -135,7 +135,9 @@ export class EvolutionInstanceService {
 
   canSend(instance) {
     const ab = { ...DEFAULT_ANTI_BAN, ...(instance.antiBan || {}) };
-    const hour = new Date().getHours();
+    // Hora em Brasília (o container roda em UTC; sem isso a janela 8h–20h
+    // ficaria 3h adiantada e bloquearia envios no fim da tarde).
+    const hour = Number(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false, hourCycle: "h23" }));
 
     if (hour < ab.hoursStart || hour >= ab.hoursEnd) {
       return {
