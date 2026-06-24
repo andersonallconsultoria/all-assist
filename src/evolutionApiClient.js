@@ -93,6 +93,13 @@ export class EvolutionApiClient {
     return this._request("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(name)}`, { number });
   }
 
+  async getMediaBase64(name, messageKeyId) {
+    return this._request("POST", `/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, {
+      message: { key: { id: messageKeyId } },
+      convertToMp4: false
+    });
+  }
+
   async logout(name) {
     return this._request("DELETE", `/instance/logout/${encodeURIComponent(name)}`);
   }

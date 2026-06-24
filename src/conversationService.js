@@ -1,4 +1,5 @@
 import { normalizeToE164 } from "./whatsappMetaClient.js";
+import { randomId } from "./util.js";
 
 const META_STATUS_MAP = { sent: "sent", delivered: "delivered", read: "read", failed: "failed" };
 const EVO_STATUS_MAP = {
@@ -118,6 +119,36 @@ export class ConversationService {
     const res = await evo.fetchProfilePictureUrl(instanceName, remoteJid);
     const url = res?.profilePictureUrl || res?.profilePicUrl || null;
     this.store.update("contacts", contact.id, { avatarUrl: url || fresh.avatarUrl || null, avatarFetchedAt: new Date().toISOString() });
+    this.store.save();
+  }
+
+  // Baixa mídias recebidas que ainda não têm arquivo local (ex.: áudios que
+  // chegaram antes desta função existir). Chamado ao abrir o atendimento.
+  backfillInboundMedia(messages, instanceName, tenantId) {
+    for (const m of messages || []) {
+      if (m.direction !== "inbound" || m.mediaId || !m.providerMessageId) continue;
+      const info = evolutionMediaInfo(m.raw);
+      if (!info) continue;
+      if (m.type !== info.type) {
+        this.store.update("messages", m.id, { type: info.type, mediaMime: m.mediaMime || info.mime, mediaName: m.mediaName || info.name });
+      }
+      this._fetchEvolutionInboundMedia(instanceName, m.providerMessageId, m.id, tenantId).catch(() => {});
+    }
+  }
+
+  async _fetchEvolutionInboundMedia(instanceName, messageKeyId, messageId, tenantId) {
+    if (!this.fileStore || !this.evolutionInstanceService) return;
+    const instance = this.evolutionInstanceService.getByTenant(tenantId);
+    if (!instance) return;
+    const { EvolutionApiClient } = await import("./evolutionApiClient.js");
+    const evo = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
+    const res = await evo.getMediaBase64(instanceName, messageKeyId);
+    const base64 = res?.base64;
+    if (!base64) return;
+    const buffer = Buffer.from(base64, "base64");
+    const mediaId = `med_${randomId()}`;
+    this.fileStore.save(mediaId, buffer);
+    this.store.update("messages", messageId, { mediaId });
     this.store.save();
   }
 
@@ -324,6 +355,7 @@ export class ConversationService {
       // Funciona mesmo com LID — a Evolution entrega a foto pelo remoteJid.
       this._fetchEvolutionAvatar(instanceName, remoteJid, contact, tenantId).catch(() => {});
 
+      const media = evolutionMediaInfo(data);
       const message = this.store.insert("messages", {
         tenantId,
         conversationId: conversation.id,
@@ -334,12 +366,20 @@ export class ConversationService {
         providerMessageId: data.key?.id || "",
         from: phone,
         to: instanceName || "",
-        type: data.messageType || "text",
+        type: media ? media.type : "text",
+        mediaMime: media ? media.mime : undefined,
+        mediaName: media ? media.name : undefined,
         body,
         raw: data,
         status: "received",
         timestamp
       });
+
+      // Mídia recebida (áudio/imagem/vídeo/documento): baixa da Evolution e
+      // salva localmente para o analista ouvir/ver no chat (assíncrono).
+      if (media && data.key?.id) {
+        this._fetchEvolutionInboundMedia(instanceName, data.key.id, message.id, tenantId).catch(() => {});
+      }
 
       this.store.update("conversations", conversation.id, {
         lastMessageAt: message.createdAt,
@@ -487,6 +527,18 @@ export function extractMessageEvents(payload) {
   }
 
   return events;
+}
+
+// Detecta mídia numa mensagem recebida da Evolution e normaliza o tipo para o
+// que o frontend espera (audio/image/video/document).
+function evolutionMediaInfo(data) {
+  const msg = data?.message || {};
+  if (msg.audioMessage) return { type: "audio", mime: msg.audioMessage.mimetype || "audio/ogg", name: "audio.ogg" };
+  if (msg.imageMessage) return { type: "image", mime: msg.imageMessage.mimetype || "image/jpeg", name: "imagem.jpg" };
+  if (msg.videoMessage) return { type: "video", mime: msg.videoMessage.mimetype || "video/mp4", name: "video.mp4" };
+  if (msg.documentMessage) return { type: "document", mime: msg.documentMessage.mimetype || "application/octet-stream", name: msg.documentMessage.fileName || "documento" };
+  if (msg.stickerMessage) return { type: "image", mime: msg.stickerMessage.mimetype || "image/webp", name: "figurinha.webp" };
+  return null;
 }
 
 function extractEvolutionBody(data) {

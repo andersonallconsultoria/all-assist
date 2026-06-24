@@ -3397,7 +3397,9 @@ let inboxPollTimer = null;
 let inboxChatSig = "";
 
 function chatSignature(ticket) {
-  return (ticket?.conversation?.messages || []).map((m) => `${m.id}:${m.status}`).join(",");
+  // inclui mediaId para o refresh detectar quando a mídia recebida termina de
+  // baixar (áudio/imagem do cliente) e renderizar o player/preview.
+  return (ticket?.conversation?.messages || []).map((m) => `${m.id}:${m.status}:${m.mediaId || ""}`).join(",");
 }
 
 function startInboxPolling() {

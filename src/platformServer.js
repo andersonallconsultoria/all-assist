@@ -1380,10 +1380,14 @@ export function startPlatformServer({ config, logger, store, conversationService
         // Backfill da foto: contatos antigos (criados antes da captura) ganham
         // a foto ao abrir o atendimento. Assíncrono — aparece no próximo refresh.
         const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
-        if (contact && !contact.avatarUrl && conversation?.provider === "evolution") {
+        if (conversation?.provider === "evolution") {
           const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);
-          if (inst?.instanceName && contact.phone) {
-            conversationService._fetchEvolutionAvatar(inst.instanceName, contact.phone, contact, tenantContext.tenantId).catch(() => {});
+          if (inst?.instanceName) {
+            if (contact && !contact.avatarUrl && contact.phone) {
+              conversationService._fetchEvolutionAvatar(inst.instanceName, contact.phone, contact, tenantContext.tenantId).catch(() => {});
+            }
+            // Baixa áudios/mídias recebidas que ainda não têm arquivo local.
+            conversationService.backfillInboundMedia(conversation.messages, inst.instanceName, tenantContext.tenantId);
           }
         }
         return sendJson(response, 200, {
