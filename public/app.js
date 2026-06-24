@@ -3202,7 +3202,8 @@ function renderInboxContext(ticket) {
         ? `<span class="ctx-customer-tag">🏢 ${escapeHtml(ticket.customerName)}</span>
            ${ticket.customerId && hasPermission("vault:view")
              ? `<button class="btn btn-sm" id="inboxVaultBtn" type="button">🔑 Acessos${ticket.customerCredentialsCount ? ` (${ticket.customerCredentialsCount})` : ""}</button>`
-             : ""}`
+             : ""}
+           ${isClosed ? "" : `<button class="btn-link-inline" type="button" onclick="inboxLinkCustomer('')" title="Desvincular">trocar/desvincular</button>`}`
         : (isClosed ? "" : `<select id="inboxCustomerSelect" class="search-input">
             <option value="">🏢 Vincular a um cliente…</option>
             ${(state.customers || []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
@@ -3313,10 +3314,10 @@ function formatMoney(value) {
 
 async function inboxLinkCustomer(customerId) {
   const ticket = state.inbox.activeTicket;
-  if (!ticket || !customerId || !ticket.contactId) return;
+  if (!ticket || !ticket.contactId) return;
   try {
-    await api(`/api/contacts/${ticket.contactId}`, { method: "PATCH", body: JSON.stringify({ customerId }) });
-    setStatus("Contato vinculado ao cliente");
+    await api(`/api/contacts/${ticket.contactId}`, { method: "PATCH", body: JSON.stringify({ customerId: customerId || null }) });
+    setStatus(customerId ? "Contato vinculado ao cliente" : "Contato desvinculado");
     await selectInboxTicket(ticket.id);
   } catch (error) {
     setStatus(`Erro ao vincular: ${error.message}`);
