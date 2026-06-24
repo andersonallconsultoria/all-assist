@@ -86,6 +86,31 @@ export class ConversationService {
     }
   }
 
+  // Resolve o número de WhatsApp para envio. O WhatsApp moderno pode entregar
+  // um LID (código de privacidade, ~15 dígitos, sem o 55) no lugar do número
+  // real — não dá para responder nele. Prioridade: número do cliente vinculado,
+  // depois o telefone do próprio contato. Se nada parecer um telefone válido,
+  // lança erro claro pedindo para informar o número.
+  _looksLikePhone(digits) {
+    const d = String(digits || "").replace(/\D/g, "");
+    return d.length >= 10 && d.length <= 13;
+  }
+
+  _resolveWhatsappNumber(contact) {
+    const candidates = [];
+    if (contact.customerId) {
+      const customer = this.store.findById("customers", contact.customerId);
+      if (customer?.whatsapp) candidates.push(customer.whatsapp);
+      if (customer?.phone) candidates.push(customer.phone);
+    }
+    candidates.push(contact.whatsappNumber, contact.phone);
+    for (const c of candidates) {
+      const digits = String(c || "").replace(/\D/g, "");
+      if (this._looksLikePhone(digits)) return digits;
+    }
+    throw new Error("Número do cliente não identificado (privacidade do WhatsApp). Informe o número real no contato para responder.");
+  }
+
   async sendText(conversationId, body, actor = "user", tenantId = "", senderUserId = null) {
     const conversation = this.store.findById("conversations", conversationId);
     if (!conversation) throw new Error("Conversation not found");
@@ -119,7 +144,8 @@ export class ConversationService {
 
       // Anti-ban: delay aleatório como indicador de digitação via Evolution API
       const delayMs = this.evolutionInstanceService.randomDelay(instance);
-      providerResponse = await evoClient.sendText(instance.instanceName, contact.phone, body, delayMs);
+      const sendTo = this._resolveWhatsappNumber(contact);
+      providerResponse = await evoClient.sendText(instance.instanceName, sendTo, body, delayMs);
       this.evolutionInstanceService.recordSent(instance.id);
       status = "sent";
     } else if (provider === "meta" && this.whatsappClient.isConfigured()) {
@@ -177,7 +203,8 @@ export class ConversationService {
           const { EvolutionApiClient } = await import("./evolutionApiClient.js");
           const evoClient = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
           const delayMs = this.evolutionInstanceService.randomDelay(instance);
-          providerResponse = await evoClient.sendMedia(instance.instanceName, contact.phone, {
+          const sendTo = this._resolveWhatsappNumber(contact);
+          providerResponse = await evoClient.sendMedia(instance.instanceName, sendTo, {
             mediaType, mime: mediaMime, fileName: mediaName, caption,
             base64: buffer ? buffer.toString("base64") : "", delayMs
           });

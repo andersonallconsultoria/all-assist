@@ -1064,6 +1064,17 @@ function formatBrazilianDate(value, options = {}) {
     const [, year, month, day, hour, minute] = isoParts;
     const datePart = `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
     const hasTextTime = hour !== undefined && minute !== undefined;
+    // Timestamps do backend vêm em UTC (com Z). Converte para Brasília em vez
+    // de mostrar a hora literal do texto (que estava 3h adiantada).
+    const isUtc = /[Zz]|[+-]\d{2}:?\d{2}$/.test(text);
+    if (hasTextTime && isUtc) {
+      const d = new Date(text);
+      if (!Number.isNaN(d.getTime())) {
+        const dp = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" });
+        const tp = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+        return options.includeTime === false ? dp : `${dp} ${tp}`;
+      }
+    }
     if (options.includeTime && !hasTextTime) return datePart;
     return hasTextTime ? `${datePart} ${hour}:${minute}` : datePart;
   }
@@ -3045,6 +3056,35 @@ function renderInboxChat(ticket, opts = {}) {
   });
 }
 
+// Detecta um LID (código de privacidade do WhatsApp) em vez de telefone real:
+// número BR válido tem 12-13 dígitos (55 + DDD + número); LID tem ~15 e não é 55.
+function isLikelyLid(phone) {
+  const d = String(phone || "").replace(/\D/g, "");
+  if (!d) return false;
+  return d.length < 10 || d.length > 13;
+}
+
+async function inboxEditContactPhone(contactId) {
+  const atual = state.inbox.activeTicket?.contactPhone || "";
+  const sugestao = isLikelyLid(atual) ? "" : atual;
+  const novo = prompt("Número de WhatsApp do cliente (com DDD, ex.: 46999812497):", sugestao);
+  if (novo === null) return;
+  let digits = String(novo).replace(/\D/g, "");
+  if (digits.length >= 10 && digits.length <= 11) digits = `55${digits}`; // país BR
+  if (digits && (digits.length < 12 || digits.length > 13)) {
+    alert("Número inválido. Informe DDD + número (ex.: 46999812497).");
+    return;
+  }
+  try {
+    await api(`/api/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify({ phone: digits }) });
+    setStatus("Número do cliente atualizado ✓");
+    setTimeout(() => setStatus("Online"), 3000);
+    if (state.inbox.activeId) selectInboxTicket(state.inbox.activeId);
+  } catch (error) {
+    alert(`Erro ao salvar número: ${error.message}`);
+  }
+}
+
 function renderInboxContext(ticket) {
   const ctx = document.getElementById("inboxContext");
   const ai = ticket.aiClassification;
@@ -3057,7 +3097,13 @@ function renderInboxContext(ticket) {
     <div class="ctx-section ctx-client">
       <span class="avatar-lg">${escapeHtml(initials(ticket.contactName))}</span>
       <strong>${escapeHtml(ticket.contactName)}</strong>
-      <small>${escapeHtml(ticket.contactPhone || "")}</small>
+      ${isLikelyLid(ticket.contactPhone)
+        ? `<small class="ctx-phone-warn">⚠️ número oculto (privacidade do WhatsApp)
+             <button class="btn-link-inline" type="button" onclick="inboxEditContactPhone('${ticket.contactId}')">informar número</button>
+           </small>`
+        : `<small>${escapeHtml(ticket.contactPhone || "sem número")}
+             <button class="btn-link-inline" type="button" onclick="inboxEditContactPhone('${ticket.contactId}')" title="Editar número">✏️</button>
+           </small>`}
       ${ticket.customerName
         ? `<span class="ctx-customer-tag">🏢 ${escapeHtml(ticket.customerName)}</span>
            ${ticket.customerId && hasPermission("vault:view")

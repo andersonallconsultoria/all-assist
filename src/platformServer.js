@@ -1451,7 +1451,14 @@ export function startPlatformServer({ config, logger, store, conversationService
         const ticket = ticketService.getTicket(ticketMessageMatch[1], tenantContext.tenantId);
         if (!ticket || !ticket.conversationId) return sendJson(response, 404, { error: "ticket_not_found" });
         const body = await readJson(request);
-        const message = await conversationService.sendText(ticket.conversationId, body.body || "", "analyst", tenantContext.tenantId, user.id);
+        let message;
+        try {
+          message = await conversationService.sendText(ticket.conversationId, body.body || "", "analyst", tenantContext.tenantId, user.id);
+        } catch (err) {
+          // Erros de negócio (ex.: número LID não identificado, opt-out, limite
+          // anti-ban) viram 400 com a mensagem para o analista ver na tela.
+          return sendJson(response, 400, { error: err.message });
+        }
         if (!ticket.firstResponseAt) {
           store.update("tickets", ticket.id, { firstResponseAt: new Date().toISOString() });
         }
@@ -1505,9 +1512,14 @@ export function startPlatformServer({ config, logger, store, conversationService
         const mediaType = mime.startsWith("image/") ? "image" : mime.startsWith("audio/") ? "audio" : mime.startsWith("video/") ? "video" : "document";
         const mediaId = `med_${randomId()}`;
         fileStore.save(mediaId, buffer);
-        const message = await conversationService.sendMedia(ticket.conversationId, {
-          mediaId, mediaMime: mime, mediaName: String(body.name || mediaType), mediaType, caption: String(body.caption || ""), buffer
-        }, "analyst", tenantContext.tenantId, user.id);
+        let message;
+        try {
+          message = await conversationService.sendMedia(ticket.conversationId, {
+            mediaId, mediaMime: mime, mediaName: String(body.name || mediaType), mediaType, caption: String(body.caption || ""), buffer
+          }, "analyst", tenantContext.tenantId, user.id);
+        } catch (err) {
+          return sendJson(response, 400, { error: err.message });
+        }
         if (!ticket.firstResponseAt) store.update("tickets", ticket.id, { firstResponseAt: new Date().toISOString() });
         ticketService.addLog(ticket.id, tenantContext.tenantId, { type: "reply", note: `Analista enviou ${mediaType}`, actor: user.id });
         store.save();
