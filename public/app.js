@@ -106,12 +106,33 @@ const FIELD_LABELS = {
 
 applySavedTheme();
 
+// Menu lateral recolhível (só ícones). O atendimento abre minimizado por
+// padrão para dar mais espaço; nas outras telas respeita a preferência.
+const sidebarEl = document.querySelector(".sidebar");
+const sidebarToggleBtn = document.getElementById("sidebarToggle");
+function updateSidebarToggleIcon() {
+  if (sidebarToggleBtn) sidebarToggleBtn.innerHTML = sidebarEl?.classList.contains("collapsed") ? "»" : "«";
+}
+sidebarToggleBtn?.addEventListener("click", () => {
+  const collapsed = !sidebarEl.classList.contains("collapsed");
+  sidebarEl.classList.toggle("collapsed", collapsed);
+  localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+  updateSidebarToggleIcon();
+});
+function applySidebarForView(href) {
+  if (!sidebarEl) return;
+  if (href === "#inbox") sidebarEl.classList.add("collapsed");
+  else sidebarEl.classList.toggle("collapsed", localStorage.getItem("sidebarCollapsed") === "1");
+  updateSidebarToggleIcon();
+}
+
 document.querySelectorAll("nav a").forEach((link) => {
   link.addEventListener("click", () => {
     document.querySelectorAll("nav a").forEach((item) => item.classList.remove("active"));
     document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
     link.classList.add("active");
     document.querySelector(link.getAttribute("href")).classList.add("active");
+    applySidebarForView(link.getAttribute("href"));
     // Usa só os nós de texto diretos do link (ignora o badge de contagem,
     // que fazia o título virar "Atendimento 1").
     const labelText = Array.from(link.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join("").trim();

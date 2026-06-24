@@ -4141,3 +4141,16 @@ nav a.active::after {
 .ctx-tag-list { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .ctx-tag { display:inline-flex; align-items:center; gap:4px; font-size:11px; background:var(--accent-soft); color:var(--accent-strong); padding:3px 8px; border-radius:999px; }
 .ctx-tag button { background:none; border:none; color:inherit; cursor:pointer; font-size:13px; line-height:1; padding:0; }
+
+/* Menu lateral recolhível (só ícones) */
+.sidebar-toggle { margin-left:auto; background:none; border:none; color:inherit; cursor:pointer; font-size:18px; opacity:0.6; padding:2px 6px; border-radius:6px; }
+.sidebar-toggle:hover { opacity:1; background:rgba(127,127,127,0.12); }
+.sidebar.collapsed { width:62px; min-width:62px; }
+.sidebar.collapsed .brand div,
+.sidebar.collapsed .nav-section-label,
+.sidebar.collapsed .nav-badge,
+.sidebar.collapsed .sidebar-footer { display:none; }
+.sidebar.collapsed nav a { font-size:0; justify-content:center; padding-left:0; padding-right:0; gap:0; }
+.sidebar.collapsed nav a svg { width:18px; height:18px; }
+.sidebar.collapsed .brand { justify-content:center; }
+.sidebar.collapsed .sidebar-toggle { margin:0; }
