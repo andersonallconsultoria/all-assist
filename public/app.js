@@ -757,16 +757,14 @@ async function startAtendimento(contactId) {
 
 // Modal de busca de contato para iniciar um novo atendimento.
 async function openNovoAtendimento() {
-  if (!state.contacts || !state.contacts.length) {
-    const res = await api("/api/contacts").catch(() => ({ data: [] }));
-    state.contacts = res.data || [];
-  }
+  const res = await api("/api/contacts").catch(() => ({ data: state.contacts || [] }));
+  state.contacts = res.data || [];
   const overlay = document.createElement("div");
   overlay.className = "ui-dialog-overlay";
   overlay.innerHTML = `
     <div class="ui-dialog" style="width:min(480px,calc(100vw - 40px))">
       <h3 class="ui-dialog-title">Novo atendimento</h3>
-      <input class="ui-dialog-input" id="novoAtdSearch" placeholder="Buscar contato por nome ou número...">
+      <input class="ui-dialog-input" id="novoAtdSearch" placeholder="Buscar por nome, número ou cliente...">
       <div id="novoAtdList" class="novo-atd-list"></div>
       <div class="ui-dialog-actions"><button type="button" class="btn btn-secondary" id="novoAtdCancel">Fechar</button></div>
     </div>`;
@@ -774,10 +772,15 @@ async function openNovoAtendimento() {
   const search = overlay.querySelector("#novoAtdSearch");
   const list = overlay.querySelector("#novoAtdList");
   const render = () => {
-    const q = search.value.trim().toLowerCase();
-    const contacts = (state.contacts || []).filter((c) => !q || `${c.name || ""} ${c.phone || ""}`.toLowerCase().includes(q)).slice(0, 40);
+    const q = normalizeText(search.value.trim());
+    // Busca por nome do contato, número OU nome do cliente (empresa). Ao casar
+    // o nome de um cliente, traz todos os contatos vinculados a ele.
+    const contacts = (state.contacts || []).filter((c) => {
+      if (!q) return true;
+      return normalizeText(`${c.name || ""} ${c.phone || ""} ${c.customerName || ""}`).includes(q);
+    }).slice(0, 50);
     list.innerHTML = contacts.length
-      ? contacts.map((c) => `<button type="button" class="novo-atd-item" data-id="${c.id}"><strong>${escapeHtml(c.name || c.phone)}</strong><small>${escapeHtml(c.phone || "")}</small></button>`).join("")
+      ? contacts.map((c) => `<button type="button" class="novo-atd-item" data-id="${c.id}"><strong>${escapeHtml(c.name || c.phone)}</strong><small>${escapeHtml(c.phone || "")}${c.customerName ? ` · 🏢 ${escapeHtml(c.customerName)}` : ""}</small></button>`).join("")
       : `<p class="novo-atd-empty">Nenhum contato encontrado. Cadastre ou importe na tela Contatos.</p>`;
   };
   search.addEventListener("input", render);
@@ -3152,7 +3155,7 @@ function renderInboxQueue() {
   };
   document.querySelectorAll(".inbox-tab").forEach((tab) => {
     const k = tab.dataset.inboxTab;
-    const base = { mine: "Meus", unassigned: "Novos", all: "Todos" }[k];
+    const base = { mine: "Meus", unassigned: "Em fila", all: "Todos" }[k];
     tab.textContent = `${base} ${counts[k] ? `(${counts[k]})` : ""}`.trim();
     tab.classList.toggle("active", k === state.inbox.tab);
   });
@@ -3171,19 +3174,23 @@ function renderInboxQueue() {
 
 function inboxQueueItemHtml(t) {
   const prio = TICKET_PRIORITY_BADGE[t.priority] || "badge-neutral";
+  const avatar = t.contactAvatar
+    ? `<img class="avatar-mini avatar-photo" src="${escapeHtml(t.contactAvatar)}" alt="" onerror="this.outerHTML='<span class=&quot;avatar-mini&quot;>${escapeHtml(initials(t.contactName))}</span>'">`
+    : `<span class="avatar-mini">${escapeHtml(initials(t.contactName))}</span>`;
   return `
     <div class="inbox-queue-item" data-inbox-id="${t.id}">
-      <span class="avatar-mini">${escapeHtml(initials(t.contactName))}</span>
+      ${avatar}
       <div class="iqi-body">
         <div class="iqi-top">
           <strong>${escapeHtml(t.contactName)}</strong>
           <span class="iqi-time">${ticketTimeOpen(t.openedAt)}</span>
         </div>
         <div class="iqi-sub">${escapeHtml(t.subject || "")}</div>
+        <div class="iqi-meta-line">${t.analystName ? `👤 ${escapeHtml(t.analystName)}` : "⏳ Sem analista"}${t.queue ? ` · 📋 ${escapeHtml(t.queue)}` : ""}</div>
         <div class="iqi-tags">
           <span class="badge ${prio}">${escapeHtml(TICKET_PRIORITY_LABELS[t.priority] || t.priority)}</span>
           <span class="badge badge-neutral">${escapeHtml(TICKET_CATEGORY_LABELS[t.category] || t.category)}</span>
-          ${!t.assignedAnalystId ? `<span class="badge badge-warning">novo</span>` : ""}
+          ${!t.assignedAnalystId ? `<span class="badge badge-warning">em fila</span>` : ""}
         </div>
       </div>
     </div>`;
