@@ -182,6 +182,14 @@ export class ConversationService {
     let providerResponse = null;
     let status = "queued";
 
+    // Assina a mensagem com o nome do analista (negrito do WhatsApp) para o
+    // cliente saber com quem fala. Só para envio humano; configurável por
+    // tenant (signMessages, ligado por padrão). O texto salvo fica sem o prefixo.
+    const sender = senderUserId ? this.store.findById("users", senderUserId) : null;
+    const tenant = this.store.findById("tenants", conversation.tenantId || tenantId);
+    const signEnabled = tenant?.signMessages !== false;
+    const outboundText = (signEnabled && sender?.name) ? `*${sender.name}*\n${body}` : body;
+
     if (provider === "evolution" && this.evolutionInstanceService) {
       const effectiveTenantId = conversation.tenantId || tenantId;
       const instance = (senderUserId && this.evolutionInstanceService.getByUser(effectiveTenantId, senderUserId))
@@ -204,11 +212,11 @@ export class ConversationService {
       // Anti-ban: delay aleatório como indicador de digitação via Evolution API
       const delayMs = this.evolutionInstanceService.randomDelay(instance);
       const sendTo = this._resolveWhatsappNumber(contact);
-      providerResponse = await evoClient.sendText(instance.instanceName, sendTo, body, delayMs);
+      providerResponse = await evoClient.sendText(instance.instanceName, sendTo, outboundText, delayMs);
       this.evolutionInstanceService.recordSent(instance.id);
       status = "sent";
     } else if (provider === "meta" && this.whatsappClient.isConfigured()) {
-      providerResponse = await this.whatsappClient.sendText({ to: contact.phone, body });
+      providerResponse = await this.whatsappClient.sendText({ to: contact.phone, body: outboundText });
       status = "sent";
     }
 
