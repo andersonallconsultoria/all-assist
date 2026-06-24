@@ -941,7 +941,7 @@ async function sendConversationReply(id) {
     replyText.value = "";
     await openConversation(id);
   } catch (err) {
-    alert("Erro ao enviar: " + (err.message || "tente novamente"));
+    uiAlert("Erro ao enviar: " + (err.message || "tente novamente"));
   } finally {
     replyBtn.disabled = false;
     replyBtn.textContent = "Enviar";
@@ -1307,6 +1307,47 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+/* ══════════════════════════════════════
+   Diálogos do sistema (substituem alert/confirm/prompt do navegador)
+══════════════════════════════════════ */
+function uiDialog({ title = "", message = "", input = false, defaultValue = "", placeholder = "", okText = "OK", cancelText = "Cancelar", danger = false }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "ui-dialog-overlay";
+    overlay.innerHTML = `
+      <div class="ui-dialog" role="dialog" aria-modal="true">
+        ${title ? `<h3 class="ui-dialog-title">${escapeHtml(title)}</h3>` : ""}
+        ${message ? `<p class="ui-dialog-msg">${escapeHtml(message).replaceAll("\n", "<br>")}</p>` : ""}
+        ${input ? `<input class="ui-dialog-input" type="text" value="${escapeHtml(defaultValue)}" placeholder="${escapeHtml(placeholder)}" />` : ""}
+        <div class="ui-dialog-actions">
+          ${cancelText ? `<button type="button" class="btn btn-secondary ui-dialog-cancel">${escapeHtml(cancelText)}</button>` : ""}
+          <button type="button" class="btn ${danger ? "btn-danger" : "btn-primary"} ui-dialog-ok">${escapeHtml(okText)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const inputEl = overlay.querySelector(".ui-dialog-input");
+    const done = (value) => { overlay.remove(); resolve(value); };
+    const cancelValue = input ? null : false;
+    overlay.querySelector(".ui-dialog-ok").addEventListener("click", () => done(input ? (inputEl.value.trim()) : true));
+    overlay.querySelector(".ui-dialog-cancel")?.addEventListener("click", () => done(cancelValue));
+    overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) done(cancelValue); });
+    overlay.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") done(cancelValue);
+      if (e.key === "Enter" && (input || e.target.classList.contains("ui-dialog-ok"))) done(input ? inputEl.value.trim() : true);
+    });
+    setTimeout(() => { if (inputEl) { inputEl.focus(); inputEl.select(); } else overlay.querySelector(".ui-dialog-ok").focus(); }, 30);
+  });
+}
+function uiConfirm(message, opts = {}) {
+  return uiDialog({ message, title: opts.title || "", okText: opts.okText || "Confirmar", cancelText: opts.cancelText || "Cancelar", danger: opts.danger });
+}
+function uiPrompt(message, defaultValue = "", opts = {}) {
+  return uiDialog({ message, title: opts.title || "", input: true, defaultValue, placeholder: opts.placeholder || "", okText: opts.okText || "OK" });
+}
+function uiAlert(message, opts = {}) {
+  return uiDialog({ message, title: opts.title || "", okText: "OK", cancelText: "" });
 }
 
 /* ══════════════════════════════════════
@@ -2123,7 +2164,7 @@ document.getElementById("evoConnectBtn")?.addEventListener("click", async () => 
 });
 
 document.getElementById("evoDisconnectBtn")?.addEventListener("click", async () => {
-  if (!confirm("Desconectar o WhatsApp deste numero?")) return;
+  if (!await uiConfirm("Desconectar o WhatsApp deste número?", { title: "Desconectar WhatsApp", okText: "Desconectar", danger: true })) return;
   try {
     await api("/api/evolution/my-instance/disconnect", { method: "POST" });
     renderEvoStatus({ status: "disconnected" });
@@ -2393,7 +2434,8 @@ async function replyTicket() {
 async function closeActiveTicket() {
   const ticket = state.activeTicket;
   if (!ticket) return;
-  const note = window.prompt("Nota de encerramento (opcional):", "") ?? "";
+  const note = await uiPrompt("Nota de encerramento (opcional):", "", { title: "Encerrar atendimento", okText: "Encerrar" });
+  if (note === null) return;
   await ticketAction(`/api/tickets/${ticket.id}/close`, { closureNote: note }, "Ticket fechado");
 }
 
@@ -2636,7 +2678,7 @@ async function uploadKbFile(articleId, file) {
 }
 
 async function deleteKbFile(articleId, fileId) {
-  if (!window.confirm("Remover este anexo?")) return;
+  if (!await uiConfirm("Remover este anexo?", { title: "Remover anexo", okText: "Remover", danger: true })) return;
   try { await api(`/api/kb/files/${fileId}`, { method: "DELETE" }); await reopenKbArticle(articleId); }
   catch (e) { setStatus(`Erro: ${e.message}`); }
 }
@@ -2863,7 +2905,7 @@ async function saveVaultCred() {
 }
 
 async function deleteVaultCred(id) {
-  if (!window.confirm("Excluir este acesso?")) return;
+  if (!await uiConfirm("Excluir este acesso?", { title: "Excluir acesso", okText: "Excluir", danger: true })) return;
   try { await api(`/api/credentials/${id}`, { method: "DELETE" }); await loadVaultList(); }
   catch (e) { setStatus(`Erro: ${e.message}`); }
 }
@@ -3067,12 +3109,12 @@ function isLikelyLid(phone) {
 async function inboxEditContactPhone(contactId) {
   const atual = state.inbox.activeTicket?.contactPhone || "";
   const sugestao = isLikelyLid(atual) ? "" : atual;
-  const novo = prompt("Número de WhatsApp do cliente (com DDD, ex.: 46999812497):", sugestao);
+  const novo = await uiPrompt("Número de WhatsApp do cliente (com DDD):", sugestao, { title: "Informar número", placeholder: "Ex.: 46999812497" });
   if (novo === null) return;
   let digits = String(novo).replace(/\D/g, "");
   if (digits.length >= 10 && digits.length <= 11) digits = `55${digits}`; // país BR
   if (digits && (digits.length < 12 || digits.length > 13)) {
-    alert("Número inválido. Informe DDD + número (ex.: 46999812497).");
+    await uiAlert("Número inválido. Informe DDD + número (ex.: 46999812497).");
     return;
   }
   try {
@@ -3081,7 +3123,7 @@ async function inboxEditContactPhone(contactId) {
     setTimeout(() => setStatus("Online"), 3000);
     if (state.inbox.activeId) selectInboxTicket(state.inbox.activeId);
   } catch (error) {
-    alert(`Erro ao salvar número: ${error.message}`);
+    await uiAlert(`Erro ao salvar número: ${error.message}`);
   }
 }
 
@@ -3301,7 +3343,7 @@ async function ensureAtendimentoAssumido(ticket) {
   const msg = ticket.assignedAnalystId
     ? `Este atendimento é de ${ticket.analystName || "outro analista"}.\n\nDeseja assumir para você?`
     : `Este atendimento ainda não tem analista responsável.\n\nDeseja assumir para você?`;
-  if (!confirm(msg)) return false;
+  if (!await uiConfirm(msg, { title: "Assumir atendimento", okText: "Assumir" })) return false;
   try {
     await api(`/api/tickets/${ticket.id}/assign`, { method: "POST", body: JSON.stringify({ analystId: meuId }) });
     ticket.assignedAnalystId = meuId;
@@ -3411,7 +3453,8 @@ async function inboxSetStatus(status) {
 
 async function inboxClose() {
   if (!state.inbox.activeId) return;
-  const note = window.prompt("Nota de encerramento (opcional):", "") ?? "";
+  const note = await uiPrompt("Nota de encerramento (opcional):", "", { title: "Encerrar atendimento", okText: "Encerrar" });
+  if (note === null) return;
   await inboxAction(`/api/tickets/${state.inbox.activeId}/close`, { closureNote: note }, "Atendimento encerrado");
 }
 
