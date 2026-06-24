@@ -333,6 +333,23 @@ export function startPlatformServer({ config, logger, store, conversationService
         }
       }
 
+      const rolePatchMatch = parsedUrl.pathname.match(/^\/api\/roles\/([^/]+)$/);
+      if (request.method === "PATCH" && rolePatchMatch) {
+        if (!requirePermission(response, authService, user, "users:write")) return;
+        try {
+          const body = await readJson(request);
+          const role = accessRoleService.updateRole(rolePatchMatch[1], {
+            name: body.name,
+            permissions: Array.isArray(body.permissions) ? body.permissions : undefined
+          }, user);
+          observabilityService?.recordAudit({ tenantId: role.tenantId, userId: user.id, action: "role.updated", entityType: "role", entityId: role.id });
+          store.save();
+          return sendJson(response, 200, role);
+        } catch (error) {
+          return sendJson(response, 400, { error: error.message });
+        }
+      }
+
       if (request.method === "POST" && parsedUrl.pathname === "/api/users/invites") {
         if (!requirePermission(response, authService, user, "users:write")) return;
         try {

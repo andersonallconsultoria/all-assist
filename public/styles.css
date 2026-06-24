@@ -4159,3 +4159,10 @@ nav a.active::after {
 .novo-atd-item:hover { background:var(--accent-soft); border-color:var(--accent-strong); }
 .novo-atd-item small { opacity:0.6; font-size:11px; }
 .novo-atd-empty { opacity:0.6; font-size:13px; text-align:center; padding:16px; }
+.role-item { width:100%; cursor:pointer; text-align:left; border:1px solid transparent; }
+.role-item:hover { border-color:var(--accent-strong); background:var(--accent-soft); }
+.role-modules { max-height:340px; overflow:auto; margin-bottom:14px; display:flex; flex-direction:column; gap:12px; }
+.role-module { display:flex; flex-direction:column; gap:5px; }
+.role-module > strong { font-size:12px; text-transform:uppercase; opacity:0.65; letter-spacing:0.03em; }
+.role-perm { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
+.role-perm input { width:16px; height:16px; }

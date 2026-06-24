@@ -366,6 +366,66 @@ function renderContactsTable() {
   `;
 }
 
+const PERM_LABELS = {
+  "dashboard:view": "Ver painel", "reports:view": "Ver relatório de horas",
+  "tickets:view": "Ver atendimentos", "tickets:respond": "Responder/atender", "tickets:close": "Encerrar atendimento", "tickets:transfer": "Transferir atendimento",
+  "contacts:view": "Ver clientes e contatos", "contacts:write": "Editar clientes e contatos",
+  "vault:view": "Ver cofre de acessos", "vault:manage": "Gerenciar cofre de acessos",
+  "kb:view": "Ver base de conhecimento", "kb:manage": "Editar base de conhecimento",
+  "conversations:view": "Ver conversas",
+  "users:view": "Ver usuários", "users:write": "Gerenciar usuários e perfis",
+  "settings:manage": "Configurações e WhatsApp", "integrations:view": "Ver integrações", "integrations:manage": "Gerenciar integrações",
+  "support:view": "Suporte Master", "support:tenants": "Gerir empresas (master)", "support:logs": "Ver logs (master)"
+};
+function permLabel(p) { return PERM_LABELS[p] || p; }
+
+async function openRoleEditor(roleId) {
+  const role = roleId ? state.roles.find((r) => r.id === roleId) : { name: "", permissions: [] };
+  if (!role) return;
+  if (!state._permCatalog) {
+    const res = await api("/api/permissions/catalog").catch(() => ({ data: [] }));
+    state._permCatalog = res.data || [];
+  }
+  const current = new Set(role.permissions || []);
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(540px,calc(100vw - 40px))">
+      <h3 class="ui-dialog-title">${roleId ? "Editar perfil de acesso" : "Novo perfil de acesso"}</h3>
+      <input class="ui-dialog-input" id="roleName" placeholder="Nome do perfil (ex.: Analista básico)" value="${escapeHtml(role.name || "")}">
+      <p style="font-size:12px;opacity:0.7;margin:0 0 8px">Marque o que este perfil pode acessar:</p>
+      <div class="role-modules">
+        ${state._permCatalog.map((mod) => `
+          <div class="role-module">
+            <strong>${escapeHtml(mod.name)}</strong>
+            ${mod.permissions.map((p) => `<label class="role-perm"><input type="checkbox" value="${p}" ${current.has(p) ? "checked" : ""}> ${escapeHtml(permLabel(p))}</label>`).join("")}
+          </div>`).join("")}
+      </div>
+      <div class="ui-dialog-actions">
+        <button class="btn btn-secondary" id="roleCancel" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="roleSave" type="button">Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#roleCancel").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector("#roleSave").onclick = async () => {
+    const name = overlay.querySelector("#roleName").value.trim();
+    if (!name) { await uiAlert("Informe o nome do perfil."); return; }
+    const permissions = Array.from(overlay.querySelectorAll(".role-perm input:checked")).map((i) => i.value);
+    try {
+      if (roleId) await api(`/api/roles/${roleId}`, { method: "PATCH", body: JSON.stringify({ name, permissions }) });
+      else await api("/api/roles", { method: "POST", body: JSON.stringify({ name, permissions }) });
+      const res = await api("/api/roles").catch(() => ({ data: [] }));
+      state.roles = res.data || [];
+      overlay.remove();
+      renderUsers();
+      setStatus("Perfil de acesso salvo ✓");
+    } catch (error) { await uiAlert(`Erro ao salvar: ${error.message}`); }
+  };
+  setTimeout(() => overlay.querySelector("#roleName").focus(), 30);
+}
+
 function renderUsersTable() {
   const target = document.getElementById("userTableContent");
   if (!target) return;
@@ -383,14 +443,15 @@ function renderUsersTable() {
     inactive: state.users.filter((u) => u.status !== "active").length
   });
 
-  document.getElementById("roleList").innerHTML = state.roles.length
+  document.getElementById("roleList").innerHTML = (state.roles.length
     ? state.roles.map((role) => `
-        <div class="summary-item">
-          <span>${escapeHtml(role.name)}</span>
-          <strong>${role.permissions?.length || 0}</strong>
-        </div>
+        <button class="summary-item role-item" type="button" onclick="openRoleEditor('${role.id}')">
+          <span>${escapeHtml(role.name)}${role.system ? " (sistema)" : ""}</span>
+          <strong>${role.permissions?.length || 0} acessos</strong>
+        </button>
       `).join("")
-    : `<div class="empty-state">Nenhum perfil encontrado.</div>`;
+    : `<div class="empty-state">Nenhum perfil encontrado.</div>`)
+    + (hasPermission("users:write") ? `<button class="btn btn-secondary" type="button" onclick="openRoleEditor(null)" style="margin-top:10px">+ Novo perfil de acesso</button>` : "");
 
   if (!filtered.length) {
     target.innerHTML = `<div class="empty-state">Nenhum usuario encontrado.</div>`;
