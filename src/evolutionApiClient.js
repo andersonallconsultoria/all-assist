@@ -93,6 +93,16 @@ export class EvolutionApiClient {
     return this._request("POST", `/chat/fetchProfilePictureUrl/${encodeURIComponent(name)}`, { number });
   }
 
+  async sendPoll(name, to, { question, values, selectableCount = 1, delayMs = 1200 }) {
+    return this._request("POST", `/message/sendPoll/${encodeURIComponent(name)}`, {
+      number: to,
+      name: question,
+      selectableCount,
+      values,
+      delay: delayMs
+    });
+  }
+
   async getMediaBase64(name, messageKeyId) {
     return this._request("POST", `/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, {
       message: { key: { id: messageKeyId } },

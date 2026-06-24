@@ -1594,6 +1594,7 @@ async function renderAutomations() {
     document.getElementById("botGreeting").value = cfg.greeting || "";
     document.getElementById("botHandoff").value = cfg.handoffMessage || "";
     document.getElementById("botMenuEnabled").checked = Boolean(cfg.menuEnabled);
+    document.getElementById("botMenuMode").value = cfg.menuMode === "poll" ? "poll" : "text";
     document.getElementById("botMenuIntro").value = cfg.menuIntro || "";
     document.getElementById("botMenuOptions").value = (cfg.menuOptions || []).join("\n");
     document.getElementById("botStatus").textContent = cfg.enabled ? "Bot ativo: responde a primeira mensagem automaticamente." : "Bot desativado.";
@@ -1608,6 +1609,7 @@ document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
     greeting: document.getElementById("botGreeting").value.trim(),
     handoffMessage: document.getElementById("botHandoff").value.trim(),
     menuEnabled: document.getElementById("botMenuEnabled").checked,
+    menuMode: document.getElementById("botMenuMode").value,
     menuIntro: document.getElementById("botMenuIntro").value.trim(),
     menuOptions: document.getElementById("botMenuOptions").value.split("\n").map((s) => s.trim()).filter(Boolean)
   };
@@ -3063,7 +3065,7 @@ function inboxMsgContent(m) {
   else if (url && m.type === "audio") media = `<audio controls src="${url}" class="msg-media-audio"></audio>`;
   else if (url && m.type === "video") media = `<video controls class="msg-media-video" src="${url}"></video>`;
   else if (url && m.type === "document") media = `<a class="msg-media-doc" href="${url}" target="_blank" rel="noopener">📎 ${escapeHtml(m.mediaName || "documento")}</a>`;
-  const text = m.body ? `<p>${escapeHtml(m.body)}</p>` : "";
+  const text = m.body ? `<p>${escapeHtml(m.body).replaceAll("\n", "<br>")}</p>` : "";
   return media + text;
 }
 

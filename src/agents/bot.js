@@ -26,9 +26,19 @@ export class BotAgent {
     const handoffMessage = botConfig.handoffMessage || "Vou encaminhar você para um de nossos analistas. Um momento, por favor.";
 
     // Menu inicial configurável: saúda e apresenta as opções (sem IA).
-    const menu = this.buildMenu(botConfig);
-    if (botConfig.menuEnabled && menu) {
-      return { reply: `${greeting}\n\n${menu}`, handoff: true, source: "menu" };
+    const options = (botConfig.menuOptions || []).map((o) => String(o || "").trim()).filter(Boolean);
+    if (botConfig.menuEnabled && options.length) {
+      // Modo enquete: saudação em texto + enquete clicável separada.
+      if (botConfig.menuMode === "poll") {
+        return {
+          reply: greeting,
+          poll: { question: botConfig.menuIntro || "Como posso te ajudar? Selecione:", options },
+          handoff: true,
+          source: "menu-poll"
+        };
+      }
+      // Modo texto (padrão): saudação + menu numerado.
+      return { reply: `${greeting}\n\n${this.buildMenu(botConfig)}`, handoff: true, source: "menu-text" };
     }
 
     if (!this.apiKey) {

@@ -246,6 +246,47 @@ export class ConversationService {
     return message;
   }
 
+  // Envia uma enquete (poll) do WhatsApp — usada como menu clicável do bot.
+  // Só funciona via Evolution (Baileys). Salva uma mensagem representando a
+  // enquete no histórico do atendimento.
+  async sendPoll(conversationId, { question, options }, actor = "bot", tenantId = "", senderUserId = null) {
+    const conversation = this.store.findById("conversations", conversationId);
+    if (!conversation) throw new Error("Conversation not found");
+    const contact = this.store.findById("contacts", conversation.contactId);
+    if (!contact) throw new Error("Conversation contact not found");
+    const values = (options || []).map((o) => String(o || "").trim()).filter(Boolean).slice(0, 12);
+    if (!values.length) return null;
+
+    let status = "queued";
+    let providerResponse = null;
+    if ((conversation.provider || "meta") === "evolution" && this.evolutionInstanceService) {
+      const effectiveTenantId = conversation.tenantId || tenantId;
+      const instance = (senderUserId && this.evolutionInstanceService.getByUser(effectiveTenantId, senderUserId))
+        || this.evolutionInstanceService.getByTenant(effectiveTenantId);
+      if (instance && instance.status === "connected") {
+        const { EvolutionApiClient } = await import("./evolutionApiClient.js");
+        const evoClient = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
+        const sendTo = this._resolveWhatsappNumber(contact);
+        const delayMs = this.evolutionInstanceService.randomDelay(instance);
+        providerResponse = await evoClient.sendPoll(instance.instanceName, sendTo, { question, values, delayMs });
+        this.evolutionInstanceService.recordSent(instance.id);
+        status = "sent";
+      }
+    }
+
+    const body = `📊 ${question}\n${values.map((v, i) => `${i + 1}. ${v}`).join("\n")}`;
+    const message = this.store.insert("messages", {
+      tenantId: conversation.tenantId || defaultTenantId(this.store),
+      conversationId, contactId: contact.id,
+      direction: "outbound", channel: "whatsapp", provider: conversation.provider || "evolution",
+      providerMessageId: providerResponse?.key?.id || "",
+      from: "crm", to: normalizeToE164(contact.phone),
+      type: "poll", pollOptions: values, body, raw: providerResponse || {}, status, actor
+    });
+    this.store.update("conversations", conversation.id, { lastMessageAt: message.createdAt, lastMessagePreview: "📊 Enquete enviada" });
+    return message;
+  }
+
   // Registra (e tenta enviar) uma mensagem de mídia já armazenada no fileStore.
   // O envio real pelo WhatsApp depende do provider suportar mídia e estar
   // conectado; se não, a mensagem fica registrada (status "queued").

@@ -1,0 +1,57 @@
+services:
+  allassist-platform:
+    build:
+      context: .
+    image: allassist-platform:local
+    env_file:
+      - .env
+    ports:
+      - "3010:3000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=evolution_pass_2026
+      - POSTGRES_DB=evolution
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  evolution:
+    image: evoapicloud/evolution-api:v2.3.7
+    depends_on:
+      - postgres
+    environment:
+      - SERVER_URL=http://localhost:8080
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=freitas-evo-2026-key
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:evolution_pass_2026@postgres:5432/evolution?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - CACHE_REDIS_ENABLED=false
+      - CACHE_LOCAL_ENABLED=true
+      - DEL_INSTANCE=false
+      - QRCODE_LIMIT=30
+      - QRCODE_EXPIRES_IN=60
+      - LANGUAGE=pt-BR
+      - LOG_LEVEL=ERROR,WARN
+      # Força a versão atual do WhatsApp Web (a embutida na v2.2.3 está obsoleta
+      # e o WhatsApp recusa a conexão — isBelowHard). Atualizar quando necessário.
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1035194821
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data/evolution_v2:/evolution/instances
+    restart: unless-stopped

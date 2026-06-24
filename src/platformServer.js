@@ -159,6 +159,7 @@ export function startPlatformServer({ config, logger, store, conversationService
           greeting: String(body.greeting || "").trim(),
           handoffMessage: String(body.handoffMessage || "").trim(),
           menuEnabled: Boolean(body.menuEnabled),
+          menuMode: body.menuMode === "poll" ? "poll" : "text",
           menuIntro: String(body.menuIntro || "").trim(),
           menuOptions: Array.isArray(body.menuOptions)
             ? body.menuOptions.map((o) => String(o || "").trim()).filter(Boolean).slice(0, 10)
@@ -1791,6 +1792,10 @@ async function _createTicketForConversation(conversation, message, contact, tick
           articles
         });
         await conversationService.sendText(conversation.id, result.reply, "bot", conversation.tenantId, null);
+        // Menu em enquete (clicável): enviado logo após a saudação.
+        if (result.poll && typeof conversationService.sendPoll === "function") {
+          await conversationService.sendPoll(conversation.id, result.poll, "bot", conversation.tenantId, null).catch((e) => logger.warn("bot_poll_failed", { error: e.message }));
+        }
         ticketService.addLog(ticket.id, conversation.tenantId, { type: "bot_reply", note: `Bot respondeu${result.handoff ? " e encaminhou para análise" : ""}`, actor: "bot" });
         store.update("tickets", ticket.id, {
           firstResponseAt: new Date().toISOString(),
