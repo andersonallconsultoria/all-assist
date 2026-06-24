@@ -9,9 +9,27 @@ export class BotAgent {
     this.model = config.classifierModel || "claude-haiku-4-5-20251001";
   }
 
+  // Monta o menu inicial em texto numerado. Botões interativos do WhatsApp não
+  // funcionam via Evolution/QR code (o WhatsApp os bloqueia), então usa-se um
+  // menu numerado que o cliente responde com o número.
+  buildMenu(botConfig = {}) {
+    const options = (botConfig.menuOptions || []).map((o) => String(o || "").trim()).filter(Boolean);
+    if (!options.length) return "";
+    const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+    const intro = botConfig.menuIntro || "Como posso te ajudar hoje? Responda com o número da opção:";
+    const lines = options.map((opt, i) => `${emojis[i] || `${i + 1}.`} ${opt}`);
+    return `${intro}\n\n${lines.join("\n")}`;
+  }
+
   async reply({ message, contactName = "", botConfig = {}, articles = [] }) {
     const greeting = botConfig.greeting || "Olá! Sou o assistente virtual de atendimento. Como posso ajudar?";
     const handoffMessage = botConfig.handoffMessage || "Vou encaminhar você para um de nossos analistas. Um momento, por favor.";
+
+    // Menu inicial configurável: saúda e apresenta as opções (sem IA).
+    const menu = this.buildMenu(botConfig);
+    if (botConfig.menuEnabled && menu) {
+      return { reply: `${greeting}\n\n${menu}`, handoff: true, source: "menu" };
+    }
 
     if (!this.apiKey) {
       // Sem IA: saúda e encaminha para o humano.

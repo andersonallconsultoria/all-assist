@@ -157,7 +157,12 @@ export function startPlatformServer({ config, logger, store, conversationService
         const botConfig = {
           enabled: Boolean(body.enabled),
           greeting: String(body.greeting || "").trim(),
-          handoffMessage: String(body.handoffMessage || "").trim()
+          handoffMessage: String(body.handoffMessage || "").trim(),
+          menuEnabled: Boolean(body.menuEnabled),
+          menuIntro: String(body.menuIntro || "").trim(),
+          menuOptions: Array.isArray(body.menuOptions)
+            ? body.menuOptions.map((o) => String(o || "").trim()).filter(Boolean).slice(0, 10)
+            : []
         };
         store.update("tenants", tenant.id, { botConfig });
         store.save();

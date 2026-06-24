@@ -1593,6 +1593,9 @@ async function renderAutomations() {
     document.getElementById("botEnabled").checked = Boolean(cfg.enabled);
     document.getElementById("botGreeting").value = cfg.greeting || "";
     document.getElementById("botHandoff").value = cfg.handoffMessage || "";
+    document.getElementById("botMenuEnabled").checked = Boolean(cfg.menuEnabled);
+    document.getElementById("botMenuIntro").value = cfg.menuIntro || "";
+    document.getElementById("botMenuOptions").value = (cfg.menuOptions || []).join("\n");
     document.getElementById("botStatus").textContent = cfg.enabled ? "Bot ativo: responde a primeira mensagem automaticamente." : "Bot desativado.";
   } catch (e) {
     document.getElementById("botStatus").textContent = "Erro ao carregar: " + e.message;
@@ -1603,7 +1606,10 @@ document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
   const payload = {
     enabled: document.getElementById("botEnabled").checked,
     greeting: document.getElementById("botGreeting").value.trim(),
-    handoffMessage: document.getElementById("botHandoff").value.trim()
+    handoffMessage: document.getElementById("botHandoff").value.trim(),
+    menuEnabled: document.getElementById("botMenuEnabled").checked,
+    menuIntro: document.getElementById("botMenuIntro").value.trim(),
+    menuOptions: document.getElementById("botMenuOptions").value.split("\n").map((s) => s.trim()).filter(Boolean)
   };
   try {
     await api("/api/bot/config", { method: "PUT", body: JSON.stringify(payload) });

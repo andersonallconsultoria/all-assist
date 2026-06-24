@@ -799,6 +799,19 @@
                 Mensagem ao encaminhar para um analista
                 <textarea id="botHandoff" rows="2" class="search-input" style="resize:vertical" placeholder="Vou encaminhar você para um de nossos analistas. Um momento, por favor."></textarea>
               </label>
+              <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
+              <label style="display:flex;align-items:center;gap:8px;font-weight:600">
+                <input type="checkbox" id="botMenuEnabled" style="width:18px;height:18px">
+                Mostrar menu de opções na saudação
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
+                Texto antes das opções
+                <textarea id="botMenuIntro" rows="2" class="search-input" style="resize:vertical" placeholder="Como posso te ajudar hoje? Responda com o número da opção:"></textarea>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
+                Opções do menu (uma por linha)
+                <textarea id="botMenuOptions" rows="6" class="search-input" style="resize:vertical" placeholder="Suporte Contábil/Fiscal&#10;Suporte Sistema Geral&#10;Faturamento/Financeiro&#10;Folha de Pagamento&#10;Administrativo&#10;Diretoria"></textarea>
+              </label>
               <p id="botStatus" style="font-size:12px;color:var(--muted);margin:0"></p>
               <button id="botSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-start">Salvar configuração</button>
             </div>
