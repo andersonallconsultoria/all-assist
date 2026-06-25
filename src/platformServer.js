@@ -172,6 +172,37 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 200, botConfig);
       }
 
+      // Integração AllHub (agentes IA CISS-Poder) — config por tenant.
+      if (request.method === "GET" && parsedUrl.pathname === "/api/allhub/config") {
+        if (!requirePermission(response, authService, user, "settings:manage")) return;
+        const tenant = store.findById("tenants", tenantContext.tenantId);
+        const a = tenant?.allhub || {};
+        return sendJson(response, 200, {
+          enabled: Boolean(a.enabled),
+          baseUrl: a.baseUrl || "",
+          apiKeySet: Boolean(a.apiKey),
+          ingestKey: a.ingestKey || "" // chave que o AllHub usa para enviar artigos (POST /api/kb/from-allhub)
+        });
+      }
+      if (request.method === "PUT" && parsedUrl.pathname === "/api/allhub/config") {
+        if (!requirePermission(response, authService, user, "settings:manage")) return;
+        const tenant = store.findById("tenants", tenantContext.tenantId);
+        if (!tenant) return sendJson(response, 404, { error: "tenant_not_found" });
+        const body = await readJson(request);
+        const prev = tenant.allhub || {};
+        const allhub = {
+          enabled: Boolean(body.enabled),
+          baseUrl: String(body.baseUrl || "").trim().replace(/\/$/, ""),
+          // mantém a apiKey atual se não vier uma nova (não sobrescreve com vazio)
+          apiKey: body.apiKey !== undefined && body.apiKey !== "" ? String(body.apiKey).trim() : (prev.apiKey || ""),
+          // chave de ingestão (entrada): gerada por nós, entregue ao AllHub
+          ingestKey: prev.ingestKey || `ahk_${randomId()}${randomId()}`
+        };
+        store.update("tenants", tenant.id, { allhub });
+        store.save();
+        return sendJson(response, 200, { enabled: allhub.enabled, baseUrl: allhub.baseUrl, apiKeySet: Boolean(allhub.apiKey), ingestKey: allhub.ingestKey });
+      }
+
       // ===== Base de conhecimento =====
       if (request.method === "POST" && parsedUrl.pathname === "/api/kb/assist") {
         if (!requirePermission(response, authService, user, "kb:view")) return;
@@ -959,6 +990,46 @@ export function startPlatformServer({ config, logger, store, conversationService
         });
       }
 
+      // Ingestão de conhecimento: o AllHub empurra artigos para a base (Fluxo
+      // de conhecimento). Auth server-to-server pela chave de ingestão do tenant.
+      if (request.method === "POST" && parsedUrl.pathname === "/api/kb/from-allhub") {
+        const tenantId = request.headers["x-allhub-tenant"];
+        const auth = String(request.headers["authorization"] || "").replace(/^Bearer\s+/i, "");
+        const tnt = tenantId ? store.findById("tenants", tenantId) : null;
+        const ingestKey = tnt?.allhub?.ingestKey;
+        if (!tnt || !ingestKey || auth !== ingestKey) return sendJson(response, 401, { error: "unauthorized" });
+        const body = await readJson(request);
+        const key = String(body.chave || body.key || "").trim();
+        const fields = {
+          tenantId,
+          title: String(body.title || "").trim(),
+          category: String(body.category || "geral").trim(),
+          content: String(body.content_md || body.content || "").trim(),
+          tags: Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean) : [],
+          allhubKey: key || null,
+          agenteOrigem: String(body.agente_origem || "").trim(),
+          temaCisspoder: String(body.tema_cisspoder || "").trim(),
+          escopo: body.escopo === "cliente" ? "cliente" : "global",
+          cnpj: String(body.cnpj || "").trim(),
+          versao: Number(body.versao || 1),
+          confianca: Number(body.confianca ?? 0),
+          status: body.status_sugerido === "rascunho" || (Number(body.confianca ?? 1) < 0.6) ? "rascunho" : "publicado",
+          source: "allhub"
+        };
+        if (!fields.title || !fields.content) return sendJson(response, 400, { error: "title e content_md são obrigatórios" });
+        // Upsert por chave (dedupe/versionamento); senão cria novo.
+        const existing = key ? store.findOne("kbArticles", (a) => a.tenantId === tenantId && a.allhubKey === key) : null;
+        let article;
+        if (existing) {
+          article = store.update("kbArticles", existing.id, { ...fields, versao: Math.max(fields.versao, (existing.versao || 1) + 1), updatedAt: new Date().toISOString() });
+        } else {
+          article = store.insert("kbArticles", { ...fields, attachments: [] });
+        }
+        store.save();
+        logger.info("allhub_kb_ingested", { tenantId, key, articleId: article.id, status: article.status, updated: Boolean(existing) });
+        return sendJson(response, 200, { ok: true, articleId: article.id, status: article.status, updated: Boolean(existing) });
+      }
+
       if (request.method === "GET" && parsedUrl.pathname === "/webhooks/meta/whatsapp") {
         const mode = parsedUrl.searchParams.get("hub.mode");
         const token = parsedUrl.searchParams.get("hub.verify_token");
@@ -1525,6 +1596,10 @@ export function startPlatformServer({ config, logger, store, conversationService
           if (tnt?.botConfig?.farewellEnabled && farewell && updated.conversationId) {
             conversationService.sendText(updated.conversationId, farewell, "bot", tenantContext.tenantId, null).catch(() => {});
           }
+          // Fluxo B: envia o atendimento resolvido ao AllHub para aprendizado.
+          if (tnt?.allhub?.enabled && tnt.allhub.baseUrl && tnt.allhub.apiKey) {
+            _sendTicketLearnToAllHub(tnt, updated, store, conversationService, logger).catch(() => {});
+          }
           return sendJson(response, 200, enrichTicket(updated));
         } catch (error) {
           return sendJson(response, 404, { error: "ticket_not_found" });
@@ -1829,6 +1904,35 @@ function buildSupportDashboard(store, tenantId) {
   };
 }
 
+// Fluxo B: ao encerrar um atendimento, envia o caso resolvido ao AllHub para o
+// agente aprender com a solução (assíncrono, não trava o encerramento).
+async function _sendTicketLearnToAllHub(tenant, ticket, store, conversationService, logger) {
+  try {
+    const conv = ticket.conversationId ? conversationService.getConversation(ticket.conversationId, tenant.id) : null;
+    const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
+    const customer = contact?.customerId ? store.findById("customers", contact.customerId) : null;
+    const { AllHubClient } = await import("./allhubClient.js");
+    const client = new AllHubClient({ baseUrl: tenant.allhub.baseUrl, apiKey: tenant.allhub.apiKey, tenant: tenant.id });
+    await client.learnTicketResolved({
+      tenant: tenant.id,
+      cliente: customer ? { cnpj: customer.cnpj, nome: customer.fantasia || customer.name, uf: customer.uf, regime: customer.regime } : null,
+      ticket: {
+        id: ticket.id, assunto: ticket.subject, categoria: ticket.category,
+        fila: ticket.queue || null, prioridade: ticket.priority,
+        abertoEm: ticket.openedAt, fechadoEm: ticket.closedAt,
+        notaEncerramento: ticket.closureNote || ""
+      },
+      conversa: (conv?.messages || []).map((m) => ({
+        de: m.direction === "inbound" ? "cliente" : (m.actor === "bot" ? "bot" : "analista"),
+        texto: m.body || `[${m.type}]`, ts: m.timestamp || m.createdAt
+      }))
+    });
+    logger.info("allhub_learn_sent", { ticketId: ticket.id });
+  } catch (error) {
+    logger.warn("allhub_learn_failed", { ticketId: ticket.id, error: error.message });
+  }
+}
+
 // Quando o cliente responde ao menu inicial, direciona o ticket para a fila
 // escolhida (pelo número da opção) e avisa que está sendo encaminhado.
 // Retorna true se tratou a escolha (e então não cria um novo ticket).
@@ -1991,6 +2095,9 @@ function isPublicRequest(request, parsedUrl) {
   if (parsedUrl.pathname === "/api/auth/email/verify") return true;
   if (parsedUrl.pathname === "/webhooks/meta/whatsapp") return true;
   if (parsedUrl.pathname === "/webhooks/evolution") return true;
+  // Ingestão de conhecimento do AllHub (auth própria via chave de ingestão).
+  if (parsedUrl.pathname === "/api/kb/from-allhub") return true;
+  if (parsedUrl.pathname === "/webhooks/allhub") return true;
   return false;
 }
 
