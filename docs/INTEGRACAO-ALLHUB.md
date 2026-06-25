@@ -112,6 +112,19 @@ A base de conhecimento é, portanto, o REPOSITÓRIO COMPARTILHADO de conheciment
 entre as duas ferramentas — o AllHub escreve nela continuamente; o Freitas Assist
 a consome no atendimento.
 
+DOIS FLUXOS DE CONHECIMENTO (ambos importam):
+- FLUXO A — apoio em tempo real: durante o atendimento o analista aciona o agente,
+  que responde/sugere (descrito acima).
+- FLUXO B — APRENDIZADO A PARTIR DE TICKETS RESOLVIDOS (muito importante): TODO
+  atendimento vira um TICKET. Quando o ticket é ENCERRADO (resolvido por um
+  analista humano), o Freitas Assist envia ao AllHub o histórico completo do
+  atendimento — a conversa inteira, categoria, fila, e principalmente COMO FOI
+  RESOLVIDO (nota de encerramento + as respostas que resolveram). O agente do
+  AllHub LÊ esse atendimento resolvido, ENTENDE a solução e AGREGA o conhecimento
+  (gera/atualiza um artigo na base). Ou seja: o agente aprende sozinho com cada
+  caso que os humanos resolvem, sem ninguém precisar documentar à mão. Quanto
+  mais a equipe atende, mais inteligente a ferramenta fica.
+
 OBJETIVO FINAL: os agentes do AllHub apoiam os analistas em todo atendimento (e,
 numa fase seguinte e configurável, podem responder o cliente diretamente pelo bot
 quando a confiança for alta e o tema permitir).
@@ -220,7 +233,32 @@ Quero que você proponha e justifique:
    Objetivo: a base de conhecimento vira o REPOSITÓRIO COMPARTILHADO — o AllHub
    escreve, o Freitas Assist consome no atendimento (bot, apoio ao analista).
 
-7) NÃO-FUNCIONAIS
+7) APRENDIZADO AUTOMÁTICO A PARTIR DE TICKETS RESOLVIDOS (FLUXO B — essencial)
+   Todo atendimento é um ticket. Ao ENCERRAR um ticket, o Freitas Assist deve
+   notificar o AllHub para que o agente APRENDA com a resolução. Proponha:
+   - O evento/endpoint (ex.: o Freitas Assist chama POST /learn/ticket-resolved,
+     OU o AllHub assina um webhook de "ticket encerrado").
+   - O payload do ticket resolvido. Sugestão:
+       {
+         "tenant":"...", "cliente": { "cnpj":"...", ... },
+         "ticket": { "id":"...", "assunto":"...", "categoria":"...",
+                     "fila":"...", "prioridade":"...",
+                     "abertoEm":"...", "fechadoEm":"...",
+                     "notaEncerramento":"como o analista resolveu" },
+         "conversa": [ {"de":"cliente|analista|bot","texto":"...","ts":"..."} ... ]
+       }
+   - Como o agente decide se há conhecimento NOVO/reutilizável ali (nem todo
+     ticket gera artigo — ex.: "bom dia" não gera). Critérios?
+   - O resultado volta como artigo via o fluxo do item 6 (push para a base),
+     marcando o ticket de origem. Sugira se entra publicado ou como rascunho.
+   - Retroalimentação: o agente pode também detectar que um atendimento foi
+     resolvido de forma DIFERENTE do que ele sugeriu (Fluxo A) e ajustar seu
+     conhecimento. Proponha como capturar isso.
+   Objetivo: o ciclo se fecha — humanos atendem → agentes aprendem com os tickets
+   resolvidos → conhecimento volta para a base → próximos atendimentos (apoio e
+   bot) ficam melhores.
+
+8) NÃO-FUNCIONAIS
    - Timeouts, retries, idempotência (mesma pergunta não dispara ação duas
      vezes), versionamento da API, e como tratar erros do CISS-Poder
      (ERRO_SISTEMA) de forma legível para o analista.
@@ -253,3 +291,10 @@ juntos antes de codar dos dois lados.
   curadoria. O "Apoio da base" e o bot passam a usar esse acervo automaticamente.
 - A base de conhecimento é o ponto de maior volume da integração: planejar
   paginação, busca e versionamento desde o início.
+- **Aprendizado por ticket resolvido (Fluxo B):** o gatilho já existe no código —
+  o endpoint de encerrar atendimento (`POST /api/tickets/:id/close`, que hoje já
+  dispara a despedida automática). Basta, ao encerrar, montar o payload do ticket
+  resolvido (conversa + `closureNote` + cliente/CNPJ) e enviar ao AllHub
+  (assíncrono, sem travar o encerramento). O retorno (artigo) entra pela mesma
+  rota de ingestão de conhecimento. É barato de plugar e fecha o ciclo de
+  aprendizado.
