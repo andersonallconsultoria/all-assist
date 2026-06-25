@@ -3223,8 +3223,8 @@ function renderInboxHeader(ticket) {
   header.innerHTML = `
     ${avatar}
     <div class="ich-info">
-      <strong>${escapeHtml(ticket.contactName)}</strong>
-      <small>${escapeHtml(ticket.contactPhone || "")}${ticket.customerName ? ` · 🏢 ${escapeHtml(ticket.customerName)}` : ""}</small>
+      <strong>${ticket.contactIsGroup ? "👥 " : ""}${escapeHtml(ticket.contactName)}</strong>
+      <small>${ticket.contactIsGroup ? "Grupo de WhatsApp" : escapeHtml(ticket.contactPhone || "")}${ticket.customerName ? ` · 🏢 ${escapeHtml(ticket.customerName)}` : ""}</small>
       <small class="ich-sub">${ticket.analystName ? `👤 ${escapeHtml(ticket.analystName)}` : "⏳ Sem analista"}${ticket.queue ? ` · 📋 ${escapeHtml(ticket.queue)}` : ""}</small>
     </div>
     <div class="ich-tags">
@@ -3234,6 +3234,8 @@ function renderInboxHeader(ticket) {
 }
 
 function inboxMsgContent(m) {
+  // Em grupos, mostra quem mandou a mensagem (igual ao WhatsApp).
+  const author = m.authorName ? `<span class="msg-author">${escapeHtml(m.authorName)}</span>` : "";
   const url = m.mediaId ? `/api/media/${m.mediaId}` : "";
   let media = "";
   if (url && m.type === "image") media = `<a href="${url}" target="_blank" rel="noopener"><img class="msg-media-img" src="${url}" alt="imagem"></a>`;
@@ -3241,7 +3243,7 @@ function inboxMsgContent(m) {
   else if (url && m.type === "video") media = `<video controls class="msg-media-video" src="${url}"></video>`;
   else if (url && m.type === "document") media = `<a class="msg-media-doc" href="${url}" target="_blank" rel="noopener">📎 ${escapeHtml(m.mediaName || "documento")}</a>`;
   const text = m.body ? `<p>${escapeHtml(m.body).replaceAll("\n", "<br>")}</p>` : "";
-  return media + text;
+  return author + media + text;
 }
 
 function renderInboxChat(ticket, opts = {}) {
@@ -3338,14 +3340,16 @@ function renderInboxContext(ticket) {
       ${ticket.contactAvatar
         ? `<img class="avatar-lg avatar-photo" src="${escapeHtml(ticket.contactAvatar)}" alt="" onerror="this.outerHTML='<span class=&quot;avatar-lg&quot;>${escapeHtml(initials(ticket.contactName))}</span>'">`
         : `<span class="avatar-lg">${escapeHtml(initials(ticket.contactName))}</span>`}
-      <strong>${escapeHtml(ticket.contactName)}</strong>
-      ${isLikelyLid(ticket.contactPhone)
-        ? `<small class="ctx-phone-warn">⚠️ número oculto (privacidade do WhatsApp)
-             <button class="btn-link-inline" type="button" onclick="inboxEditContactPhone('${ticket.contactId}')">informar número</button>
-           </small>`
-        : `<small>${escapeHtml(ticket.contactPhone || "sem número")}
-             <button class="btn-link-inline" type="button" onclick="inboxEditContactPhone('${ticket.contactId}')" title="Editar número">✏️</button>
-           </small>`}
+      <strong>${ticket.contactIsGroup ? "👥 " : ""}${escapeHtml(ticket.contactName)}</strong>
+      ${ticket.contactIsGroup
+        ? `<small>Grupo de WhatsApp</small>`
+        : (isLikelyLid(ticket.contactPhone)
+          ? `<small class="ctx-phone-warn">⚠️ número oculto (privacidade do WhatsApp)
+               <button class="btn-link-inline" type="button" onclick="inboxEditContactPhone('${ticket.contactId}')">informar número</button>
+             </small>`
+          : `<small>${escapeHtml(ticket.contactPhone || "sem número")}
+               <button class="btn-link-inline" type="button" onclick="inboxEditContactPhone('${ticket.contactId}')" title="Editar número">✏️</button>
+             </small>`)}
       ${ticket.customerName
         ? `<span class="ctx-customer-tag">🏢 ${escapeHtml(ticket.customerName)}</span>
            ${ticket.customerId && hasPermission("vault:view")

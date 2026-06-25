@@ -136,6 +136,42 @@ export class ConversationService {
     }
   }
 
+  // Cria/atualiza o "contato" que representa um GRUPO de WhatsApp. O grupo é o
+  // cliente do atendimento; o autor de cada mensagem é guardado na própria
+  // mensagem (authorName).
+  upsertGroupContact({ jid, tenantId }) {
+    let contact = this.store.findOne("contacts", (c) => c.tenantId === tenantId && c.whatsappJid === jid);
+    const patch = {
+      tenantId: contact?.tenantId || tenantId,
+      name: contact?.name || `Grupo ${jid.replace(/@.*/, "").slice(-6)}`,
+      phone: jid,            // o JID @g.us é o destino de envio do grupo
+      whatsappJid: jid,
+      isGroup: true,
+      source: "whatsapp-group",
+      lastSeenAt: new Date().toISOString()
+    };
+    if (contact) return this.store.update("contacts", contact.id, patch);
+    return this.store.insert("contacts", patch);
+  }
+
+  // Busca o nome e a foto do grupo na Evolution (assíncrono).
+  async _fetchEvolutionGroupInfo(instanceName, groupJid, contact, tenantId) {
+    if (!this.evolutionInstanceService || !instanceName) return;
+    const fresh = this.store.findById("contacts", contact.id) || contact;
+    const last = fresh.groupInfoAt ? Date.parse(fresh.groupInfoAt) : 0;
+    if (fresh.name && !fresh.name.startsWith("Grupo ") && fresh.avatarUrl && Date.now() - last < 24 * 60 * 60 * 1000) return;
+    const instance = this.evolutionInstanceService.getByTenant(tenantId);
+    if (!instance) return;
+    const { EvolutionApiClient } = await import("./evolutionApiClient.js");
+    const evo = new EvolutionApiClient(instance.apiUrl, instance.apiKey);
+    const info = await evo.getGroupInfo(instanceName, groupJid);
+    const patch = { groupInfoAt: new Date().toISOString() };
+    if (info?.subject) patch.name = info.subject;
+    if (info?.pictureUrl || info?.profilePicUrl) patch.avatarUrl = info.pictureUrl || info.profilePicUrl;
+    this.store.update("contacts", contact.id, patch);
+    this.store.save();
+  }
+
   async _fetchEvolutionInboundMedia(instanceName, messageKeyId, messageId, tenantId) {
     if (!this.fileStore || !this.evolutionInstanceService) return;
     const instance = this.evolutionInstanceService.getByTenant(tenantId);
@@ -153,6 +189,8 @@ export class ConversationService {
   }
 
   _resolveWhatsappNumber(contact) {
+    // Grupo: envia para o próprio JID do grupo (@g.us).
+    if (contact.isGroup && contact.whatsappJid) return contact.whatsappJid;
     const candidates = [];
     if (contact.customerId) {
       const customer = this.store.findById("customers", contact.customerId);
@@ -379,7 +417,11 @@ export class ConversationService {
       if (!data || data?.key?.fromMe) return null; // ignora mensagens enviadas por nós
 
       const remoteJid = data.key?.remoteJid || "";
-      const phone = remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
+      const isGroup = remoteJid.endsWith("@g.us");
+      // Em grupo o autor é o participante; o "contato" do atendimento é o grupo.
+      const participant = data.key?.participant || data.participant || "";
+      const authorName = isGroup ? (data.pushName || participant.replace(/@.*/, "")) : "";
+      const phone = isGroup ? remoteJid : remoteJid.replace("@s.whatsapp.net", "").replace("@c.us", "");
       if (!phone) return null;
 
       const body = extractEvolutionBody(data);
@@ -388,8 +430,8 @@ export class ConversationService {
         ? new Date(Number(data.messageTimestamp) * 1000).toISOString()
         : new Date().toISOString();
 
-      // Verifica opt-out
-      if (this.evolutionInstanceService) {
+      // Verifica opt-out (só em conversa 1-a-1)
+      if (!isGroup && this.evolutionInstanceService) {
         const instance = this.evolutionInstanceService.getByTenant(tenantId);
         if (instance && this.evolutionInstanceService.checkOptOutPhrase(body)) {
           this.evolutionInstanceService.addOptOut(instance.id, phone);
@@ -397,12 +439,15 @@ export class ConversationService {
         }
       }
 
-      const contact = this.upsertContactFromWhatsApp({ from: phone, profileName, body, timestamp, whatsappJid: remoteJid }, tenantId);
+      const contact = isGroup
+        ? this.upsertGroupContact({ jid: remoteJid, tenantId })
+        : this.upsertContactFromWhatsApp({ from: phone, profileName, body, timestamp, whatsappJid: remoteJid }, tenantId);
       const conversation = this.openConversation(contact, { timestamp, body }, "evolution", payload._instanceId || null);
 
-      // Busca a foto de perfil do contato (assíncrono, sem bloquear o webhook).
-      // Funciona mesmo com LID — a Evolution entrega a foto pelo remoteJid.
-      this._fetchEvolutionAvatar(instanceName, remoteJid, contact, tenantId).catch(() => {});
+      // Foto/identidade (assíncrono): 1-a-1 busca foto do contato; grupo busca
+      // nome e foto do grupo.
+      if (isGroup) this._fetchEvolutionGroupInfo(instanceName, remoteJid, contact, tenantId).catch(() => {});
+      else this._fetchEvolutionAvatar(instanceName, remoteJid, contact, tenantId).catch(() => {});
 
       const media = evolutionMediaInfo(data);
       const message = this.store.insert("messages", {
@@ -413,7 +458,8 @@ export class ConversationService {
         channel: "whatsapp",
         provider: "evolution",
         providerMessageId: data.key?.id || "",
-        from: phone,
+        from: isGroup ? (participant || remoteJid) : phone,
+        authorName: authorName || undefined,
         to: instanceName || "",
         type: media ? media.type : "text",
         mediaMime: media ? media.mime : undefined,

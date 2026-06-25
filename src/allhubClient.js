@@ -38,6 +38,11 @@ export class AllHubClient {
     return data;
   }
 
+  // Valida a conexão e a api_key.
+  async health() {
+    return this._request("GET", "/integration/v1/health");
+  }
+
   // Descoberta de agentes especialistas disponíveis.
   async listAgents() {
     return this._request("GET", "/integration/v1/agents");

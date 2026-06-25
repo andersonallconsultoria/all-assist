@@ -1470,6 +1470,7 @@ export function startPlatformServer({ config, logger, store, conversationService
           contactAvatar: contact?.avatarUrl || null,
           contactEmail: contact?.email || "",
           contactCity: contact?.city || "",
+          contactIsGroup: Boolean(contact?.isGroup),
           contactTags: Array.isArray(contact?.tags) ? contact.tags : [],
           analystName: analyst?.name || null,
           customerId: customer?.id || null,
@@ -1997,10 +1998,11 @@ async function _createTicketForConversation(conversation, message, contact, tick
       priority: ticket.priority
     });
 
-    // Bot de atendimento inicial (se habilitado no tenant)
+    // Bot de atendimento inicial (se habilitado no tenant). NÃO roda em grupos
+    // (evita o robô responder no grupo de todos).
     const tenant = store.findById("tenants", conversation.tenantId);
     const botConfig = tenant?.botConfig || {};
-    if (botConfig.enabled && botAgent && conversationService) {
+    if (botConfig.enabled && botAgent && conversationService && !contact.isGroup) {
       try {
         const articles = store.findAll("kbArticles", (a) => a.tenantId === conversation.tenantId).map((a) => ({
           title: a.title, category: a.category, content: a.content,

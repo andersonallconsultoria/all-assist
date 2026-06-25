@@ -107,6 +107,10 @@ export class EvolutionApiClient {
     });
   }
 
+  async getGroupInfo(name, groupJid) {
+    return this._request("GET", `/group/findGroupInfos/${encodeURIComponent(name)}?groupJid=${encodeURIComponent(groupJid)}`);
+  }
+
   async getMediaBase64(name, messageKeyId) {
     return this._request("POST", `/chat/getBase64FromMediaMessage/${encodeURIComponent(name)}`, {
       message: { key: { id: messageKeyId } },
