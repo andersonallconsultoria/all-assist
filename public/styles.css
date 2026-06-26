@@ -4171,3 +4171,8 @@ nav a.active::after {
 .specialist-answer { background:var(--accent-soft); border-radius:8px; padding:10px; margin-top:6px; font-size:13px; }
 .specialist-head { font-weight:700; font-size:12px; margin-bottom:6px; color:var(--accent-strong); }
 .specialist-answer p { margin:0 0 8px; line-height:1.5; }
+
+/* Conteúdo acompanha o menu recolhido (cola no canto, mais espaço de atendimento) */
+.app { transition: margin-left 0.18s ease; }
+.sidebar { transition: width 0.18s ease; }
+.sidebar.collapsed ~ .app { margin-left: 62px; }
