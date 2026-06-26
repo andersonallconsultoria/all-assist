@@ -4176,3 +4176,12 @@ nav a.active::after {
 .app { transition: margin-left 0.18s ease; }
 .sidebar { transition: width 0.18s ease; }
 .sidebar.collapsed ~ .app { margin-left: 62px; }
+
+/* Resposta da IA (especialista) renderizada de markdown */
+.specialist-md { font-size:13px; line-height:1.45; }
+.specialist-md .md-h { font-weight:700; margin:8px 0 3px; }
+.specialist-md .md-p { margin:3px 0; }
+.specialist-md .md-li { margin:2px 0 2px 6px; }
+.specialist-md .md-hr { border:none; border-top:1px solid var(--line); margin:8px 0; }
+.specialist-md code { background:rgba(127,127,127,0.15); padding:1px 4px; border-radius:4px; font-size:12px; }
+.specialist-md strong { font-weight:700; }

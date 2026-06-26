@@ -1466,6 +1466,37 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+// Renderiza markdown simples (respostas da IA) para HTML legível: títulos,
+// negrito, listas, separadores e código. Escapa HTML antes (seguro).
+function mdToHtml(src) {
+  const esc = (s) => String(s).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const inline = (s) => esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+  const out = [];
+  for (const raw of String(src || "").split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;                                  // remove linhas vazias (corta o excesso de espaço)
+    if (/^[-*_]{3,}$/.test(line)) { out.push('<hr class="md-hr">'); continue; }
+    let m;
+    if ((m = line.match(/^#{1,6}\s+(.*)/))) { out.push(`<div class="md-h">${inline(m[1])}</div>`); continue; }
+    if ((m = line.match(/^[-*•]\s+(.*)/))) { out.push(`<div class="md-li">• ${inline(m[1])}</div>`); continue; }
+    if ((m = line.match(/^(\d+)[.)]\s+(.*)/))) { out.push(`<div class="md-li">${m[1]}. ${inline(m[2])}</div>`); continue; }
+    out.push(`<div class="md-p">${inline(line)}</div>`);
+  }
+  return out.join("");
+}
+
+// Converte markdown para o formato do WhatsApp (negrito com 1 asterisco, sem
+// ## nem ---), para quando o analista "usar" a resposta da IA.
+function mdToWhatsapp(src) {
+  return String(src || "").split("\n").map((raw) => {
+    let line = raw.replace(/^#{1,6}\s+/, "").replace(/^[-*•]\s+/, "• ");
+    if (/^[-*_]{3,}$/.test(line.trim())) return "";
+    return line.replace(/\*\*([^*]+)\*\*/g, "*$1*").replace(/`([^`]+)`/g, "$1");
+  }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /* ══════════════════════════════════════
    Diálogos do sistema (substituem alert/confirm/prompt do navegador)
 ══════════════════════════════════════ */
@@ -3453,13 +3484,13 @@ async function inboxAskSpecialist() {
     box.innerHTML = `
       <div class="specialist-answer">
         <div class="specialist-head">🤖 ${escapeHtml(r.agente || "especialista")}${conf}${r.cliente_vinculado === false ? ' · <span title="CNPJ ainda não cadastrado no AllHub">conhecimento geral</span>' : ""}</div>
-        <p>${escapeHtml(r.resposta || "(sem resposta)").replaceAll("\n", "<br>")}</p>
+        <div class="specialist-md">${mdToHtml(r.resposta || "(sem resposta)")}</div>
         ${fontes}
         <button class="btn btn-sm btn-primary" type="button" id="useSpecialistAnswer">Usar como resposta</button>
       </div>`;
     document.getElementById("useSpecialistAnswer")?.addEventListener("click", () => {
       const input = document.getElementById("inboxReplyText");
-      if (input) { input.value = r.resposta || ""; input.focus(); input.dispatchEvent(new Event("input")); }
+      if (input) { input.value = mdToWhatsapp(r.resposta || ""); input.focus(); input.dispatchEvent(new Event("input")); }
     });
   } catch (error) {
     box.innerHTML = `<small class="ctx-phone-warn">${escapeHtml(error.message)}</small>`;
