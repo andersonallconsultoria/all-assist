@@ -3399,6 +3399,11 @@ function renderInboxContext(ticket) {
       <button class="btn btn-sm" id="inboxAssistBtn" type="button">Sugerir conteúdo</button>
       <div id="inboxAssistResult"></div>
     </div>` : ""}
+    ${isClosed ? "" : `<div class="ctx-section ctx-assist">
+      <h4>🤖 Especialista (AllHub)</h4>
+      <button class="btn btn-sm" id="inboxSpecialistBtn" type="button">Pedir ao especialista</button>
+      <div id="inboxSpecialistResult"></div>
+    </div>`}
     ${isClosed ? `<div class="ctx-section"><span class="badge badge-success">Atendimento encerrado</span></div>` : `
     <div class="ctx-section ctx-actions">
       <h4>Ações</h4>
@@ -3429,7 +3434,36 @@ function renderInboxContext(ticket) {
   }
   document.getElementById("inboxVaultBtn")?.addEventListener("click", () => openVault(ticket.customerId, ticket.customerName));
   document.getElementById("inboxAssistBtn")?.addEventListener("click", inboxAssist);
+  document.getElementById("inboxSpecialistBtn")?.addEventListener("click", inboxAskSpecialist);
   startInboxTimerTick(ticket);
+}
+
+// Fluxo A — pergunta a um agente especialista do AllHub e mostra a sugestão.
+async function inboxAskSpecialist() {
+  const ticket = state.inbox.activeTicket;
+  if (!ticket) return;
+  const box = document.getElementById("inboxSpecialistResult");
+  const pergunta = await uiPrompt("O que perguntar ao especialista?\n(deixe em branco para usar a última mensagem do cliente)", "", { title: "Pedir ao especialista", placeholder: "Ex.: como resolvo a rejeição 539 da NF-e?" });
+  if (pergunta === null) return;
+  box.innerHTML = `<small class="cell-muted">🤖 Consultando o especialista...</small>`;
+  try {
+    const r = await api(`/api/tickets/${ticket.id}/assist`, { method: "POST", body: JSON.stringify({ pergunta, agente: "auto" }) });
+    const fontes = (r.fontes || []).length ? `<small class="cell-muted">Fontes: ${r.fontes.map((f) => escapeHtml(f.titulo || f.title || "")).filter(Boolean).join(", ")}</small>` : "";
+    const conf = typeof r.confianca === "number" ? ` · ${Math.round(r.confianca * 100)}%` : "";
+    box.innerHTML = `
+      <div class="specialist-answer">
+        <div class="specialist-head">🤖 ${escapeHtml(r.agente || "especialista")}${conf}${r.cliente_vinculado === false ? ' · <span title="CNPJ ainda não cadastrado no AllHub">conhecimento geral</span>' : ""}</div>
+        <p>${escapeHtml(r.resposta || "(sem resposta)").replaceAll("\n", "<br>")}</p>
+        ${fontes}
+        <button class="btn btn-sm btn-primary" type="button" id="useSpecialistAnswer">Usar como resposta</button>
+      </div>`;
+    document.getElementById("useSpecialistAnswer")?.addEventListener("click", () => {
+      const input = document.getElementById("inboxReplyText");
+      if (input) { input.value = r.resposta || ""; input.focus(); input.dispatchEvent(new Event("input")); }
+    });
+  } catch (error) {
+    box.innerHTML = `<small class="ctx-phone-warn">${escapeHtml(error.message)}</small>`;
+  }
 }
 
 async function inboxAssist() {

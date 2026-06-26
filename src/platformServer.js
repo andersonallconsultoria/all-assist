@@ -1633,6 +1633,42 @@ export function startPlatformServer({ config, logger, store, conversationService
         }
       }
 
+      // Fluxo A — "Pedir ao especialista": consulta um agente do AllHub durante
+      // o atendimento e devolve a sugestão para o analista revisar.
+      const ticketAssistMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/assist$/);
+      if (request.method === "POST" && ticketAssistMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const tnt = store.findById("tenants", tenantContext.tenantId);
+        if (!tnt?.allhub?.enabled || !tnt.allhub.baseUrl || !tnt.allhub.apiKey) {
+          return sendJson(response, 400, { error: "A integração com o AllHub não está ativada nas configurações." });
+        }
+        const ticket = ticketService.getTicket(ticketAssistMatch[1], tenantContext.tenantId);
+        if (!ticket) return sendJson(response, 404, { error: "ticket_not_found" });
+        const body = await readJson(request);
+        const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
+        const customer = contact?.customerId ? store.findById("customers", contact.customerId) : null;
+        const conv = ticket.conversationId ? conversationService.getConversation(ticket.conversationId, tenantContext.tenantId) : null;
+        const msgs = conv?.messages || [];
+        const lastClient = [...msgs].reverse().find((m) => m.direction === "inbound");
+        const pergunta = String(body.pergunta || "").trim() || lastClient?.body || ticket.subject || "";
+        const { AllHubClient } = await import("./allhubClient.js");
+        const client = new AllHubClient({ baseUrl: tnt.allhub.baseUrl, apiKey: tnt.allhub.apiKey, tenant: tnt.id });
+        try {
+          const result = await client.assist({
+            pergunta,
+            cliente: customer ? { cnpj: customer.cnpj, nome: customer.fantasia || customer.name, uf: customer.uf, regime: customer.regime } : null,
+            atendimento: { ticketId: ticket.id, fila: ticket.queue || null, assunto: ticket.subject, prioridade: ticket.priority },
+            conversa: msgs.slice(-20).map((m) => ({ de: m.direction === "inbound" ? "cliente" : (m.actor === "bot" ? "bot" : "analista"), texto: m.body || `[${m.type}]`, ts: m.timestamp || m.createdAt })),
+            modo: body.modo === "resposta_cliente" ? "resposta_cliente" : "apoio_analista",
+            agente: body.agente || "auto"
+          });
+          if (result?.request_id) { store.update("tickets", ticket.id, { lastAssistRequestId: result.request_id }); store.save(); }
+          return sendJson(response, 200, result);
+        } catch (error) {
+          return sendJson(response, 502, { error: error.message, code: error.code || null });
+        }
+      }
+
       const ticketMessageMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/messages$/);
       if (request.method === "POST" && ticketMessageMatch) {
         if (!requirePermission(response, authService, user, "tickets:respond")) return;
