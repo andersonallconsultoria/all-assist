@@ -3371,6 +3371,7 @@ async function renderInbox() {
   if (!queue) return;
   await loadTicketAnalysts();
   await loadQuickReplies();
+  ensureNotifyPermission();
   try {
     const res = await api("/api/tickets");
     state.tickets = res.data || [];
@@ -3378,6 +3379,7 @@ async function renderInbox() {
     queue.innerHTML = `<div class="inbox-empty small">Erro ao carregar: ${escapeHtml(error.message)}</div>`;
     return;
   }
+  detectAndNotify();
   renderInboxQueue();
   updateInboxBadge();
 }
@@ -3966,6 +3968,66 @@ function chatSignature(ticket) {
   return (ticket?.conversation?.messages || []).map((m) => `${m.id}:${m.status}:${m.mediaId || ""}`).join(",");
 }
 
+// ===== Notificações de mensagem nova (atendimentos do analista) =====
+const lastUnreadByTicket = {};
+let notifyInitialized = false;
+let unreadTitleCount = 0;
+
+function ensureNotifyPermission() {
+  if (window.Notification && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+function playNotifyBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = "sine"; o.frequency.value = 680; g.gain.value = 0.07;
+    o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 170);
+  } catch { /* sem áudio */ }
+}
+function flashTitleUnread() {
+  unreadTitleCount += 1;
+  document.title = `(${unreadTitleCount}) Freitas Assist`;
+}
+window.addEventListener("focus", () => { unreadTitleCount = 0; document.title = "Freitas Assist"; });
+
+function notifyNewMessage(ticket) {
+  playNotifyBeep();
+  flashTitleUnread();
+  if (window.Notification && Notification.permission === "granted") {
+    try {
+      const n = new Notification(`💬 ${ticket.contactName || "Novo cliente"}`, {
+        body: ticket.subject ? `Nova mensagem: ${ticket.subject}` : "Nova mensagem no seu atendimento",
+        tag: ticket.id
+      });
+      n.onclick = () => {
+        window.focus();
+        document.querySelector('nav a[href="#inbox"]')?.click();
+        selectInboxTicket(ticket.id);
+        n.close();
+      };
+    } catch { /* alguns navegadores bloqueiam */ }
+  }
+}
+
+// Detecta mensagens novas (não lidas) em atendimentos atribuídos ao analista
+// logado e dispara a notificação. Não notifica o atendimento já aberto/focado.
+function detectAndNotify() {
+  const myId = state.currentUser?.id;
+  if (!myId) return;
+  for (const t of (state.tickets || [])) {
+    if (t.status === "closed" || t.assignedAnalystId !== myId) continue;
+    const prev = lastUnreadByTicket[t.id] || 0;
+    const now = Number(t.unreadCount || 0);
+    const isOpenFocused = state.inbox.activeId === t.id && document.hasFocus();
+    if (notifyInitialized && now > prev && !isOpenFocused) notifyNewMessage(t);
+    lastUnreadByTicket[t.id] = now;
+  }
+  notifyInitialized = true;
+}
+
 function startInboxPolling() {
   if (inboxPollTimer) return;
   inboxPollTimer = setInterval(pollInbox, 6000);
@@ -3978,6 +4040,7 @@ async function pollInbox() {
   try {
     const res = await api("/api/tickets");
     state.tickets = res.data || [];
+    detectAndNotify();
     renderInboxQueue();
     updateInboxBadge();
     if (state.inbox.activeId) {
@@ -4024,6 +4087,18 @@ function wireInboxEvents() {
 
 wireInboxEvents();
 startInboxPolling();
+
+// Polling leve para notificar mensagens novas mesmo fora da tela de Atendimento
+// (ou com a aba em segundo plano). Quando o inbox está ativo, o pollInbox já cuida.
+setInterval(async () => {
+  if (!state.currentUser) return;
+  if (document.getElementById("inbox")?.classList.contains("active") && !document.hidden) return;
+  try {
+    const res = await api("/api/tickets");
+    state.tickets = res.data || [];
+    detectAndNotify();
+  } catch { /* silencioso */ }
+}, 12000);
 
 loadAll().then(() => {
   const hash = window.location.hash;

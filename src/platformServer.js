@@ -1521,8 +1521,11 @@ export function startPlatformServer({ config, logger, store, conversationService
         const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
         const analyst = ticket.assignedAnalystId ? store.findById("users", ticket.assignedAnalystId) : null;
         const customer = contact?.customerId ? store.findById("customers", contact.customerId) : null;
+        const conv = ticket.conversationId ? store.findById("conversations", ticket.conversationId) : null;
         return {
           ...ticket,
+          unreadCount: Number(conv?.unreadCount || 0),
+          lastMessageAt: conv?.lastMessageAt || ticket.openedAt,
           contactName: contact?.name || "Cliente",
           contactPhone: contact?.phone || "",
           contactAvatar: contact?.avatarUrl || null,
@@ -1572,6 +1575,11 @@ export function startPlatformServer({ config, logger, store, conversationService
         const conversation = ticket.conversationId
           ? conversationService.getConversation(ticket.conversationId, tenantContext.tenantId)
           : null;
+        // Marca como lido ao abrir o atendimento (zera o contador de não lidas).
+        if (ticket.conversationId) {
+          const conv = store.findById("conversations", ticket.conversationId);
+          if (conv && conv.unreadCount) { store.update("conversations", conv.id, { unreadCount: 0 }); store.save(); }
+        }
         // Backfill da foto: contatos antigos (criados antes da captura) ganham
         // a foto ao abrir o atendimento. Assíncrono — aparece no próximo refresh.
         const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
