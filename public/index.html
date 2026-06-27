@@ -839,16 +839,15 @@
           <section class="panel">
             <div class="panel-title">
               <h2>Respostas rápidas</h2>
-              <span>atalhos que aparecem no atendimento (uma por linha)</span>
+              <span>organizadas por grupo · marque como automática para ir junto da saudação</span>
             </div>
-            <div class="settings-form" style="display:flex;flex-direction:column;gap:10px;max-width:680px">
-              <textarea id="quickRepliesText" rows="7" class="search-input" style="resize:vertical" placeholder="Olá! Sou {nome_analista}, do atendimento. Como posso ajudar?&#10;Um momento, {primeiro_nome} — já estou verificando."></textarea>
+            <div style="display:flex;flex-direction:column;gap:12px;max-width:760px">
+              <button id="quickReplyNewBtn" class="btn btn-primary" type="button" style="align-self:flex-start">+ Nova resposta</button>
+              <div id="quickRepliesList"></div>
               <p style="font-size:12px;color:var(--muted);margin:0">
-                Variáveis (substituídas ao clicar): <code>{nome_contato}</code> · <code>{primeiro_nome}</code> ·
-                <code>{nome_analista}</code> · <code>{empresa}</code> · <code>{fila}</code> · <code>{data}</code> · <code>{hora}</code>
+                Variáveis: <code>{nome_contato}</code> · <code>{primeiro_nome}</code> · <code>{nome_analista}</code> ·
+                <code>{empresa}</code> · <code>{fila}</code> · <code>{data}</code> · <code>{hora}</code>
               </p>
-              <p id="quickRepliesStatus" style="font-size:12px;color:var(--muted);margin:0"></p>
-              <button id="quickRepliesSaveBtn" class="btn btn-primary" type="button" style="align-self:flex-start">Salvar respostas rápidas</button>
             </div>
           </section>
         </div>

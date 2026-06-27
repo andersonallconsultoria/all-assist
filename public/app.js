@@ -1813,26 +1813,107 @@ document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
   } catch (e) { setStatus("Erro: " + e.message); }
 });
 
-// Respostas rápidas: carrega na tela de Automações e salva.
+// Respostas rápidas: gerenciador (grupos, automáticas, período) em Automações.
+let qrEditList = [];
 async function loadQuickRepliesEditor() {
-  const ta = document.getElementById("quickRepliesText");
-  if (!ta) return;
+  const wrap = document.getElementById("quickRepliesList");
+  if (!wrap) return;
   try {
     const r = await api("/api/quick-replies");
-    const list = (Array.isArray(r.data) && r.data.length) ? r.data : QUICK_REPLIES_DEFAULT;
-    ta.value = list.join("\n");
-  } catch { ta.value = QUICK_REPLIES_DEFAULT.join("\n"); }
+    qrEditList = (Array.isArray(r.data) && r.data.length) ? r.data.map((x) => ({ ...x })) : QUICK_REPLIES_DEFAULT.map((x) => ({ ...x }));
+    if (Array.isArray(r.groups) && r.groups.length) quickReplyGroups = r.groups;
+  } catch { qrEditList = QUICK_REPLIES_DEFAULT.map((x) => ({ ...x })); }
+  renderQuickRepliesList();
 }
-document.getElementById("quickRepliesSaveBtn")?.addEventListener("click", async () => {
-  const list = document.getElementById("quickRepliesText").value.split("\n").map((s) => s.trim()).filter(Boolean);
+function renderQuickRepliesList() {
+  const wrap = document.getElementById("quickRepliesList");
+  if (!wrap) return;
+  if (!qrEditList.length) { wrap.innerHTML = `<p class="cell-muted" style="font-size:13px">Nenhuma resposta cadastrada. Clique em "+ Nova resposta".</p>`; return; }
+  const byGroup = {};
+  qrEditList.forEach((r, i) => { (byGroup[r.group || "Geral"] ||= []).push({ r, i }); });
+  wrap.innerHTML = Object.entries(byGroup).map(([g, items]) => `
+    <div class="qr-group">
+      <h4 class="qr-group-title">${escapeHtml(g)}</h4>
+      ${items.map(({ r, i }) => `
+        <div class="qr-item">
+          <div class="qr-item-text">${escapeHtml(r.text)}${r.auto ? ` <span class="badge badge-success">⏱ automática${r.startDate || r.endDate ? ` · ${r.startDate || "…"} a ${r.endDate || "…"}` : ""}</span>` : ""}</div>
+          <div class="qr-item-actions">
+            <button class="btn btn-sm" type="button" onclick="openQuickReplyModal(${i})">Editar</button>
+            <button class="btn btn-sm" type="button" onclick="removeQuickReply(${i})">Remover</button>
+          </div>
+        </div>`).join("")}
+    </div>`).join("");
+}
+async function saveQuickReplies() {
   try {
-    const r = await api("/api/quick-replies", { method: "PUT", body: JSON.stringify({ quickReplies: list }) });
-    quickReplies = r.data || list;
+    const r = await api("/api/quick-replies", { method: "PUT", body: JSON.stringify({ quickReplies: qrEditList, groups: quickReplyGroups }) });
+    quickReplies = r.data || qrEditList;
+    if (Array.isArray(r.groups)) quickReplyGroups = r.groups;
     state._quickLoaded = true;
-    document.getElementById("quickRepliesStatus").textContent = `${quickReplies.length} resposta(s) salva(s) ✓`;
-    setStatus("Respostas rápidas salvas");
+    setStatus("Respostas rápidas salvas ✓");
   } catch (e) { setStatus("Erro: " + e.message); }
-});
+}
+async function removeQuickReply(i) {
+  if (!await uiConfirm("Remover esta resposta?", { okText: "Remover", danger: true })) return;
+  qrEditList.splice(i, 1);
+  renderQuickRepliesList();
+  saveQuickReplies();
+}
+function openQuickReplyModal(index) {
+  const editing = index != null && index >= 0;
+  const r = editing ? qrEditList[index] : { text: "", group: quickReplyGroups[0] || "Geral", auto: false, startDate: "", endDate: "" };
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(520px,calc(100vw - 40px))">
+      <h3 class="ui-dialog-title">${editing ? "Editar resposta" : "Nova resposta rápida"}</h3>
+      <textarea class="ui-dialog-input" id="qrText" rows="3" placeholder="Texto da resposta (pode usar variáveis como {primeiro_nome})">${escapeHtml(r.text)}</textarea>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Grupo</label>
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <select class="ui-dialog-input" id="qrGroup" style="margin:0">${quickReplyGroups.map((g) => `<option value="${escapeHtml(g)}" ${g === r.group ? "selected" : ""}>${escapeHtml(g)}</option>`).join("")}</select>
+        <button class="btn btn-secondary" type="button" id="qrNewGroup">+ grupo</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px">
+        <input type="checkbox" id="qrAuto" ${r.auto ? "checked" : ""}> Enviar automaticamente junto da saudação inicial
+      </label>
+      <div id="qrPeriod" style="display:${r.auto ? "flex" : "none"};gap:8px;margin-bottom:14px">
+        <label style="flex:1;font-size:12px;color:var(--muted)">De<input type="date" class="ui-dialog-input" id="qrStart" value="${r.startDate || ""}" style="margin:0"></label>
+        <label style="flex:1;font-size:12px;color:var(--muted)">Até<input type="date" class="ui-dialog-input" id="qrEnd" value="${r.endDate || ""}" style="margin:0"></label>
+      </div>
+      <div class="ui-dialog-actions">
+        <button class="btn btn-secondary" id="qrCancel" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="qrSave" type="button">Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#qrAuto").addEventListener("change", (e) => { overlay.querySelector("#qrPeriod").style.display = e.target.checked ? "flex" : "none"; });
+  overlay.querySelector("#qrNewGroup").addEventListener("click", async () => {
+    const name = await uiPrompt("Nome do novo grupo:", "", { title: "Novo grupo" });
+    if (!name) return;
+    if (!quickReplyGroups.includes(name)) quickReplyGroups.push(name);
+    overlay.querySelector("#qrGroup").innerHTML = quickReplyGroups.map((g) => `<option value="${escapeHtml(g)}" ${g === name ? "selected" : ""}>${escapeHtml(g)}</option>`).join("");
+  });
+  overlay.querySelector("#qrCancel").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector("#qrSave").onclick = async () => {
+    const text = overlay.querySelector("#qrText").value.trim();
+    if (!text) { await uiAlert("Informe o texto da resposta."); return; }
+    const obj = {
+      id: editing ? r.id : undefined,
+      text,
+      group: overlay.querySelector("#qrGroup").value || "Geral",
+      auto: overlay.querySelector("#qrAuto").checked,
+      startDate: overlay.querySelector("#qrStart").value || "",
+      endDate: overlay.querySelector("#qrEnd").value || ""
+    };
+    if (editing) qrEditList[index] = obj; else qrEditList.push(obj);
+    overlay.remove();
+    renderQuickRepliesList();
+    saveQuickReplies();
+  };
+  setTimeout(() => overlay.querySelector("#qrText").focus(), 30);
+}
+document.getElementById("quickReplyNewBtn")?.addEventListener("click", () => openQuickReplyModal(null));
 
 /* ══════════════════════════════════════
    MODAL DE CONVITE
@@ -3143,12 +3224,13 @@ document.getElementById("vaultOverlay")?.addEventListener("click", (e) => { if (
 
 // ===== Central de Atendimento (inbox) =====
 const QUICK_REPLIES_DEFAULT = [
-  "Olá! Sou {nome_analista}, do atendimento. Como posso ajudar?",
-  "Um momento, {primeiro_nome} — já estou verificando.",
-  "Obrigado pelo contato, {primeiro_nome}! Posso ajudar em mais alguma coisa?",
-  "Registrei seu atendimento, retornaremos em breve."
+  { text: "Olá! Sou {nome_analista}, do atendimento. Como posso ajudar?", group: "Saudações", auto: false },
+  { text: "Um momento, {primeiro_nome} — já estou verificando.", group: "Atendimento", auto: false },
+  { text: "Obrigado pelo contato, {primeiro_nome}! Posso ajudar em mais alguma coisa?", group: "Atendimento", auto: false },
+  { text: "Registrei seu atendimento, retornaremos em breve.", group: "Atendimento", auto: false }
 ];
-let quickReplies = [...QUICK_REPLIES_DEFAULT];
+let quickReplies = QUICK_REPLIES_DEFAULT.map((r) => ({ ...r }));
+let quickReplyGroups = ["Saudações", "Atendimento", "Importantes", "Automáticas"];
 
 // Substitui as variáveis das respostas rápidas pelos dados do atendimento.
 function applyQuickVars(text, ticket) {
@@ -3197,6 +3279,7 @@ async function loadQuickReplies() {
   try {
     const r = await api("/api/quick-replies");
     if (Array.isArray(r.data) && r.data.length) quickReplies = r.data;
+    if (Array.isArray(r.groups) && r.groups.length) quickReplyGroups = r.groups;
   } catch { /* mantém os padrões */ }
 }
 
@@ -3354,11 +3437,16 @@ function renderInboxChat(ticket, opts = {}) {
   const replyBox = document.getElementById("inboxReplyBox");
   replyBox.hidden = ticket.status === "closed";
   const quick = document.getElementById("inboxQuickReplies");
-  quick.innerHTML = quickReplies.map((r, i) => `<button class="quick-reply-chip" data-quick="${i}" type="button" title="${escapeHtml(r)}">${escapeHtml(r.length > 32 ? r.slice(0, 30) + "…" : r)}</button>`).join("");
+  // Agrupa os chips por grupo (cada grupo com um rótulo discreto).
+  const byGroup = {};
+  quickReplies.forEach((r, i) => { (byGroup[r.group || "Geral"] ||= []).push({ r, i }); });
+  quick.innerHTML = Object.entries(byGroup).map(([g, items]) =>
+    `<div class="quick-group"><span class="quick-group-label">${escapeHtml(g)}</span>${items.map(({ r, i }) =>
+      `<button class="quick-reply-chip" data-quick="${i}" type="button" title="${escapeHtml(r.text)}">${escapeHtml(r.text.length > 30 ? r.text.slice(0, 28) + "…" : r.text)}</button>`).join("")}</div>`).join("");
   quick.querySelectorAll("[data-quick]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const input = document.getElementById("inboxReplyText");
-      input.value = applyQuickVars(quickReplies[Number(btn.dataset.quick)], ticket);
+      input.value = applyQuickVars(quickReplies[Number(btn.dataset.quick)]?.text || "", ticket);
       input.focus();
       input.dispatchEvent(new Event("input"));
     });

@@ -172,10 +172,16 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 200, botConfig);
       }
 
-      // Respostas rápidas (atalhos do atendimento) — por tenant.
+      // Respostas rápidas (atalhos do atendimento) — por tenant. Cada resposta:
+      // { id, text, group, auto, startDate, endDate }.
       if (request.method === "GET" && parsedUrl.pathname === "/api/quick-replies") {
         const tenant = store.findById("tenants", tenantContext.tenantId);
-        return sendJson(response, 200, { data: Array.isArray(tenant?.quickReplies) ? tenant.quickReplies : null });
+        const raw = Array.isArray(tenant?.quickReplies) ? tenant.quickReplies : null;
+        // Normaliza formato antigo (strings) para objetos.
+        const data = raw ? raw.map((r) => (typeof r === "string"
+          ? { id: `qr_${randomId()}`, text: r, group: "Geral", auto: false, startDate: "", endDate: "" }
+          : r)) : null;
+        return sendJson(response, 200, { data, groups: Array.isArray(tenant?.quickReplyGroups) ? tenant.quickReplyGroups : null });
       }
       if (request.method === "PUT" && parsedUrl.pathname === "/api/quick-replies") {
         if (!requirePermission(response, authService, user, "settings:manage")) return;
@@ -183,11 +189,24 @@ export function startPlatformServer({ config, logger, store, conversationService
         if (!tenant) return sendJson(response, 404, { error: "tenant_not_found" });
         const body = await readJson(request);
         const quickReplies = Array.isArray(body.quickReplies)
-          ? body.quickReplies.map((r) => String(r || "").trim()).filter(Boolean).slice(0, 30)
+          ? body.quickReplies.map((r) => {
+              const o = typeof r === "string" ? { text: r } : (r || {});
+              return {
+                id: o.id || `qr_${randomId()}`,
+                text: String(o.text || "").trim(),
+                group: String(o.group || "Geral").trim() || "Geral",
+                auto: Boolean(o.auto),
+                startDate: String(o.startDate || "").trim(),
+                endDate: String(o.endDate || "").trim()
+              };
+            }).filter((r) => r.text).slice(0, 80)
           : [];
-        store.update("tenants", tenant.id, { quickReplies });
+        const quickReplyGroups = Array.isArray(body.groups)
+          ? body.groups.map((g) => String(g || "").trim()).filter(Boolean).slice(0, 20)
+          : (tenant.quickReplyGroups || []);
+        store.update("tenants", tenant.id, { quickReplies, quickReplyGroups });
         store.save();
-        return sendJson(response, 200, { data: quickReplies });
+        return sendJson(response, 200, { data: quickReplies, groups: quickReplyGroups });
       }
 
       // Integração AllHub (agentes IA CISS-Poder) — config por tenant.
@@ -1959,6 +1978,30 @@ function buildSupportDashboard(store, tenantId) {
   };
 }
 
+// Substitui variáveis de respostas/mensagens no servidor (bot). {nome_analista}
+// e {fila} não se aplicam aqui.
+function applyVarsServer(text, contact, customer) {
+  const nome = contact?.name || "";
+  const primeiro = nome.split(" ")[0] || nome;
+  const now = new Date();
+  return String(text || "")
+    .replaceAll("{nome_contato}", nome)
+    .replaceAll("{primeiro_nome}", primeiro)
+    .replaceAll("{empresa}", customer?.fantasia || customer?.name || "")
+    .replaceAll("{data}", now.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }))
+    .replaceAll("{hora}", now.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }));
+}
+
+// Respostas rápidas marcadas como "automáticas" e dentro do período vigente —
+// enviadas junto da saudação inicial do bot.
+function getActiveAutoMessages(tenant) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  return (tenant?.quickReplies || [])
+    .filter((r) => r && typeof r === "object" && r.auto && r.text)
+    .filter((r) => (!r.startDate || r.startDate <= today) && (!r.endDate || r.endDate >= today))
+    .map((r) => r.text);
+}
+
 // Fluxo B: ao encerrar um atendimento, envia o caso resolvido ao AllHub para o
 // agente aprender com a solução (assíncrono, não trava o encerramento).
 async function _sendTicketLearnToAllHub(tenant, ticket, store, conversationService, logger) {
@@ -2069,6 +2112,12 @@ async function _createTicketForConversation(conversation, message, contact, tick
           articles
         });
         await conversationService.sendText(conversation.id, result.reply, "bot", conversation.tenantId, null);
+        // Mensagens automáticas (respostas marcadas como auto, dentro do período)
+        // vão junto da saudação inicial — ex.: avisos sazonais de prazo fiscal.
+        const customer = contact.customerId ? store.findById("customers", contact.customerId) : null;
+        for (const txt of getActiveAutoMessages(tenant)) {
+          await conversationService.sendText(conversation.id, applyVarsServer(txt, contact, customer), "bot", conversation.tenantId, null).catch(() => {});
+        }
         // Menu em enquete (clicável): enviado logo após a saudação.
         if (result.poll && typeof conversationService.sendPoll === "function") {
           await conversationService.sendPoll(conversation.id, result.poll, "bot", conversation.tenantId, null).catch((e) => logger.warn("bot_poll_failed", { error: e.message }));
