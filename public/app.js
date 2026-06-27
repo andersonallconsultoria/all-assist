@@ -1776,6 +1776,7 @@ function closeWaModal() {
 async function renderAutomations() {
   if (!document.getElementById("botEnabled")) return;
   if (!hasPermission("settings:manage")) return;
+  loadQuickRepliesEditor();
   try {
     const cfg = await api("/api/bot/config");
     document.getElementById("botEnabled").checked = Boolean(cfg.enabled);
@@ -1809,6 +1810,27 @@ document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
     await api("/api/bot/config", { method: "PUT", body: JSON.stringify(payload) });
     document.getElementById("botStatus").textContent = payload.enabled ? "Bot ativo: responde a primeira mensagem automaticamente." : "Bot desativado.";
     setStatus("Configuração do bot salva");
+  } catch (e) { setStatus("Erro: " + e.message); }
+});
+
+// Respostas rápidas: carrega na tela de Automações e salva.
+async function loadQuickRepliesEditor() {
+  const ta = document.getElementById("quickRepliesText");
+  if (!ta) return;
+  try {
+    const r = await api("/api/quick-replies");
+    const list = (Array.isArray(r.data) && r.data.length) ? r.data : QUICK_REPLIES_DEFAULT;
+    ta.value = list.join("\n");
+  } catch { ta.value = QUICK_REPLIES_DEFAULT.join("\n"); }
+}
+document.getElementById("quickRepliesSaveBtn")?.addEventListener("click", async () => {
+  const list = document.getElementById("quickRepliesText").value.split("\n").map((s) => s.trim()).filter(Boolean);
+  try {
+    const r = await api("/api/quick-replies", { method: "PUT", body: JSON.stringify({ quickReplies: list }) });
+    quickReplies = r.data || list;
+    state._quickLoaded = true;
+    document.getElementById("quickRepliesStatus").textContent = `${quickReplies.length} resposta(s) salva(s) ✓`;
+    setStatus("Respostas rápidas salvas");
   } catch (e) { setStatus("Erro: " + e.message); }
 });
 
@@ -3120,12 +3142,30 @@ document.getElementById("vaultClose")?.addEventListener("click", closeVault);
 document.getElementById("vaultOverlay")?.addEventListener("click", (e) => { if (e.target.id === "vaultOverlay") closeVault(); });
 
 // ===== Central de Atendimento (inbox) =====
-const QUICK_REPLIES = [
-  "Olá! Sou do atendimento, como posso ajudar?",
-  "Um momento, por favor — já estou verificando.",
-  "Obrigado pelo contato! Posso ajudar em mais alguma coisa?",
+const QUICK_REPLIES_DEFAULT = [
+  "Olá! Sou {nome_analista}, do atendimento. Como posso ajudar?",
+  "Um momento, {primeiro_nome} — já estou verificando.",
+  "Obrigado pelo contato, {primeiro_nome}! Posso ajudar em mais alguma coisa?",
   "Registrei seu atendimento, retornaremos em breve."
 ];
+let quickReplies = [...QUICK_REPLIES_DEFAULT];
+
+// Substitui as variáveis das respostas rápidas pelos dados do atendimento.
+function applyQuickVars(text, ticket) {
+  const contato = ticket?.contactName || "";
+  const primeiro = contato.split(" ")[0] || contato;
+  const analista = state.currentUser?.name || "";
+  const empresa = ticket?.customerName || "";
+  const now = new Date();
+  return String(text || "")
+    .replaceAll("{nome_contato}", contato)
+    .replaceAll("{primeiro_nome}", primeiro)
+    .replaceAll("{nome_analista}", analista)
+    .replaceAll("{empresa}", empresa)
+    .replaceAll("{fila}", ticket?.queue || "")
+    .replaceAll("{data}", now.toLocaleDateString("pt-BR"))
+    .replaceAll("{hora}", now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+}
 
 function inboxFilteredTickets() {
   const { tab, search } = state.inbox;
@@ -3151,10 +3191,20 @@ function inboxFilteredTickets() {
     });
 }
 
+async function loadQuickReplies() {
+  if (state._quickLoaded) return;
+  state._quickLoaded = true;
+  try {
+    const r = await api("/api/quick-replies");
+    if (Array.isArray(r.data) && r.data.length) quickReplies = r.data;
+  } catch { /* mantém os padrões */ }
+}
+
 async function renderInbox() {
   const queue = document.getElementById("inboxQueue");
   if (!queue) return;
   await loadTicketAnalysts();
+  await loadQuickReplies();
   try {
     const res = await api("/api/tickets");
     state.tickets = res.data || [];
@@ -3304,12 +3354,13 @@ function renderInboxChat(ticket, opts = {}) {
   const replyBox = document.getElementById("inboxReplyBox");
   replyBox.hidden = ticket.status === "closed";
   const quick = document.getElementById("inboxQuickReplies");
-  quick.innerHTML = QUICK_REPLIES.map((r, i) => `<button class="quick-reply-chip" data-quick="${i}" type="button">${escapeHtml(r.length > 32 ? r.slice(0, 30) + "…" : r)}</button>`).join("");
+  quick.innerHTML = quickReplies.map((r, i) => `<button class="quick-reply-chip" data-quick="${i}" type="button" title="${escapeHtml(r)}">${escapeHtml(r.length > 32 ? r.slice(0, 30) + "…" : r)}</button>`).join("");
   quick.querySelectorAll("[data-quick]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const input = document.getElementById("inboxReplyText");
-      input.value = QUICK_REPLIES[Number(btn.dataset.quick)];
+      input.value = applyQuickVars(quickReplies[Number(btn.dataset.quick)], ticket);
       input.focus();
+      input.dispatchEvent(new Event("input"));
     });
   });
 }

@@ -172,6 +172,24 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 200, botConfig);
       }
 
+      // Respostas rápidas (atalhos do atendimento) — por tenant.
+      if (request.method === "GET" && parsedUrl.pathname === "/api/quick-replies") {
+        const tenant = store.findById("tenants", tenantContext.tenantId);
+        return sendJson(response, 200, { data: Array.isArray(tenant?.quickReplies) ? tenant.quickReplies : null });
+      }
+      if (request.method === "PUT" && parsedUrl.pathname === "/api/quick-replies") {
+        if (!requirePermission(response, authService, user, "settings:manage")) return;
+        const tenant = store.findById("tenants", tenantContext.tenantId);
+        if (!tenant) return sendJson(response, 404, { error: "tenant_not_found" });
+        const body = await readJson(request);
+        const quickReplies = Array.isArray(body.quickReplies)
+          ? body.quickReplies.map((r) => String(r || "").trim()).filter(Boolean).slice(0, 30)
+          : [];
+        store.update("tenants", tenant.id, { quickReplies });
+        store.save();
+        return sendJson(response, 200, { data: quickReplies });
+      }
+
       // Integração AllHub (agentes IA CISS-Poder) — config por tenant.
       if (request.method === "GET" && parsedUrl.pathname === "/api/allhub/config") {
         if (!requirePermission(response, authService, user, "settings:manage")) return;
