@@ -4201,3 +4201,9 @@ nav a.active::after {
 .bc-row:hover { background:var(--accent-soft); }
 .bc-row input { width:16px; height:16px; }
 .bc-row small { opacity:0.6; }
+.bc-cust { border-bottom:1px solid var(--border); padding:2px 0; }
+.bc-cust:last-child { border-bottom:none; }
+.bc-cust-row { font-weight:600; }
+.bc-toggle { background:none; border:none; color:inherit; cursor:pointer; font-size:13px; padding:0 2px; }
+.bc-children { padding-left:24px; }
+.bc-child { font-weight:400; }

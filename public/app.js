@@ -806,10 +806,10 @@ async function openBroadcastModal() {
   state.customers = kRes.data || [];
   await loadQuickReplies();
 
-  const contactsByCustomer = {}, groups = [], avulsos = [];
+  // Contatos E grupos agrupados por cliente; "avulsos" = sem cliente vinculado.
+  const byCustomer = {}, avulsos = [];
   for (const c of state.contacts) {
-    if (c.isGroup) groups.push(c);
-    else if (c.customerId) (contactsByCustomer[c.customerId] ||= []).push(c);
+    if (c.customerId) (byCustomer[c.customerId] ||= []).push(c);
     else avulsos.push(c);
   }
   const reps = quickReplies.map((r, i) => `<option value="${i}">${escapeHtml((r.text || "").slice(0, 50))}</option>`).join("");
@@ -830,29 +830,45 @@ async function openBroadcastModal() {
     </div>`;
   document.body.appendChild(overlay);
   const selected = new Set();
+  const expanded = new Set();
   const listEl = overlay.querySelector("#bcList");
   const countEl = overlay.querySelector("#bcCount");
-  const buildRows = (q) => {
-    const ql = normalizeText(q || "");
-    const rows = [];
-    for (const cust of (state.customers || [])) {
-      const conts = contactsByCustomer[cust.id] || [];
-      if (!conts.length || (ql && !normalizeText(cust.name).includes(ql))) continue;
-      rows.push({ label: `🏢 ${cust.name}`, sub: `${conts.length} contato(s)`, ids: conts.map((c) => c.id) });
-    }
-    for (const g of groups) { if (!ql || normalizeText(g.name).includes(ql)) rows.push({ label: `👥 ${g.name}`, sub: "grupo", ids: [g.id] }); }
-    for (const a of avulsos) { if (!ql || normalizeText(`${a.name} ${a.phone}`).includes(ql)) rows.push({ label: `👤 ${a.name || a.phone}`, sub: a.phone || "", ids: [a.id] }); }
-    return rows.slice(0, 120);
-  };
+  const childRow = (c) => `<label class="bc-row bc-child"><input type="checkbox" data-id="${c.id}" ${selected.has(c.id) ? "checked" : ""}><span>${c.isGroup ? "👥" : "👤"} ${escapeHtml(c.name || c.phone)} <small>${escapeHtml(c.isGroup ? "grupo" : (c.phone || ""))}</small></span></label>`;
   const render = () => {
-    const rows = buildRows(overlay.querySelector("#bcSearch").value);
-    listEl.innerHTML = rows.map((row) => {
-      const allSel = row.ids.every((id) => selected.has(id));
-      return `<label class="bc-row"><input type="checkbox" data-ids="${row.ids.join(",")}" ${allSel ? "checked" : ""}><span>${escapeHtml(row.label)} <small>${escapeHtml(row.sub)}</small></span></label>`;
-    }).join("") || `<p class="cell-muted" style="font-size:13px;padding:8px">Nada encontrado.</p>`;
-    listEl.querySelectorAll("input[data-ids]").forEach((inp) => inp.addEventListener("change", () => {
-      const ids = inp.dataset.ids.split(",");
-      ids.forEach((id) => inp.checked ? selected.add(id) : selected.delete(id));
+    const ql = normalizeText(overlay.querySelector("#bcSearch").value);
+    let html = "";
+    for (const cust of (state.customers || [])) {
+      const children = byCustomer[cust.id] || [];
+      if (!children.length) continue;
+      const custMatch = !ql || normalizeText(cust.name).includes(ql);
+      const matched = custMatch ? children : children.filter((c) => normalizeText(`${c.name} ${c.phone}`).includes(ql));
+      if (!matched.length) continue;
+      const allSel = matched.every((c) => selected.has(c.id));
+      const isExp = expanded.has(cust.id) || (ql && !custMatch); // busca em filhos já expande
+      html += `<div class="bc-cust">
+        <div class="bc-row bc-cust-row">
+          <input type="checkbox" data-cust="${cust.id}" ${allSel ? "checked" : ""}>
+          <button class="bc-toggle" type="button" data-toggle="${cust.id}">${isExp ? "▾" : "▸"}</button>
+          <span>🏢 ${escapeHtml(cust.name)} <small>${children.length} destinatário(s)</small></span>
+        </div>
+        ${isExp ? `<div class="bc-children">${matched.map(childRow).join("")}</div>` : ""}
+      </div>`;
+    }
+    const av = avulsos.filter((c) => !ql || normalizeText(`${c.name} ${c.phone}`).includes(ql));
+    if (av.length) html += `<div class="bc-cust"><div class="bc-row bc-cust-row"><span class="quick-group-label">Sem cliente vinculado</span></div><div class="bc-children">${av.map(childRow).join("")}</div></div>`;
+    listEl.innerHTML = html || `<p class="cell-muted" style="font-size:13px;padding:8px">Nada encontrado.</p>`;
+    listEl.querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => {
+      const id = b.dataset.toggle;
+      expanded.has(id) ? expanded.delete(id) : expanded.add(id);
+      render();
+    }));
+    listEl.querySelectorAll("[data-cust]").forEach((inp) => inp.addEventListener("change", () => {
+      (byCustomer[inp.dataset.cust] || []).forEach((c) => inp.checked ? selected.add(c.id) : selected.delete(c.id));
+      countEl.textContent = `${selected.size} destinatário(s)`;
+      render();
+    }));
+    listEl.querySelectorAll("[data-id]").forEach((inp) => inp.addEventListener("change", () => {
+      inp.checked ? selected.add(inp.dataset.id) : selected.delete(inp.dataset.id);
       countEl.textContent = `${selected.size} destinatário(s)`;
     }));
   };
