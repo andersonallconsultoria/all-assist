@@ -155,9 +155,25 @@ document.querySelector(".menu-button")?.addEventListener("click", () => {
   document.querySelector(".sidebar")?.classList.toggle("sidebar-open");
 });
 
-document.getElementById("notifButton")?.addEventListener("click", () => {
-  setStatus("Sem notificacoes pendentes");
-  setTimeout(() => setStatus("Online"), 2500);
+document.getElementById("notifButton")?.addEventListener("click", async () => {
+  if (!window.Notification) { await uiAlert("Este navegador não suporta notificações."); return; }
+  if (Notification.permission === "denied") {
+    await uiAlert("As notificações estão BLOQUEADAS para este site.\n\nPara liberar no Chrome:\n1. Clique no 🔒 (cadeado) ao lado do endereço\n2. Em 'Notificações', mude para 'Permitir'\n3. Recarregue a página\n\nNo Windows, confirme também em: Configurações → Sistema → Notificações → Google Chrome (ligado).", { title: "Notificações bloqueadas" });
+    return;
+  }
+  let perm = Notification.permission;
+  if (perm !== "granted") perm = await Notification.requestPermission().catch(() => "default");
+  if (perm === "granted") {
+    try {
+      const n = new Notification("🔔 Notificações ativadas!", { body: "Você será avisado quando um cliente mandar mensagem nos seus atendimentos — mesmo com o navegador minimizado." });
+      n.onclick = () => { window.focus(); n.close(); };
+    } catch { /* */ }
+    playNotifyBeep();
+    setStatus("Notificações ativadas ✓");
+    setTimeout(() => setStatus("Online"), 3000);
+  } else {
+    await uiAlert("Permissão de notificação não concedida. Clique no sininho de novo e escolha 'Permitir'.");
+  }
 });
 
 document.getElementById("themeToggle").addEventListener("click", () => {
