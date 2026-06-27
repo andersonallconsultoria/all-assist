@@ -3994,13 +3994,24 @@ function ensureNotifyPermission() {
     Notification.requestPermission().catch(() => {});
   }
 }
+let _audioCtx = null;
 function playNotifyBeep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator(); const g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.type = "sine"; o.frequency.value = 680; g.gain.value = 0.07;
-    o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 170);
+    _audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtx;
+    if (ctx.state === "suspended") ctx.resume();
+    const now = ctx.currentTime;
+    // Toque duplo (ding-ding), mais alto e mais longo.
+    [988, 1319].forEach((freq, i) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = "sine"; o.frequency.value = freq;
+      const t = now + i * 0.22;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.35, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      o.start(t); o.stop(t + 0.22);
+    });
   } catch { /* sem áudio */ }
 }
 function flashTitleUnread() {
@@ -4009,9 +4020,28 @@ function flashTitleUnread() {
 }
 window.addEventListener("focus", () => { unreadTitleCount = 0; document.title = "Freitas Assist"; });
 
+// No primeiro clique do usuário: pede permissão de notificação e "destrava" o
+// áudio (política de autoplay deixava o som fraco/sem tocar).
+document.addEventListener("pointerdown", function _firstGesture() {
+  ensureNotifyPermission();
+  try { (_audioCtx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)()).resume(); } catch { /* */ }
+  document.removeEventListener("pointerdown", _firstGesture);
+}, { once: true });
+
+// Toast na própria tela (sempre aparece, mesmo sem permissão do navegador).
+function showInAppToast(ticket) {
+  const t = document.createElement("div");
+  t.className = "app-toast";
+  t.innerHTML = `<strong>💬 ${escapeHtml(ticket.contactName || "Cliente")}</strong><span>${escapeHtml(ticket.subject || "Nova mensagem no seu atendimento")}</span>`;
+  t.addEventListener("click", () => { document.querySelector('nav a[href="#inbox"]')?.click(); selectInboxTicket(ticket.id); t.remove(); });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 7000);
+}
+
 function notifyNewMessage(ticket) {
   playNotifyBeep();
   flashTitleUnread();
+  showInAppToast(ticket);
   if (window.Notification && Notification.permission === "granted") {
     try {
       const n = new Notification(`💬 ${ticket.contactName || "Novo cliente"}`, {
