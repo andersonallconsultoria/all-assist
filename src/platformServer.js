@@ -1526,6 +1526,7 @@ export function startPlatformServer({ config, logger, store, conversationService
           ...ticket,
           unreadCount: Number(conv?.unreadCount || 0),
           lastMessageAt: conv?.lastMessageAt || ticket.openedAt,
+          lastMessagePreview: conv?.lastMessagePreview || "",
           contactName: contact?.name || "Cliente",
           contactPhone: contact?.phone || "",
           contactAvatar: contact?.avatarUrl || null,

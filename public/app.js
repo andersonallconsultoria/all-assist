@@ -4048,7 +4048,7 @@ document.addEventListener("pointerdown", function _firstGesture() {
 function showInAppToast(ticket) {
   const t = document.createElement("div");
   t.className = "app-toast";
-  t.innerHTML = `<strong>💬 ${escapeHtml(ticket.contactName || "Cliente")}</strong><span>${escapeHtml(ticket.subject || "Nova mensagem no seu atendimento")}</span>`;
+  t.innerHTML = `<strong>💬 ${escapeHtml(ticket.contactName || "Cliente")}</strong><span>Nova mensagem: ${escapeHtml((ticket.lastMessagePreview || ticket.subject || "").slice(0, 90))}</span>`;
   t.addEventListener("click", () => { document.querySelector('nav a[href="#inbox"]')?.click(); selectInboxTicket(ticket.id); t.remove(); });
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 7000);
@@ -4060,9 +4060,12 @@ function notifyNewMessage(ticket) {
   showInAppToast(ticket);
   if (window.Notification && Notification.permission === "granted") {
     try {
-      const n = new Notification(`💬 ${ticket.contactName || "Novo cliente"}`, {
-        body: ticket.subject ? `Nova mensagem: ${ticket.subject}` : "Nova mensagem no seu atendimento",
-        tag: ticket.id
+      const preview = (ticket.lastMessagePreview || ticket.subject || "").slice(0, 120);
+      const n = new Notification("Freitas Assist", {
+        body: `💬 ${ticket.contactName || "Novo cliente"}${ticket.queue ? ` · ${ticket.queue}` : ""}\nNova mensagem: ${preview}`,
+        tag: ticket.id,
+        icon: "/icon.svg",
+        badge: "/icon.svg"
       });
       n.onclick = () => {
         window.focus();
