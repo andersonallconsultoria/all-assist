@@ -687,6 +687,27 @@ export function startPlatformServer({ config, logger, store, conversationService
         });
       }
 
+      // Disparo proativo de mensagem (campanha) para vários contatos.
+      if (request.method === "POST" && parsedUrl.pathname === "/api/broadcast") {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);
+        if (!inst?.instanceName || inst.status !== "connected") {
+          return sendJson(response, 400, { error: "WhatsApp não está conectado." });
+        }
+        const body = await readJson(request);
+        const message = String(body.message || "").trim();
+        const ids = Array.isArray(body.contactIds) ? body.contactIds : [];
+        if (!message) return sendJson(response, 400, { error: "Mensagem é obrigatória." });
+        const contacts = ids
+          .map((id) => store.findById("contacts", id))
+          .filter((c) => c && c.tenantId === tenantContext.tenantId);
+        if (!contacts.length) return sendJson(response, 400, { error: "Selecione ao menos um destinatário." });
+        // Dispara em background (intervalo anti-ban entre cada).
+        _runBroadcast(contacts, message, tenantContext.tenantId, conversationService, store, logger, user.id).catch(() => {});
+        logger.info("broadcast_started", { tenantId: tenantContext.tenantId, total: contacts.length, by: user.id });
+        return sendJson(response, 200, { ok: true, total: contacts.length });
+      }
+
       if (request.method === "POST" && parsedUrl.pathname === "/api/contacts/import-whatsapp") {
         if (!requirePermission(response, authService, user, "contacts:write")) return;
         const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);
@@ -2000,6 +2021,27 @@ function getActiveAutoMessages(tenant) {
     .filter((r) => r && typeof r === "object" && r.auto && r.text)
     .filter((r) => (!r.startDate || r.startDate <= today) && (!r.endDate || r.endDate >= today))
     .map((r) => r.text);
+}
+
+// Disparo proativo (campanha): envia uma mensagem para vários contatos, com
+// intervalo anti-ban entre cada. Roda em background.
+async function _runBroadcast(contacts, message, tenantId, conversationService, store, logger, userId) {
+  let enviados = 0, falhas = 0;
+  for (const contact of contacts) {
+    try {
+      const customer = contact.customerId ? store.findById("customers", contact.customerId) : null;
+      const text = applyVarsServer(message, contact, customer);
+      const conversation = conversationService.openConversation(contact, { timestamp: new Date().toISOString(), body: "" }, "evolution", null);
+      await conversationService.sendText(conversation.id, text, "broadcast", tenantId, userId);
+      enviados++;
+    } catch (error) {
+      falhas++;
+      logger.warn("broadcast_send_failed", { contactId: contact.id, error: error.message });
+    }
+    // Intervalo anti-ban entre destinatários (8–20s) — evita flood/bloqueio.
+    await new Promise((r) => setTimeout(r, 8000 + Math.floor(Math.random() * 12000)));
+  }
+  logger.info("broadcast_done", { tenantId, enviados, falhas, total: contacts.length });
 }
 
 // Fluxo B: ao encerrar um atendimento, envia o caso resolvido ao AllHub para o

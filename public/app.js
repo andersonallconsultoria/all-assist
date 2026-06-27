@@ -795,6 +795,89 @@ async function openNovoAtendimento() {
 }
 document.getElementById("inboxNovoBtn")?.addEventListener("click", openNovoAtendimento);
 
+// Disparo proativo: seleciona clientes (e seus contatos), grupos e contatos, e
+// envia uma mensagem para todos (com intervalo anti-ban no servidor).
+async function openBroadcastModal() {
+  const [cRes, kRes] = await Promise.all([
+    api("/api/contacts").catch(() => ({ data: state.contacts || [] })),
+    api("/api/customers").catch(() => ({ data: state.customers || [] }))
+  ]);
+  state.contacts = cRes.data || [];
+  state.customers = kRes.data || [];
+  await loadQuickReplies();
+
+  const contactsByCustomer = {}, groups = [], avulsos = [];
+  for (const c of state.contacts) {
+    if (c.isGroup) groups.push(c);
+    else if (c.customerId) (contactsByCustomer[c.customerId] ||= []).push(c);
+    else avulsos.push(c);
+  }
+  const reps = quickReplies.map((r, i) => `<option value="${i}">${escapeHtml((r.text || "").slice(0, 50))}</option>`).join("");
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(620px,calc(100vw - 40px))">
+      <h3 class="ui-dialog-title">📢 Disparar mensagem</h3>
+      <input class="ui-dialog-input" id="bcSearch" placeholder="Buscar cliente, contato ou grupo...">
+      <div id="bcList" class="bc-list"></div>
+      <p id="bcCount" style="font-size:12px;color:var(--accent-strong);margin:6px 0">0 destinatário(s)</p>
+      <select class="ui-dialog-input" id="bcQuick" style="margin-bottom:6px"><option value="">— usar uma resposta rápida —</option>${reps}</select>
+      <textarea class="ui-dialog-input" id="bcMessage" rows="3" placeholder="Mensagem (variáveis: {primeiro_nome}, {empresa}...)"></textarea>
+      <div class="ui-dialog-actions">
+        <button class="btn btn-secondary" id="bcCancel" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="bcSend" type="button">Disparar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const selected = new Set();
+  const listEl = overlay.querySelector("#bcList");
+  const countEl = overlay.querySelector("#bcCount");
+  const buildRows = (q) => {
+    const ql = normalizeText(q || "");
+    const rows = [];
+    for (const cust of (state.customers || [])) {
+      const conts = contactsByCustomer[cust.id] || [];
+      if (!conts.length || (ql && !normalizeText(cust.name).includes(ql))) continue;
+      rows.push({ label: `🏢 ${cust.name}`, sub: `${conts.length} contato(s)`, ids: conts.map((c) => c.id) });
+    }
+    for (const g of groups) { if (!ql || normalizeText(g.name).includes(ql)) rows.push({ label: `👥 ${g.name}`, sub: "grupo", ids: [g.id] }); }
+    for (const a of avulsos) { if (!ql || normalizeText(`${a.name} ${a.phone}`).includes(ql)) rows.push({ label: `👤 ${a.name || a.phone}`, sub: a.phone || "", ids: [a.id] }); }
+    return rows.slice(0, 120);
+  };
+  const render = () => {
+    const rows = buildRows(overlay.querySelector("#bcSearch").value);
+    listEl.innerHTML = rows.map((row) => {
+      const allSel = row.ids.every((id) => selected.has(id));
+      return `<label class="bc-row"><input type="checkbox" data-ids="${row.ids.join(",")}" ${allSel ? "checked" : ""}><span>${escapeHtml(row.label)} <small>${escapeHtml(row.sub)}</small></span></label>`;
+    }).join("") || `<p class="cell-muted" style="font-size:13px;padding:8px">Nada encontrado.</p>`;
+    listEl.querySelectorAll("input[data-ids]").forEach((inp) => inp.addEventListener("change", () => {
+      const ids = inp.dataset.ids.split(",");
+      ids.forEach((id) => inp.checked ? selected.add(id) : selected.delete(id));
+      countEl.textContent = `${selected.size} destinatário(s)`;
+    }));
+  };
+  overlay.querySelector("#bcSearch").addEventListener("input", render);
+  overlay.querySelector("#bcQuick").addEventListener("change", (e) => {
+    if (e.target.value !== "") overlay.querySelector("#bcMessage").value = quickReplies[Number(e.target.value)]?.text || "";
+  });
+  overlay.querySelector("#bcCancel").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector("#bcSend").onclick = async () => {
+    const message = overlay.querySelector("#bcMessage").value.trim();
+    const contactIds = [...selected];
+    if (!contactIds.length) { await uiAlert("Selecione ao menos um destinatário."); return; }
+    if (!message) { await uiAlert("Escreva a mensagem."); return; }
+    if (!await uiConfirm(`Disparar para ${contactIds.length} destinatário(s)?\n\nO envio é espaçado (intervalo anti-ban) para proteger o número.`, { title: "Confirmar disparo", okText: "Disparar" })) return;
+    try {
+      const r = await api("/api/broadcast", { method: "POST", body: JSON.stringify({ contactIds, message }) });
+      overlay.remove();
+      await uiAlert(`Disparo iniciado para ${r.total} destinatário(s)! 📢\nAs mensagens saem aos poucos (anti-ban). Acompanhe nos atendimentos.`, { title: "Disparo iniciado" });
+    } catch (e) { await uiAlert("Erro: " + e.message); }
+  };
+  render();
+}
+document.getElementById("broadcastBtn")?.addEventListener("click", openBroadcastModal);
+
 function openContactConversations(btn) {
   const phone = btn.dataset.contactPhone;
   const name = btn.dataset.contactName;
