@@ -4360,24 +4360,28 @@ function openCloseModal(onConfirm, defaults = {}) {
   };
   setTimeout(() => subjEl.focus(), 30);
 
-  // IA pré-preenche título + detalhamento automaticamente ao abrir, se vazios.
-  if (defaults.ticketId && !subjEl.value && !noteEl.value) {
+  // IA pré-preenche título + detalhamento automaticamente ao abrir. Roda sempre
+  // que houver ticketId (o título já vem com o assunto do ticket, então não dá
+  // pra esperar "campos vazios"); usa o assunto do ticket como fallback.
+  if (defaults.ticketId) {
     let touched = false;
     const markTouched = () => { touched = true; };
     subjEl.addEventListener("input", markTouched);
     noteEl.addEventListener("input", markTouched);
+    const fallbackSubject = subjEl.value;
     const prevSubj = subjEl.placeholder, prevNote = noteEl.placeholder;
-    subjEl.placeholder = "✨ Gerando sugestão com IA…";
+    subjEl.value = ""; noteEl.value = "";
+    subjEl.placeholder = "✨ Gerando título com IA…";
     noteEl.placeholder = "✨ Analisando o atendimento…";
     subjEl.disabled = true; noteEl.disabled = true;
     api(`/api/tickets/${defaults.ticketId}/suggest-closure`, { method: "POST", body: "{}" })
       .then((s) => {
         if (!touched) {
-          if (s.title && !subjEl.value) subjEl.value = s.title;
-          if (s.detail && !noteEl.value) noteEl.value = s.detail;
+          subjEl.value = s.title || fallbackSubject || "";
+          noteEl.value = s.detail || "";
         }
       })
-      .catch(() => {})
+      .catch(() => { if (!touched) subjEl.value = fallbackSubject || ""; })
       .finally(() => {
         subjEl.disabled = false; noteEl.disabled = false;
         subjEl.placeholder = prevSubj; noteEl.placeholder = prevNote;
