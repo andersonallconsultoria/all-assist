@@ -3917,9 +3917,36 @@ nav a.active::after {
   align-items: center;
 }
 .ticket-filters .search-input {
-  min-width: 150px;
+  width: auto;
+  flex: 0 1 170px;
+  min-width: 130px;
   padding: 8px 10px;
 }
+.ticket-filters #ticketSearch { flex: 1 1 200px; }
+/* Alternância Kanban / Lista */
+.ticket-view-toggle { display: inline-flex; gap: 2px; background: var(--panel-alt); border: 1px solid var(--line); border-radius: 9px; padding: 2px; }
+.view-btn { border: none; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 7px; cursor: pointer; }
+.view-btn.view-active { background: var(--accent); color: #fff; }
+/* Visão Lista de tickets */
+.ticket-list { display: flex; flex-direction: column; gap: 16px; padding: 4px 2px; }
+.tl-group { display: flex; flex-direction: column; gap: 6px; }
+.tl-group-head { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 2px 4px; }
+.tl-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.tl-row:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+.tl-main { flex: 1; min-width: 0; }
+.tl-line1 { display: flex; align-items: center; gap: 8px; }
+.tl-line1 strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-line2 { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+.tl-analyst { font-size: 12px; }
+.tl-time { font-size: 11px; color: var(--muted); }
+/* Log de encerramento no detalhe do ticket */
+.closure-log { padding: 4px 0 8px; }
+.closure-log h4 { margin: 0 0 8px; font-size: 13px; }
+.cl-item { border-left: 3px solid var(--accent); background: var(--panel-alt); border-radius: 0 8px 8px 0; padding: 8px 12px; margin-bottom: 8px; }
+.cl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.cl-item strong { font-size: 13px; color: var(--ink); }
+.cl-note { font-size: 13px; margin: 3px 0 0; white-space: pre-wrap; }
 .kanban-count {
   min-width: 28px;
   height: 24px;

@@ -5,7 +5,7 @@ import { URL } from "node:url";
 import { assertTenantAccess, resolveTenantContext } from "./tenantContext.js";
 import { randomId } from "./util.js";
 
-export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, fileStore, classifierAgent, assistantAgent, botAgent }) {
+export function startPlatformServer({ config, logger, store, conversationService, whatsappClient, authService, observabilityService, tenantService, accessRoleService, userOnboardingService, alertService, evolutionInstanceService, ticketService, vaultService, fileStore, classifierAgent, summarizerAgent, assistantAgent, botAgent }) {
   const publicDir = path.resolve("public");
 
   const server = http.createServer(async (request, response) => {
@@ -1635,6 +1635,17 @@ export function startPlatformServer({ config, logger, store, conversationService
       if (request.method === "GET" && parsedUrl.pathname === "/api/tickets") {
         if (!requirePermission(response, authService, user, "tickets:view")) return;
         const filters = Object.fromEntries(parsedUrl.searchParams.entries());
+        const scope = filters.scope; delete filters.scope;
+        // Modo lista "todos os tickets": inclui fechados antigos.
+        if (scope === "all") {
+          let tickets = store.findAll("tickets", (t) => t.tenantId === tenantContext.tenantId);
+          if (filters.priority) tickets = tickets.filter((t) => t.priority === filters.priority);
+          if (filters.category) tickets = tickets.filter((t) => t.category === filters.category);
+          if (filters.assignedAnalystId) tickets = tickets.filter((t) => t.assignedAnalystId === filters.assignedAnalystId);
+          if (filters.status) tickets = tickets.filter((t) => t.status === filters.status);
+          tickets.sort((a, b) => new Date(b.openedAt) - new Date(a.openedAt));
+          return sendJson(response, 200, { data: tickets.map(enrichTicket) });
+        }
         const open = ticketService.listOpenTickets(tenantContext.tenantId, filters);
         // Inclui também tickets fechados hoje (coluna "Fechados hoje")
         const todayStart = new Date();
@@ -1739,6 +1750,20 @@ export function startPlatformServer({ config, logger, store, conversationService
         } catch (error) {
           return sendJson(response, 404, { error: "ticket_not_found" });
         }
+      }
+
+      // IA pré-preenche título + detalhamento do encerramento a partir da conversa.
+      const ticketSuggestMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/suggest-closure$/);
+      if (request.method === "POST" && ticketSuggestMatch) {
+        if (!requirePermission(response, authService, user, "tickets:respond")) return;
+        const ticket = ticketService.getTicket(ticketSuggestMatch[1], tenantContext.tenantId);
+        if (!ticket) return sendJson(response, 404, { error: "ticket_not_found" });
+        if (!summarizerAgent) return sendJson(response, 200, { title: "", detail: "", ai: false });
+        const messages = store.findAll("messages", (m) => m.conversationId === ticket.conversationId && m.tenantId === tenantContext.tenantId)
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        const contact = ticket.contactId ? store.findById("contacts", ticket.contactId) : null;
+        const summary = await summarizerAgent.summarize({ contactName: contact?.name || contact?.number || "", messages });
+        return sendJson(response, 200, summary);
       }
 
       const ticketCloseMatch = parsedUrl.pathname.match(/^\/api\/tickets\/([^/]+)\/close$/);

@@ -100,7 +100,10 @@ export function loadConfig(argv = process.argv.slice(2)) {
       timeoutMs: intFromEnv("HTTP_TIMEOUT_MS", 30_000),
       retries: intFromEnv("HTTP_RETRIES", 2),
       retryDelayMs: intFromEnv("HTTP_RETRY_DELAY_MS", 1000)
-    }
+    },
+    // IA (classificador, bot, assistente, resumidor de atendimento)
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
+    classifierModel: process.env.CLASSIFIER_MODEL || "claude-haiku-4-5-20251001"
   };
 
   validateConfig(config);

@@ -248,8 +248,20 @@
             <div class="title-group">
               <h2 style="margin:0">Tickets de Atendimento</h2>
               <span id="ticketCount" class="badge-neutral" style="padding:3px 9px;border-radius:8px;font-size:12px"></span>
+              <div class="ticket-view-toggle">
+                <button id="ticketViewKanban" class="view-btn view-active" type="button">▦ Kanban</button>
+                <button id="ticketViewList" class="view-btn" type="button">☰ Lista</button>
+              </div>
             </div>
             <div class="ticket-filters">
+              <input id="ticketSearch" class="search-input" type="search" placeholder="🔎 Assunto ou contato...">
+              <select id="ticketFilterStatus" class="search-input">
+                <option value="">Todo status</option>
+                <option value="open">Aberto</option>
+                <option value="waiting_analyst">Aguardando Analista</option>
+                <option value="waiting_customer">Aguardando Cliente</option>
+                <option value="closed">Fechado</option>
+              </select>
               <select id="ticketFilterPriority" class="search-input">
                 <option value="">Toda prioridade</option>
                 <option value="critical">Crítica</option>
@@ -273,6 +285,7 @@
             </div>
           </div>
           <div id="ticketBoard" class="kanban-board"></div>
+          <div id="ticketList" class="ticket-list" style="display:none"></div>
         </div>
       </section>
 
@@ -295,6 +308,7 @@
             <button id="ticketCloseBtn" class="btn btn-danger" type="button">Fechar ticket</button>
           </div>
           <div id="ticketChat" class="ticket-chat"></div>
+          <div id="ticketClosureLog" class="closure-log"></div>
           <div class="conversation-reply-box" id="ticketReplyBox">
             <textarea id="ticketReplyText" class="conversation-reply-input" placeholder="Responder ao cliente..." rows="2"></textarea>
             <button id="ticketReplyBtn" class="btn btn-primary" type="button">Enviar</button>

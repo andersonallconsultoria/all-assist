@@ -8,6 +8,7 @@ import { TicketService } from "./ticketService.js";
 import { VaultService } from "./vaultService.js";
 import { FileStore } from "./fileStore.js";
 import { ClassifierAgent } from "./agents/classifier.js";
+import { SummarizerAgent } from "./agents/summarizer.js";
 import { AssistantAgent } from "./agents/assistant.js";
 import { BotAgent } from "./agents/bot.js";
 import { createLogger } from "./logger.js";
@@ -44,6 +45,7 @@ async function main() {
   const ticketService = new TicketService(store, logger);
   const vaultService = new VaultService(store, logger);
   const classifierAgent = new ClassifierAgent(config, logger);
+  const summarizerAgent = new SummarizerAgent(config, logger);
   const assistantAgent = new AssistantAgent(config, logger);
   const botAgent = new BotAgent(config, logger);
 
@@ -68,6 +70,7 @@ async function main() {
     vaultService,
     fileStore,
     classifierAgent,
+    summarizerAgent,
     assistantAgent,
     botAgent
   });

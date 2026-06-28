@@ -19,6 +19,8 @@ const state = {
   waSettings: null,
   tickets: [],
   ticketAnalysts: [],
+  ticketView: "kanban",
+  ticketSearch: "",
   activeTicket: null,
   inbox: { tab: "mine", activeId: null, search: "", activeTicket: null }
 };
@@ -2648,11 +2650,15 @@ const TICKET_COLUMNS = [
 ];
 
 function ticketFilterValues() {
-  return {
+  const f = {
     priority: document.getElementById("ticketFilterPriority")?.value || "",
     category: document.getElementById("ticketFilterCategory")?.value || "",
-    assignedAnalystId: document.getElementById("ticketFilterAnalyst")?.value || ""
+    assignedAnalystId: document.getElementById("ticketFilterAnalyst")?.value || "",
+    status: document.getElementById("ticketFilterStatus")?.value || ""
   };
+  // Na visão Lista, busca todos os tickets (inclusive fechados antigos).
+  if (state.ticketView === "list") f.scope = "all";
+  return f;
 }
 
 async function loadTicketAnalysts() {
@@ -2683,8 +2689,66 @@ async function renderTickets() {
     board.innerHTML = `<div class="empty-state">Erro ao carregar tickets: ${escapeHtml(error.message)}</div>`;
     return;
   }
-  renderTicketBoard();
+  renderTicketView();
   updateTicketBadge();
+}
+
+// Aplica a busca textual (assunto/contato) sobre os tickets carregados.
+function filteredTickets() {
+  const q = (state.ticketSearch || "").trim().toLowerCase();
+  let items = state.tickets;
+  // No kanban, o filtro de status reduz aos cards daquele status.
+  const st = document.getElementById("ticketFilterStatus")?.value;
+  if (state.ticketView === "kanban" && st) items = items.filter((t) => t.status === st);
+  if (!q) return items;
+  return items.filter((t) => `${t.subject || ""} ${t.contactName || ""} ${t.customerName || ""} ${t.closureNote || ""}`.toLowerCase().includes(q));
+}
+
+function renderTicketView() {
+  const board = document.getElementById("ticketBoard");
+  const list = document.getElementById("ticketList");
+  if (!board || !list) return;
+  const isList = state.ticketView === "list";
+  board.style.display = isList ? "none" : "";
+  list.style.display = isList ? "" : "none";
+  document.getElementById("ticketViewKanban")?.classList.toggle("view-active", !isList);
+  document.getElementById("ticketViewList")?.classList.toggle("view-active", isList);
+  if (isList) renderTicketList(); else renderTicketBoard();
+}
+
+// Visão Lista: linhas, uma por ticket, agrupadas pelo status (tipo).
+function renderTicketList() {
+  const list = document.getElementById("ticketList");
+  if (!list) return;
+  const items = filteredTickets();
+  const groups = TICKET_COLUMNS.map((col) => ({ col, rows: items.filter((t) => t.status === col.key) }))
+    .filter((g) => g.rows.length);
+  if (!groups.length) {
+    list.innerHTML = `<div class="empty-state">Nenhum ticket encontrado.</div>`;
+    return;
+  }
+  list.innerHTML = groups.map((g) => `
+    <div class="tl-group">
+      <div class="tl-group-head"><strong>${g.col.label}</strong><span class="kanban-count">${g.rows.length}</span></div>
+      ${g.rows.map(ticketRowHtml).join("")}
+    </div>`).join("");
+  list.querySelectorAll("[data-ticket-id]").forEach((el) => el.addEventListener("click", () => openTicket(el.dataset.ticketId)));
+}
+
+function ticketRowHtml(t) {
+  const priorityBadge = TICKET_PRIORITY_BADGE[t.priority] || "badge-neutral";
+  return `
+    <div class="tl-row" data-ticket-id="${t.id}">
+      <span class="avatar-mini">${escapeHtml(initials(t.contactName))}</span>
+      <div class="tl-main">
+        <div class="tl-line1"><strong>${escapeHtml(t.subject || "(sem assunto)")}</strong><span class="badge ${priorityBadge}">${escapeHtml(TICKET_PRIORITY_LABELS[t.priority] || t.priority)}</span></div>
+        <div class="tl-line2">${escapeHtml(t.contactName || "")}${t.customerName ? ` · 🏢 ${escapeHtml(t.customerName)}` : ""} · ${escapeHtml(TICKET_CATEGORY_LABELS[t.category] || t.category || "")}</div>
+      </div>
+      <div class="tl-side">
+        <span class="tl-analyst">${t.analystName ? "👤 " + escapeHtml(t.analystName) : "⏳ Sem analista"}</span>
+        <span class="tl-time">⏱ ${ticketTimeOpen(t.openedAt)}</span>
+      </div>
+    </div>`;
 }
 
 function updateTicketBadge() {
@@ -2701,8 +2765,9 @@ function updateTicketBadge() {
 function renderTicketBoard() {
   const board = document.getElementById("ticketBoard");
   if (!board) return;
+  const all = filteredTickets();
   board.innerHTML = TICKET_COLUMNS.map((col) => {
-    const items = state.tickets.filter((t) => t.status === col.key);
+    const items = all.filter((t) => t.status === col.key);
     const cards = items.length
       ? items.map(ticketCardHtml).join("")
       : `<div class="kanban-empty">Nenhum ticket</div>`;
@@ -2819,6 +2884,29 @@ function renderTicketDrawer(ticket) {
       `).join("")
     : `<div class="empty-state">Sem mensagens nesta conversa.</div>`;
   chat.scrollTop = chat.scrollHeight;
+  renderClosureLog(ticket);
+}
+
+// Log dos encerramentos/registros do atendimento (após a conversa).
+function renderClosureLog(ticket) {
+  const el = document.getElementById("ticketClosureLog");
+  if (!el) return;
+  let sessions = Array.isArray(ticket.sessions) ? ticket.sessions.slice() : [];
+  if (!sessions.length && ticket.closureNote) {
+    sessions = [{ subject: ticket.closureSubject, note: ticket.closureNote, outcome: ticket.status, at: ticket.closedAt, byName: ticket.analystName }];
+  }
+  if (!sessions.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `
+    <h4>📝 Registro do atendimento</h4>
+    ${sessions.slice().reverse().map((s) => `
+      <div class="cl-item">
+        <div class="cl-head">
+          <span class="badge ${HIST_STATUS_BADGE[s.outcome] || "badge-neutral"}">${escapeHtml(TICKET_STATUS_LABELS[s.outcome] || s.outcome || "")}</span>
+          <span>${formatDateTime(s.at)}</span>${s.byName ? `<span>· 👤 ${escapeHtml(s.byName)}</span>` : ""}
+        </div>
+        ${s.subject ? `<strong>${escapeHtml(s.subject)}</strong>` : ""}
+        ${s.note ? `<p class="cl-note">${escapeHtml(s.note)}</p>` : ""}
+      </div>`).join("")}`;
 }
 
 function closeTicketDrawer() {
@@ -2858,13 +2946,29 @@ async function replyTicket() {
 async function closeActiveTicket() {
   const ticket = state.activeTicket;
   if (!ticket) return;
-  openCloseModal((data) => ticketAction(`/api/tickets/${ticket.id}/close`, data, "Atendimento encerrado"), { subject: ticket.subject || "" });
+  openCloseModal((data) => ticketAction(`/api/tickets/${ticket.id}/close`, data, "Atendimento encerrado"), { subject: ticket.subject || "", ticketId: ticket.id });
 }
 
 function wireTicketEvents() {
   document.getElementById("ticketRefreshBtn")?.addEventListener("click", () => renderTickets());
-  ["ticketFilterPriority", "ticketFilterCategory", "ticketFilterAnalyst"].forEach((id) => {
+  ["ticketFilterPriority", "ticketFilterCategory", "ticketFilterAnalyst", "ticketFilterStatus"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", () => renderTickets());
+  });
+  // Busca textual (assunto/contato) — filtra sem recarregar do servidor.
+  document.getElementById("ticketSearch")?.addEventListener("input", (e) => {
+    state.ticketSearch = e.target.value;
+    renderTicketView();
+  });
+  // Alternância entre Kanban e Lista.
+  document.getElementById("ticketViewKanban")?.addEventListener("click", () => {
+    if (state.ticketView === "kanban") return;
+    state.ticketView = "kanban";
+    renderTickets();
+  });
+  document.getElementById("ticketViewList")?.addEventListener("click", () => {
+    if (state.ticketView === "list") return;
+    state.ticketView = "list";
+    renderTickets();
   });
   document.getElementById("ticketDrawerClose")?.addEventListener("click", closeTicketDrawer);
   document.getElementById("ticketOverlay")?.addEventListener("click", (e) => {
@@ -4243,22 +4347,50 @@ function openCloseModal(onConfirm, defaults = {}) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  const subjEl = overlay.querySelector("#closeSubject");
+  const noteEl = overlay.querySelector("#closeNote");
   overlay.querySelector("#closeCancel").onclick = () => overlay.remove();
   overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector("#closeConfirm").onclick = () => {
-    const closureSubject = overlay.querySelector("#closeSubject").value.trim();
-    const closureNote = overlay.querySelector("#closeNote").value.trim();
+    const closureSubject = subjEl.value.trim();
+    const closureNote = noteEl.value.trim();
     const outcome = overlay.querySelector("#closeOutcome").value;
     overlay.remove();
     onConfirm({ closureSubject, closureNote, outcome });
   };
-  setTimeout(() => overlay.querySelector("#closeSubject").focus(), 30);
+  setTimeout(() => subjEl.focus(), 30);
+
+  // IA pré-preenche título + detalhamento automaticamente ao abrir, se vazios.
+  if (defaults.ticketId && !subjEl.value && !noteEl.value) {
+    let touched = false;
+    const markTouched = () => { touched = true; };
+    subjEl.addEventListener("input", markTouched);
+    noteEl.addEventListener("input", markTouched);
+    const prevSubj = subjEl.placeholder, prevNote = noteEl.placeholder;
+    subjEl.placeholder = "✨ Gerando sugestão com IA…";
+    noteEl.placeholder = "✨ Analisando o atendimento…";
+    subjEl.disabled = true; noteEl.disabled = true;
+    api(`/api/tickets/${defaults.ticketId}/suggest-closure`, { method: "POST", body: "{}" })
+      .then((s) => {
+        if (!touched) {
+          if (s.title && !subjEl.value) subjEl.value = s.title;
+          if (s.detail && !noteEl.value) noteEl.value = s.detail;
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        subjEl.disabled = false; noteEl.disabled = false;
+        subjEl.placeholder = prevSubj; noteEl.placeholder = prevNote;
+        subjEl.removeEventListener("input", markTouched);
+        noteEl.removeEventListener("input", markTouched);
+      });
+  }
 }
 
 async function inboxClose() {
   if (!state.inbox.activeId) return;
   const ticket = state.inbox.activeTicket;
-  openCloseModal((data) => inboxAction(`/api/tickets/${state.inbox.activeId}/close`, data, "Atendimento encerrado"), { subject: ticket?.subject || "" });
+  openCloseModal((data) => inboxAction(`/api/tickets/${state.inbox.activeId}/close`, data, "Atendimento encerrado"), { subject: ticket?.subject || "", ticketId: state.inbox.activeId });
 }
 
 // ===== Refresh automático da Central =====
