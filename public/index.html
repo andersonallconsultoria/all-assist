@@ -1002,8 +1002,8 @@
 
     <!-- Modal: Cliente (empresa) -->
     <div id="customerOverlay" style="display:none;position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
-      <div style="background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.4)">
-        <h3 id="customerModalTitle" style="margin:0 0 16px;font-size:16px">Novo cliente</h3>
+      <div style="background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 30px;width:840px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 12px 44px rgba(0,0,0,.45)">
+        <h3 id="customerModalTitle" style="margin:0 0 18px;font-size:18px;font-weight:700">Novo cliente</h3>
         <div class="form-grid form-grid-2" style="gap:12px;display:grid;grid-template-columns:1fr 1fr">
           <label style="display:block;grid-column:1/-1">
             <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Razão social *</span>
@@ -1054,11 +1054,7 @@
               <option value="filial">Filial</option>
             </select>
           </label>
-          <label style="display:flex;align-items:center;gap:8px;padding-top:18px">
-            <input id="customerBlocoK" type="checkbox" style="width:16px;height:16px">
-            <span style="font-size:13px">Bloco K</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:8px;padding-top:18px">
+          <label style="display:flex;align-items:center;gap:8px;padding-top:18px;grid-column:1/-1">
             <input id="customerHourly" type="checkbox" style="width:16px;height:16px">
             <span style="font-size:13px">Cobrança por horas</span>
           </label>
@@ -1067,13 +1063,13 @@
             <textarea id="customerNotes" rows="2" placeholder="Anotações sobre o cliente..." style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:14px;resize:vertical"></textarea>
           </label>
           <div style="grid-column:1/-1">
-            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">Trabalhos desenvolvidos com o cliente</span>
-            <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px">
-              <label style="display:flex;align-items:center;gap:6px"><input id="svConsultoria" type="checkbox"> Consultoria</label>
-              <label style="display:flex;align-items:center;gap:6px"><input id="svContabilidade" type="checkbox"> Contabilidade</label>
-              <label style="display:flex;align-items:center;gap:6px"><input id="svValidacaoSped" type="checkbox"> Validação dos SPEDs</label>
-              <label style="display:flex;align-items:center;gap:6px"><input id="svFechamentoFinanceiro" type="checkbox"> Acomp. e Fechamento financeiro</label>
-              <label style="display:flex;align-items:center;gap:6px"><input id="svLancamentoNotasEntrada" type="checkbox"> Acomp. e Lançamento de NF de entrada</label>
+            <span style="display:block;font-size:13px;font-weight:600;margin:4px 0 8px">Trabalhos desenvolvidos com o cliente</span>
+            <div class="sv-grid">
+              <label class="sv-check"><input id="svConsultoria" type="checkbox"> Consultoria</label>
+              <label class="sv-check"><input id="svContabilidade" type="checkbox"> Contabilidade</label>
+              <label class="sv-check"><input id="svValidacaoSped" type="checkbox"> Validação dos SPEDs</label>
+              <label class="sv-check"><input id="svFechamentoFinanceiro" type="checkbox"> Acomp. e Fechamento financeiro</label>
+              <label class="sv-check" style="grid-column:1/-1"><input id="svLancamentoNotasEntrada" type="checkbox"> Acomp. e Lançamento de NF de entrada</label>
             </div>
           </div>
           <div style="grid-column:1/-1">

@@ -2913,7 +2913,7 @@ function renderCustomers() {
       <tbody>
         ${items.map((c) => `
           <tr>
-            <td><div class="table-name-cell"><span class="table-avatar">${escapeHtml(initials(c.fantasia || c.name))}</span><div><strong>${escapeHtml(c.fantasia || c.name)}</strong><small>${escapeHtml(c.fantasia ? c.name : "")}</small></div></div></td>
+            <td><div class="table-name-cell customer-view-cell" data-customer-id="${escapeHtml(c.id)}" style="cursor:pointer"><span class="table-avatar">${escapeHtml(initials(c.fantasia || c.name))}</span><div><strong>${escapeHtml(c.fantasia || c.name)}</strong><small>${escapeHtml(c.fantasia ? c.name : "")}</small></div></div></td>
             <td class="cell-muted">${escapeHtml(c.cnpj || "—")}</td>
             <td class="cell-muted">${escapeHtml(c.uf || "—")}</td>
             <td class="cell-muted">${escapeHtml(ATIVIDADE_LABELS[c.atividade] || c.atividade || "—")}</td>
@@ -2938,6 +2938,9 @@ function renderCustomers() {
   target.querySelectorAll(".customer-docs-btn").forEach((b) =>
     b.addEventListener("click", () => openCustomerDocs(b.dataset.customerId, b.dataset.customerName))
   );
+  target.querySelectorAll(".customer-view-cell").forEach((b) =>
+    b.addEventListener("click", () => openCustomerView((state.customers || []).find((c) => c.id === b.dataset.customerId)))
+  );
 }
 
 (function setupCustomerModal() {
@@ -2956,7 +2959,6 @@ function renderCustomers() {
     $("customerRegime").value = customer?.regime || "";
     $("customerAtividade").value = customer?.atividade || "";
     $("customerMatrizFilial").value = customer?.matrizFilial || "matriz";
-    $("customerBlocoK").checked = Boolean(customer?.blocoK);
     $("customerHourly").checked = Boolean(customer?.hourlyBilling);
     $("customerNotes").value = customer?.notes || "";
     const sv = customer?.servicos || {};
@@ -2974,7 +2976,7 @@ function renderCustomers() {
   function renderTreinamentos() {
     $("treinamentosList").innerHTML = treinamentosEdit.length ? treinamentosEdit.map((t, i) => `
       <div style="display:flex;gap:6px;align-items:center">
-        <input type="date" data-tr="data" data-i="${i}" value="${escapeHtml(t.data || "")}" style="padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:12px">
+        <input type="date" data-tr="data" data-i="${i}" value="${escapeHtml(t.data || "")}" style="width:150px;padding:7px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:13px">
         <input type="text" data-tr="treinamento" data-i="${i}" value="${escapeHtml(t.treinamento || "")}" placeholder="Treinamento" style="flex:2;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:13px">
         <input type="text" data-tr="quem" data-i="${i}" value="${escapeHtml(t.quem || "")}" placeholder="Quem recebeu" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:13px">
         <button type="button" data-tr-del="${i}" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px">×</button>
@@ -3000,7 +3002,6 @@ function renderCustomers() {
       regime: $("customerRegime").value,
       atividade: $("customerAtividade").value,
       matrizFilial: $("customerMatrizFilial").value,
-      blocoK: $("customerBlocoK").checked,
       hourlyBilling: $("customerHourly").checked,
       notes: $("customerNotes").value.trim(),
       servicos: {
@@ -3646,6 +3647,58 @@ async function _saveContactTags(contactId, tags) {
     await api(`/api/contacts/${contactId}`, { method: "PATCH", body: JSON.stringify({ tags: [...new Set(tags.map((t) => t.trim()).filter(Boolean))] }) });
     if (state.inbox.activeId) selectInboxTicket(state.inbox.activeId);
   } catch (error) { uiAlert(`Erro ao salvar tag: ${error.message}`); }
+}
+
+// Visualização do cliente (somente leitura) ao clicar no nome — sem precisar
+// abrir o modo de edição.
+function cvField(label, value) {
+  return `<div class="cv-field"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
+}
+function openCustomerView(customer) {
+  if (!customer) return;
+  const sv = customer.servicos || {};
+  const svBadges = [
+    sv.consultoria && "Consultoria", sv.contabilidade && "Contabilidade",
+    sv.validacaoSped && "Validação SPEDs", sv.fechamentoFinanceiro && "Fechamento financeiro",
+    sv.lancamentoNotasEntrada && "Lançamento NF entrada"
+  ].filter(Boolean);
+  const trein = customer.treinamentos || [];
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(720px,calc(100vw - 40px))">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+        <span class="avatar-lg">${escapeHtml(initials(customer.fantasia || customer.name))}</span>
+        <div>
+          <h3 style="margin:0;font-size:18px">${escapeHtml(customer.fantasia || customer.name)}</h3>
+          <small style="opacity:0.7">${escapeHtml(customer.fantasia ? customer.name : "")}</small>
+        </div>
+      </div>
+      <div class="cv-grid">
+        ${cvField("CNPJ", customer.cnpj)}
+        ${cvField("Inscrição Estadual", customer.ie)}
+        ${cvField("UF", customer.uf)}
+        ${cvField("Regime", customer.regime)}
+        ${cvField("Atividade", ATIVIDADE_LABELS[customer.atividade] || customer.atividade)}
+        ${cvField("Matriz / Filial", customer.matrizFilial === "filial" ? "Filial" : "Matriz")}
+        ${cvField("Cobrança", customer.hourlyBilling ? "Por horas" : "—")}
+      </div>
+      ${customer.notes ? `<div class="cv-section"><h4>Observações</h4><p style="margin:0;font-size:13px">${escapeHtml(customer.notes)}</p></div>` : ""}
+      ${svBadges.length ? `<div class="cv-section"><h4>📋 Trabalhos desenvolvidos</h4><div class="ctx-badges">${svBadges.map((s) => `<span class="badge badge-info">${escapeHtml(s)}</span>`).join("")}</div></div>` : ""}
+      ${trein.length ? `<div class="cv-section"><h4>🎓 Treinamentos realizados</h4>${trein.map((t) => `<div class="cv-trein">${escapeHtml(t.data || "")} · <strong>${escapeHtml(t.treinamento || "")}</strong>${t.quem ? ` — ${escapeHtml(t.quem)}` : ""}</div>`).join("")}</div>` : ""}
+      <div class="ui-dialog-actions">
+        <button class="btn btn-secondary" id="cvAccess" type="button">🔑 Acessos</button>
+        <button class="btn btn-secondary" id="cvDocs" type="button">📎 Documentos</button>
+        <button class="btn btn-primary" id="cvEdit" type="button">✏️ Editar</button>
+        <button class="btn btn-secondary" id="cvClose" type="button">Fechar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#cvClose").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector("#cvEdit").onclick = () => { overlay.remove(); openCustomerModal(customer); };
+  overlay.querySelector("#cvAccess").onclick = () => openVault(customer.id, customer.fantasia || customer.name);
+  overlay.querySelector("#cvDocs").onclick = () => openCustomerDocs(customer.id, customer.fantasia || customer.name);
 }
 
 // Documentos do cliente: lista, upload (analista → pendente), aprovação e
