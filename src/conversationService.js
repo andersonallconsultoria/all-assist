@@ -403,10 +403,16 @@ export class ConversationService {
     if (event === "messages.update") {
       const updates = Array.isArray(payload?.data) ? payload.data : [payload?.data].filter(Boolean);
       for (const upd of updates) {
-        if (!upd?.key?.fromMe) continue;
-        const providerId = upd.key?.id;
-        const status = EVO_STATUS_MAP[upd.update?.status] || null;
-        if (providerId && status) this.updateMessageStatus(providerId, status);
+        // Evolution v2 envia o update em formato PLANO (keyId/fromMe/status na
+        // raiz), enquanto o upsert usa aninhado (key.id/key.fromMe). Aceita os
+        // dois para os checks ✓✓ (entregue) e azul (lido) funcionarem.
+        const fromMe = upd?.key?.fromMe ?? upd?.fromMe;
+        if (fromMe === false) continue;
+        const providerId = upd?.key?.id || upd?.keyId || upd?.messageId || upd?.id;
+        const rawStatus = upd?.update?.status ?? upd?.status;
+        const status = EVO_STATUS_MAP[rawStatus] || null;
+        const result = providerId && status ? this.updateMessageStatus(providerId, status) : null;
+        this.logger?.warn?.("evo_status_update", { providerId: providerId ? String(providerId).slice(0, 22) : null, rawStatus, mapped: status, matched: Boolean(result) });
       }
       this.store.save();
       return { type: "status_update" };
