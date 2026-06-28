@@ -1066,6 +1066,23 @@
             <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Observações</span>
             <textarea id="customerNotes" rows="2" placeholder="Anotações sobre o cliente..." style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:14px;resize:vertical"></textarea>
           </label>
+          <div style="grid-column:1/-1">
+            <span style="display:block;font-size:12px;color:var(--muted);margin-bottom:6px">Trabalhos desenvolvidos com o cliente</span>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px">
+              <label style="display:flex;align-items:center;gap:6px"><input id="svConsultoria" type="checkbox"> Consultoria</label>
+              <label style="display:flex;align-items:center;gap:6px"><input id="svContabilidade" type="checkbox"> Contabilidade</label>
+              <label style="display:flex;align-items:center;gap:6px"><input id="svValidacaoSped" type="checkbox"> Validação dos SPEDs</label>
+              <label style="display:flex;align-items:center;gap:6px"><input id="svFechamentoFinanceiro" type="checkbox"> Acomp. e Fechamento financeiro</label>
+              <label style="display:flex;align-items:center;gap:6px"><input id="svLancamentoNotasEntrada" type="checkbox"> Acomp. e Lançamento de NF de entrada</label>
+            </div>
+          </div>
+          <div style="grid-column:1/-1">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="font-size:12px;color:var(--muted)">Treinamentos realizados</span>
+              <button id="addTreinamentoBtn" type="button" style="font-size:12px;background:none;border:none;color:var(--accent);cursor:pointer">+ treinamento</button>
+            </div>
+            <div id="treinamentosList" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
         </div>
         <p id="customerModalError" style="color:#e74c3c;font-size:12px;margin:12px 0 0;display:none"></p>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">

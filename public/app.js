@@ -2955,9 +2955,30 @@ function renderCustomers() {
     $("customerBlocoK").checked = Boolean(customer?.blocoK);
     $("customerHourly").checked = Boolean(customer?.hourlyBilling);
     $("customerNotes").value = customer?.notes || "";
+    const sv = customer?.servicos || {};
+    $("svConsultoria").checked = Boolean(sv.consultoria);
+    $("svContabilidade").checked = Boolean(sv.contabilidade);
+    $("svValidacaoSped").checked = Boolean(sv.validacaoSped);
+    $("svFechamentoFinanceiro").checked = Boolean(sv.fechamentoFinanceiro);
+    $("svLancamentoNotasEntrada").checked = Boolean(sv.lancamentoNotasEntrada);
+    treinamentosEdit = Array.isArray(customer?.treinamentos) ? customer.treinamentos.map((t) => ({ ...t })) : [];
+    renderTreinamentos();
     $("customerModalError").style.display = "none";
     overlay.style.display = "flex";
   };
+  let treinamentosEdit = [];
+  function renderTreinamentos() {
+    $("treinamentosList").innerHTML = treinamentosEdit.length ? treinamentosEdit.map((t, i) => `
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="date" data-tr="data" data-i="${i}" value="${escapeHtml(t.data || "")}" style="padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:12px">
+        <input type="text" data-tr="treinamento" data-i="${i}" value="${escapeHtml(t.treinamento || "")}" placeholder="Treinamento" style="flex:2;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:13px">
+        <input type="text" data-tr="quem" data-i="${i}" value="${escapeHtml(t.quem || "")}" placeholder="Quem recebeu" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:inherit;font-size:13px">
+        <button type="button" data-tr-del="${i}" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:16px">×</button>
+      </div>`).join("") : `<span style="font-size:12px;color:var(--muted)">Nenhum treinamento registrado.</span>`;
+    $("treinamentosList").querySelectorAll("[data-tr]").forEach((inp) => inp.addEventListener("input", () => { treinamentosEdit[Number(inp.dataset.i)][inp.dataset.tr] = inp.value; }));
+    $("treinamentosList").querySelectorAll("[data-tr-del]").forEach((b) => b.addEventListener("click", () => { treinamentosEdit.splice(Number(b.dataset.trDel), 1); renderTreinamentos(); }));
+  }
+  $("addTreinamentoBtn")?.addEventListener("click", () => { treinamentosEdit.push({ data: "", treinamento: "", quem: "" }); renderTreinamentos(); });
   const close = () => { overlay.style.display = "none"; activeId = null; };
   $("customerCancel").addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
@@ -2977,7 +2998,15 @@ function renderCustomers() {
       matrizFilial: $("customerMatrizFilial").value,
       blocoK: $("customerBlocoK").checked,
       hourlyBilling: $("customerHourly").checked,
-      notes: $("customerNotes").value.trim()
+      notes: $("customerNotes").value.trim(),
+      servicos: {
+        consultoria: $("svConsultoria").checked,
+        contabilidade: $("svContabilidade").checked,
+        validacaoSped: $("svValidacaoSped").checked,
+        fechamentoFinanceiro: $("svFechamentoFinanceiro").checked,
+        lancamentoNotasEntrada: $("svLancamentoNotasEntrada").checked
+      },
+      treinamentos: treinamentosEdit.filter((t) => (t.treinamento || "").trim())
     };
     try {
       if (activeId) await api(`/api/customers/${activeId}`, { method: "PATCH", body: JSON.stringify(payload) });
@@ -3467,6 +3496,7 @@ function inboxQueueItemHtml(t) {
           <span class="iqi-time">${ticketTimeOpen(t.openedAt)}</span>
         </div>
         <div class="iqi-sub">${escapeHtml(t.subject || "")}</div>
+        ${t.customerName ? `<div class="iqi-meta-line">🏢 ${escapeHtml(t.customerName)}</div>` : ""}
         <div class="iqi-meta-line">${t.analystName ? `👤 ${escapeHtml(t.analystName)}` : "⏳ Sem analista"}${t.queue ? ` · 📋 ${escapeHtml(t.queue)}` : ""}</div>
         <div class="iqi-tags">
           <span class="badge ${prio}">${escapeHtml(TICKET_PRIORITY_LABELS[t.priority] || t.priority)}</span>
@@ -3648,6 +3678,16 @@ function renderInboxContext(ticket) {
             ${(state.customers || []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join("")}
           </select>`)}
     </div>
+    ${ticket.customerServicos && Object.values(ticket.customerServicos).some(Boolean) ? `<div class="ctx-section">
+      <h4>📋 Trabalhos com o cliente</h4>
+      <div class="ctx-badges">
+        ${ticket.customerServicos.consultoria ? `<span class="badge badge-info">Consultoria</span>` : ""}
+        ${ticket.customerServicos.contabilidade ? `<span class="badge badge-info">Contabilidade</span>` : ""}
+        ${ticket.customerServicos.validacaoSped ? `<span class="badge badge-info">Validação SPEDs</span>` : ""}
+        ${ticket.customerServicos.fechamentoFinanceiro ? `<span class="badge badge-info">Fechamento financeiro</span>` : ""}
+        ${ticket.customerServicos.lancamentoNotasEntrada ? `<span class="badge badge-info">Lançamento NF entrada</span>` : ""}
+      </div>
+    </div>` : ""}
     <div class="ctx-section ctx-tags">
       <h4>Tags</h4>
       <div class="ctx-tag-list">

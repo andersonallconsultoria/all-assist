@@ -1538,6 +1538,7 @@ export function startPlatformServer({ config, logger, store, conversationService
           customerId: customer?.id || null,
           customerName: customer ? (customer.fantasia || customer.name) : null,
           customerHourlyBilling: customer?.hourlyBilling || false,
+          customerServicos: customer?.servicos || null,
           customerCredentialsCount: customer ? store.findAll("credentials", (c) => c.customerId === customer.id).length : 0
         };
       };
@@ -1887,6 +1888,22 @@ function customerFieldsFromBody(body) {
     matrizFilial: body.matrizFilial === "filial" ? "filial" : "matriz",
     blocoK: Boolean(body.blocoK),
     hourlyBilling: Boolean(body.hourlyBilling),
+    // Trabalhos/serviços desenvolvidos com o cliente (visíveis no atendimento).
+    servicos: {
+      consultoria: Boolean(body.servicos?.consultoria),
+      contabilidade: Boolean(body.servicos?.contabilidade),
+      validacaoSped: Boolean(body.servicos?.validacaoSped),
+      fechamentoFinanceiro: Boolean(body.servicos?.fechamentoFinanceiro),
+      lancamentoNotasEntrada: Boolean(body.servicos?.lancamentoNotasEntrada)
+    },
+    // Treinamentos documentados: [{ data, treinamento, quem }]
+    treinamentos: Array.isArray(body.treinamentos)
+      ? body.treinamentos.map((t) => ({
+          data: String(t.data || "").trim(),
+          treinamento: String(t.treinamento || "").trim(),
+          quem: String(t.quem || "").trim()
+        })).filter((t) => t.treinamento).slice(0, 200)
+      : [],
     notes: String(body.notes || "").trim()
   };
 }
