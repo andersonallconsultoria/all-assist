@@ -2922,6 +2922,7 @@ function renderCustomers() {
             <td>${c.hourlyBilling ? `<span class="badge badge-success">Por horas</span>` : `<span class="badge badge-neutral">—</span>`}</td>
             <td style="display:flex;gap:6px">
               <button class="btn btn-sm customer-vault-btn" data-customer-id="${escapeHtml(c.id)}" data-customer-name="${escapeHtml(c.fantasia || c.name)}">🔑 Acessos</button>
+              <button class="btn btn-sm customer-docs-btn" data-customer-id="${escapeHtml(c.id)}" data-customer-name="${escapeHtml(c.fantasia || c.name)}">📎 Docs</button>
               <button class="btn btn-sm customer-edit-btn" data-customer-id="${escapeHtml(c.id)}">Editar</button>
             </td>
           </tr>`).join("")}
@@ -2933,6 +2934,9 @@ function renderCustomers() {
   );
   target.querySelectorAll(".customer-vault-btn").forEach((b) =>
     b.addEventListener("click", () => openVault(b.dataset.customerId, b.dataset.customerName))
+  );
+  target.querySelectorAll(".customer-docs-btn").forEach((b) =>
+    b.addEventListener("click", () => openCustomerDocs(b.dataset.customerId, b.dataset.customerName))
   );
 }
 
@@ -3644,6 +3648,98 @@ async function _saveContactTags(contactId, tags) {
   } catch (error) { uiAlert(`Erro ao salvar tag: ${error.message}`); }
 }
 
+// Documentos do cliente: lista, upload (analista → pendente), aprovação e
+// visibilidade (admin), download e remoção.
+async function openCustomerDocs(customerId, customerName) {
+  if (!customerId) return;
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(640px,calc(100vw - 40px))">
+      <h3 class="ui-dialog-title">📎 Documentos — ${escapeHtml(customerName || "Cliente")}</h3>
+      <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+        <input type="file" id="docFile" style="flex:1;font-size:13px">
+        <button class="btn btn-primary" id="docUpload" type="button">Anexar</button>
+      </div>
+      <div id="docList" style="max-height:340px;overflow:auto;margin-bottom:8px"></div>
+      <div class="ui-dialog-actions"><button class="btn btn-secondary" id="docClose" type="button">Fechar</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  let isAdmin = false;
+  const listEl = overlay.querySelector("#docList");
+  const visLabel = (d) => d.visibility === "custom" ? "alguns analistas" : d.visibility === "admins" ? "só admin" : "todos";
+  async function load() {
+    try {
+      const r = await api(`/api/customers/${customerId}/docs`);
+      isAdmin = r.isAdmin;
+      const docs = r.data || [];
+      listEl.innerHTML = docs.length ? docs.map((d) => `
+        <div class="doc-item">
+          <div class="doc-info">
+            <a href="/api/docs/${d.id}/file" target="_blank" rel="noopener">📄 ${escapeHtml(d.name)}</a>
+            <small>${escapeHtml(d.uploadedByName || "")} · ${d.status === "pending" ? '<span class="badge badge-warning">aguardando aprovação</span>' : `<span class="badge badge-success">aprovado · ${visLabel(d)}</span>`}</small>
+          </div>
+          <div class="doc-actions">
+            ${isAdmin ? `<button class="btn btn-sm" data-approve="${d.id}" type="button">${d.status === "pending" ? "Aprovar" : "Visibilidade"}</button>` : ""}
+            <button class="btn btn-sm" data-del="${d.id}" type="button" title="Remover">🗑</button>
+          </div>
+        </div>`).join("") : `<p class="cell-muted" style="font-size:13px;padding:8px">Nenhum documento anexado.</p>`;
+      listEl.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", async () => {
+        if (!await uiConfirm("Remover este documento?", { okText: "Remover", danger: true })) return;
+        try { await api(`/api/docs/${b.dataset.del}`, { method: "DELETE" }); load(); } catch (e) { uiAlert(e.message); }
+      }));
+      listEl.querySelectorAll("[data-approve]").forEach((b) => b.addEventListener("click", () => approveDoc(b.dataset.approve)));
+    } catch (e) { listEl.innerHTML = `<p class="ctx-phone-warn">${escapeHtml(e.message)}</p>`; }
+  }
+  async function approveDoc(docId) {
+    await loadTicketAnalysts();
+    const analysts = state.ticketAnalysts || [];
+    const ov = document.createElement("div");
+    ov.className = "ui-dialog-overlay";
+    ov.innerHTML = `
+      <div class="ui-dialog" style="width:min(440px,calc(100vw - 40px))">
+        <h3 class="ui-dialog-title">Aprovar / visibilidade</h3>
+        <label style="font-size:12px;color:var(--muted)">Quem pode ver este documento</label>
+        <select class="ui-dialog-input" id="docVis">
+          <option value="all">Todos os analistas</option>
+          <option value="admins">Somente administradores</option>
+          <option value="custom">Apenas analistas selecionados</option>
+        </select>
+        <div id="docUsers" style="display:none;max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px;margin-bottom:12px">
+          ${analysts.map((a) => `<label class="bc-row"><input type="checkbox" value="${a.id}"> ${escapeHtml(a.name)}</label>`).join("")}
+        </div>
+        <div class="ui-dialog-actions"><button class="btn btn-secondary" id="apCancel" type="button">Cancelar</button><button class="btn btn-primary" id="apSave" type="button">Confirmar</button></div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("#docVis").addEventListener("change", (e) => { ov.querySelector("#docUsers").style.display = e.target.value === "custom" ? "block" : "none"; });
+    ov.querySelector("#apCancel").onclick = () => ov.remove();
+    ov.addEventListener("mousedown", (e) => { if (e.target === ov) ov.remove(); });
+    ov.querySelector("#apSave").onclick = async () => {
+      const visibility = ov.querySelector("#docVis").value;
+      const allowedUserIds = [...ov.querySelectorAll("#docUsers input:checked")].map((i) => i.value);
+      try { await api(`/api/docs/${docId}/approve`, { method: "POST", body: JSON.stringify({ visibility, allowedUserIds }) }); ov.remove(); load(); } catch (e) { uiAlert(e.message); }
+    };
+  }
+  overlay.querySelector("#docUpload").addEventListener("click", () => {
+    const file = overlay.querySelector("#docFile").files[0];
+    if (!file) { uiAlert("Selecione um arquivo."); return; }
+    if (file.size > 30 * 1024 * 1024) { uiAlert("Arquivo muito grande (máx 30MB)."); return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const r = await api(`/api/customers/${customerId}/docs`, { method: "POST", body: JSON.stringify({ name: file.name, mime: file.type, dataBase64: reader.result }) });
+        overlay.querySelector("#docFile").value = "";
+        setStatus(r.doc.status === "pending" ? "Documento anexado — aguardando aprovação de um admin" : "Documento anexado ✓");
+        load();
+      } catch (e) { uiAlert("Erro: " + e.message); }
+    };
+    reader.readAsDataURL(file);
+  });
+  overlay.querySelector("#docClose").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+  load();
+}
+
 function renderInboxContext(ticket) {
   const ctx = document.getElementById("inboxContext");
   const ai = ticket.aiClassification;
@@ -3672,6 +3768,7 @@ function renderInboxContext(ticket) {
            ${ticket.customerId && hasPermission("vault:view")
              ? `<button class="btn btn-sm" id="inboxVaultBtn" type="button">🔑 Acessos${ticket.customerCredentialsCount ? ` (${ticket.customerCredentialsCount})` : ""}</button>`
              : ""}
+           ${ticket.customerId ? `<button class="btn btn-sm" id="inboxDocsBtn" type="button">📎 Documentos</button>` : ""}
            ${isClosed ? "" : `<button class="btn-link-inline" type="button" onclick="inboxLinkCustomer('')" title="Desvincular">trocar/desvincular</button>`}`
         : (isClosed ? "" : `<select id="inboxCustomerSelect" class="search-input">
             <option value="">🏢 Vincular a um cliente…</option>
@@ -3760,6 +3857,7 @@ function renderInboxContext(ticket) {
     document.getElementById("inboxClaimBtn")?.addEventListener("click", () => inboxAssign(state.currentUser?.id));
   }
   document.getElementById("inboxVaultBtn")?.addEventListener("click", () => openVault(ticket.customerId, ticket.customerName));
+  document.getElementById("inboxDocsBtn")?.addEventListener("click", () => openCustomerDocs(ticket.customerId, ticket.customerName));
   document.getElementById("inboxAssistBtn")?.addEventListener("click", inboxAssist);
   document.getElementById("inboxSpecialistBtn")?.addEventListener("click", inboxAskSpecialist);
   startInboxTimerTick(ticket);

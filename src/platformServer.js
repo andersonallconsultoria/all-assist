@@ -708,6 +708,78 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 200, { ok: true, total: contacts.length });
       }
 
+      // ===== Documentos anexados ao cliente (aprovação + visibilidade) =====
+      const docColMatch = parsedUrl.pathname.match(/^\/api\/customers\/([^/]+)\/docs$/);
+      if (request.method === "POST" && docColMatch) {
+        if (!requirePermission(response, authService, user, "contacts:view")) return;
+        const customer = store.findById("customers", docColMatch[1]);
+        if (!customer || customer.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "customer_not_found" });
+        const body = await readJson(request);
+        const data = String(body.dataBase64 || "").replace(/^data:[^;]+;base64,/, "");
+        if (!data || !body.name) return sendJson(response, 400, { error: "Arquivo e nome são obrigatórios." });
+        const buffer = Buffer.from(data, "base64");
+        if (buffer.length > 30 * 1024 * 1024) return sendJson(response, 413, { error: "file_too_large", max: "30MB" });
+        const isAdmin = authService.hasPermission(user, "users:write");
+        const fileId = `doc_${randomId()}`;
+        fileStore.save(fileId, buffer);
+        const doc = store.insert("customerDocs", {
+          tenantId: tenantContext.tenantId, customerId: customer.id,
+          name: String(body.name).trim(), mime: String(body.mime || "application/octet-stream"), size: buffer.length, fileId,
+          uploadedBy: user.id, uploadedByName: user.name || user.email,
+          status: isAdmin ? "approved" : "pending",
+          visibility: "all", allowedUserIds: [],
+          approvedBy: isAdmin ? user.id : null, approvedAt: isAdmin ? new Date().toISOString() : null
+        });
+        store.save();
+        return sendJson(response, 200, { ok: true, doc });
+      }
+      if (request.method === "GET" && docColMatch) {
+        if (!requirePermission(response, authService, user, "contacts:view")) return;
+        const isAdmin = authService.hasPermission(user, "users:write");
+        let docs = store.findAll("customerDocs", (d) => d.customerId === docColMatch[1] && d.tenantId === tenantContext.tenantId);
+        if (!isAdmin) docs = docs.filter((d) => d.status === "approved" && (d.visibility === "all" || (d.visibility === "custom" && (d.allowedUserIds || []).includes(user.id))));
+        return sendJson(response, 200, { data: docs, isAdmin });
+      }
+      const docApproveMatch = parsedUrl.pathname.match(/^\/api\/docs\/([^/]+)\/approve$/);
+      if (request.method === "POST" && docApproveMatch) {
+        if (!requirePermission(response, authService, user, "users:write")) return;
+        const doc = store.findById("customerDocs", docApproveMatch[1]);
+        if (!doc || doc.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "not_found" });
+        const body = await readJson(request);
+        const updated = store.update("customerDocs", doc.id, {
+          status: "approved",
+          visibility: ["all", "admins", "custom"].includes(body.visibility) ? body.visibility : "all",
+          allowedUserIds: Array.isArray(body.allowedUserIds) ? body.allowedUserIds : [],
+          approvedBy: user.id, approvedAt: new Date().toISOString()
+        });
+        store.save();
+        return sendJson(response, 200, { ok: true, doc: updated });
+      }
+      const docFileMatch = parsedUrl.pathname.match(/^\/api\/docs\/([^/]+)\/file$/);
+      if (request.method === "GET" && docFileMatch) {
+        if (!requirePermission(response, authService, user, "contacts:view")) return;
+        const doc = store.findById("customerDocs", docFileMatch[1]);
+        if (!doc || doc.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "not_found" });
+        const isAdmin = authService.hasPermission(user, "users:write");
+        const canView = isAdmin || (doc.status === "approved" && (doc.visibility === "all" || (doc.visibility === "custom" && (doc.allowedUserIds || []).includes(user.id))));
+        if (!canView) return sendJson(response, 403, { error: "forbidden" });
+        const buffer = fileStore.read(doc.fileId);
+        if (!buffer) return sendJson(response, 404, { error: "file_not_found" });
+        response.writeHead(200, { "Content-Type": doc.mime, "Content-Disposition": `inline; filename="${encodeURIComponent(doc.name)}"`, "Content-Length": buffer.length });
+        return response.end(buffer);
+      }
+      const docDelMatch = parsedUrl.pathname.match(/^\/api\/docs\/([^/]+)$/);
+      if (request.method === "DELETE" && docDelMatch) {
+        const doc = store.findById("customerDocs", docDelMatch[1]);
+        if (!doc || doc.tenantId !== tenantContext.tenantId) return sendJson(response, 404, { error: "not_found" });
+        const isAdmin = authService.hasPermission(user, "users:write");
+        if (!isAdmin && doc.uploadedBy !== user.id) return sendJson(response, 403, { error: "forbidden" });
+        fileStore.remove(doc.fileId);
+        store.remove("customerDocs", doc.id);
+        store.save();
+        return sendJson(response, 200, { ok: true });
+      }
+
       if (request.method === "POST" && parsedUrl.pathname === "/api/contacts/import-whatsapp") {
         if (!requirePermission(response, authService, user, "contacts:write")) return;
         const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);

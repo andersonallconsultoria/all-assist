@@ -114,7 +114,8 @@ function createEmptyData() {
     roles: [],
     sessions: [],
     evolutionInstances: [],
-    evolutionTenantConfig: []
+    evolutionTenantConfig: [],
+    customerDocs: []
   };
 }
 
@@ -153,6 +154,7 @@ function prefixForCollection(collection) {
     customers: "cli",
     credentials: "cred",
     kbArticles: "kb",
+    customerDocs: "doc",
     tenants: "tn",
     conversations: "cv",
     messages: "msg",
