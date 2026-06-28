@@ -4235,3 +4235,12 @@ nav a.active::after {
 .cv-section { border-top:1px solid var(--border); padding-top:12px; margin-bottom:12px; }
 .cv-section h4 { margin:0 0 8px; font-size:13px; }
 .cv-trein { font-size:13px; padding:4px 0; }
+
+/* Histórico de atendimentos (cliente/contato) */
+.hist-card { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+.hist-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:4px; }
+.hist-head strong { font-size:14px; }
+.hist-meta { font-size:12px; opacity:0.65; margin-bottom:6px; }
+.hist-session { font-size:13px; padding:6px 0; border-top:1px dashed var(--border); }
+.hist-session small { display:block; opacity:0.6; font-size:11px; margin-bottom:2px; }
+.hist-session div { margin-top:2px; white-space:pre-wrap; }

@@ -780,6 +780,23 @@ export function startPlatformServer({ config, logger, store, conversationService
         return sendJson(response, 200, { ok: true });
       }
 
+      // ===== Histórico de atendimentos atrelado ao cliente / contato =====
+      const custHistMatch = parsedUrl.pathname.match(/^\/api\/customers\/([^/]+)\/history$/);
+      if (request.method === "GET" && custHistMatch) {
+        if (!requirePermission(response, authService, user, "tickets:view")) return;
+        const contactIds = store.findAll("contacts", (c) => c.customerId === custHistMatch[1] && c.tenantId === tenantContext.tenantId).map((c) => c.id);
+        const tickets = store.findAll("tickets", (t) => t.tenantId === tenantContext.tenantId && contactIds.includes(t.contactId));
+        const data = tickets.map((t) => ticketHistorySummary(t, store)).sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+        return sendJson(response, 200, { data });
+      }
+      const contactHistMatch = parsedUrl.pathname.match(/^\/api\/contacts\/([^/]+)\/history$/);
+      if (request.method === "GET" && contactHistMatch) {
+        if (!requirePermission(response, authService, user, "tickets:view")) return;
+        const tickets = store.findAll("tickets", (t) => t.tenantId === tenantContext.tenantId && t.contactId === contactHistMatch[1]);
+        const data = tickets.map((t) => ticketHistorySummary(t, store)).sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+        return sendJson(response, 200, { data });
+      }
+
       if (request.method === "POST" && parsedUrl.pathname === "/api/contacts/import-whatsapp") {
         if (!requirePermission(response, authService, user, "contacts:write")) return;
         const inst = evolutionInstanceService.getByTenant(tenantContext.tenantId);
@@ -1728,18 +1745,41 @@ export function startPlatformServer({ config, logger, store, conversationService
       if (request.method === "POST" && ticketCloseMatch) {
         if (!requirePermission(response, authService, user, "tickets:close")) return;
         const body = await readJson(request);
+        const ticketId = ticketCloseMatch[1];
+        const outcome = ["closed", "waiting_customer", "waiting_analyst"].includes(body.outcome) ? body.outcome : "closed";
+        const subject = String(body.closureSubject || "").trim();
+        const note = String(body.closureNote || "").trim();
         try {
-          const updated = ticketService.closeTicket(ticketCloseMatch[1], tenantContext.tenantId, body.closureNote || "", user.id);
-          store.save();
-          // Despedida automática ao cliente (configurável no Bot).
-          const tnt = store.findById("tenants", tenantContext.tenantId);
-          const farewell = tnt?.botConfig?.farewellMessage;
-          if (tnt?.botConfig?.farewellEnabled && farewell && updated.conversationId) {
-            conversationService.sendText(updated.conversationId, farewell, "bot", tenantContext.tenantId, null).catch(() => {});
+          const existing = ticketService.getTicket(ticketId, tenantContext.tenantId);
+          if (!existing) return sendJson(response, 404, { error: "ticket_not_found" });
+          // Registra a sessão de atendimento no histórico do ticket (fica
+          // atrelada ao cliente/contato para consulta posterior).
+          if (subject || note) {
+            const sessions = Array.isArray(existing.sessions) ? existing.sessions : [];
+            sessions.push({ subject, note, outcome, by: user.id, byName: user.name || user.email, at: new Date().toISOString() });
+            store.update("tickets", ticketId, { sessions });
           }
-          // Fluxo B: envia o atendimento resolvido ao AllHub para aprendizado.
-          if (tnt?.allhub?.enabled && tnt.allhub.baseUrl && tnt.allhub.apiKey) {
-            _sendTicketLearnToAllHub(tnt, updated, store, conversationService, logger).catch(() => {});
+          let updated;
+          if (outcome === "closed") {
+            updated = ticketService.closeTicket(ticketId, tenantContext.tenantId, note, user.id, subject);
+          } else {
+            // Pendente: não fecha o ticket; só para o cronômetro e muda o status.
+            try { ticketService.setTimer(ticketId, tenantContext.tenantId, "stop", user.id); } catch { /**/ }
+            updated = ticketService.setTicketStatus(ticketId, tenantContext.tenantId, outcome, user.id, subject || note);
+            if (subject) updated = store.update("tickets", ticketId, { subject, closureSubject: subject, closureNote: note });
+          }
+          store.save();
+          const tnt = store.findById("tenants", tenantContext.tenantId);
+          // Despedida automática e aprendizado AllHub só quando resolvido.
+          if (outcome === "closed") {
+            const farewell = tnt?.botConfig?.farewellMessage;
+            if (tnt?.botConfig?.farewellEnabled && farewell && updated.conversationId) {
+              conversationService.sendText(updated.conversationId, farewell, "bot", tenantContext.tenantId, null).catch(() => {});
+            }
+            // Fluxo B: envia o atendimento resolvido ao AllHub para aprendizado.
+            if (tnt?.allhub?.enabled && tnt.allhub.baseUrl && tnt.allhub.apiKey) {
+              _sendTicketLearnToAllHub(tnt, updated, store, conversationService, logger).catch(() => {});
+            }
           }
           return sendJson(response, 200, enrichTicket(updated));
         } catch (error) {
@@ -1948,6 +1988,22 @@ export function startPlatformServer({ config, logger, store, conversationService
 
 // Campos do cliente (empresa) — dados cadastrais/fiscais. "Cobrança por horas"
 // é só um indicador (sem valor monetário nesta fase).
+// Resumo de um ticket para o histórico de atendimentos do cliente/contato.
+function ticketHistorySummary(t, store) {
+  const analyst = t.assignedAnalystId ? store.findById("users", t.assignedAnalystId) : null;
+  const contact = t.contactId ? store.findById("contacts", t.contactId) : null;
+  const sessions = Array.isArray(t.sessions) ? t.sessions : [];
+  return {
+    id: t.id, subject: t.subject || "", status: t.status, priority: t.priority, category: t.category,
+    openedAt: t.openedAt, closedAt: t.closedAt || null,
+    closureSubject: t.closureSubject || "", closureNote: t.closureNote || "",
+    analystName: analyst?.name || analyst?.email || null,
+    contactName: contact?.name || contact?.number || "",
+    sessions,
+    lastAt: t.closedAt || (sessions.length ? sessions[sessions.length - 1].at : t.openedAt)
+  };
+}
+
 function customerFieldsFromBody(body) {
   return {
     name: String(body.name || "").trim(),

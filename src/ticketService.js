@@ -80,7 +80,7 @@ export class TicketService {
     return updated;
   }
 
-  closeTicket(ticketId, tenantId, closureNote = "", closedBy = "system") {
+  closeTicket(ticketId, tenantId, closureNote = "", closedBy = "system", closureSubject = "") {
     const ticket = this.store.findById("tickets", ticketId);
     if (!ticket || ticket.tenantId !== tenantId) {
       throw new Error("Ticket not found");
@@ -89,11 +89,15 @@ export class TicketService {
     // Para o cronômetro automaticamente ao encerrar o atendimento.
     const timeTracking = this._finalizeTimer(ticket.timeTracking, "stopped");
 
+    const closeSubj = String(closureSubject || "").trim();
     const updated = this.store.update("tickets", ticketId, {
       status: "closed",
       closedAt: new Date().toISOString(),
       closedBy,
       closureNote,
+      closureSubject: closeSubj,
+      // Se informou um título no encerramento, usa como assunto do ticket.
+      subject: closeSubj || ticket.subject,
       timeTracking
     });
 

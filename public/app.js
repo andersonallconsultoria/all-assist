@@ -2858,9 +2858,7 @@ async function replyTicket() {
 async function closeActiveTicket() {
   const ticket = state.activeTicket;
   if (!ticket) return;
-  const note = await uiPrompt("Nota de encerramento (opcional):", "", { title: "Encerrar atendimento", okText: "Encerrar" });
-  if (note === null) return;
-  await ticketAction(`/api/tickets/${ticket.id}/close`, { closureNote: note }, "Ticket fechado");
+  openCloseModal((data) => ticketAction(`/api/tickets/${ticket.id}/close`, data, "Atendimento encerrado"), { subject: ticket.subject || "" });
 }
 
 function wireTicketEvents() {
@@ -3649,6 +3647,48 @@ async function _saveContactTags(contactId, tags) {
   } catch (error) { uiAlert(`Erro ao salvar tag: ${error.message}`); }
 }
 
+// Histórico de atendimentos atrelado ao cliente ou ao contato: lista os
+// tickets com assunto, status, analista e o detalhamento de cada sessão.
+const HIST_STATUS_BADGE = { open: "badge-info", waiting_analyst: "badge-warning", waiting_customer: "badge-neutral", closed: "badge-success" };
+async function openTicketHistory({ customerId, contactId, title }) {
+  const url = customerId ? `/api/customers/${customerId}/history` : `/api/contacts/${contactId}/history`;
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(720px,calc(100vw - 40px))">
+      <h3 class="ui-dialog-title">📚 Histórico de atendimentos${title ? " — " + escapeHtml(title) : ""}</h3>
+      <input class="ui-dialog-input" id="histSearch" placeholder="🔎 Buscar por assunto ou detalhamento...">
+      <div id="histList" style="max-height:440px;overflow:auto"></div>
+      <div class="ui-dialog-actions"><button class="btn btn-secondary" id="histClose" type="button">Fechar</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const listEl = overlay.querySelector("#histList");
+  let all = [];
+  const render = (filter = "") => {
+    const f = filter.trim().toLowerCase();
+    const items = all.filter((t) => !f || `${t.subject} ${t.closureNote} ${(t.sessions || []).map((s) => s.subject + " " + s.note).join(" ")}`.toLowerCase().includes(f));
+    listEl.innerHTML = items.length ? items.map((t) => {
+      const sessions = (t.sessions || []).slice().reverse();
+      return `<div class="hist-card">
+        <div class="hist-head">
+          <strong>${escapeHtml(t.subject || "(sem assunto)")}</strong>
+          <span class="badge ${HIST_STATUS_BADGE[t.status] || "badge-neutral"}">${escapeHtml(TICKET_STATUS_LABELS[t.status] || t.status)}</span>
+        </div>
+        <div class="hist-meta">${formatDateTime(t.lastAt)}${t.analystName ? " · 👤 " + escapeHtml(t.analystName) : ""}${!customerId ? "" : t.contactName ? " · " + escapeHtml(t.contactName) : ""}</div>
+        ${sessions.length ? sessions.map((s) => `<div class="hist-session"><small>${formatDateTime(s.at)}${s.byName ? " · " + escapeHtml(s.byName) : ""}</small>${s.subject ? ` <strong>${escapeHtml(s.subject)}</strong>` : ""}${s.note ? `<div>${escapeHtml(s.note)}</div>` : ""}</div>`).join("") : (t.closureNote ? `<div class="hist-session">${escapeHtml(t.closureNote)}</div>` : "")}
+      </div>`;
+    }).join("") : `<p class="cell-muted" style="padding:12px;font-size:13px">Nenhum atendimento registrado.</p>`;
+  };
+  try {
+    const r = await api(url);
+    all = r.data || [];
+    render();
+  } catch (e) { listEl.innerHTML = `<p class="ctx-phone-warn">${escapeHtml(e.message)}</p>`; }
+  overlay.querySelector("#histSearch").addEventListener("input", (e) => render(e.target.value));
+  overlay.querySelector("#histClose").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
 // Visualização do cliente (somente leitura) ao clicar no nome — sem precisar
 // abrir o modo de edição.
 function cvField(label, value) {
@@ -3687,6 +3727,7 @@ function openCustomerView(customer) {
       ${svBadges.length ? `<div class="cv-section"><h4>📋 Trabalhos desenvolvidos</h4><div class="ctx-badges">${svBadges.map((s) => `<span class="badge badge-info">${escapeHtml(s)}</span>`).join("")}</div></div>` : ""}
       ${trein.length ? `<div class="cv-section"><h4>🎓 Treinamentos realizados</h4>${trein.map((t) => `<div class="cv-trein">${escapeHtml(t.data || "")} · <strong>${escapeHtml(t.treinamento || "")}</strong>${t.quem ? ` — ${escapeHtml(t.quem)}` : ""}</div>`).join("")}</div>` : ""}
       <div class="ui-dialog-actions">
+        <button class="btn btn-secondary" id="cvHistory" type="button">📚 Histórico</button>
         <button class="btn btn-secondary" id="cvAccess" type="button">🔑 Acessos</button>
         <button class="btn btn-secondary" id="cvDocs" type="button">📎 Documentos</button>
         <button class="btn btn-primary" id="cvEdit" type="button">✏️ Editar</button>
@@ -3697,6 +3738,7 @@ function openCustomerView(customer) {
   overlay.querySelector("#cvClose").onclick = () => overlay.remove();
   overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
   overlay.querySelector("#cvEdit").onclick = () => { overlay.remove(); openCustomerModal(customer); };
+  overlay.querySelector("#cvHistory").onclick = () => openTicketHistory({ customerId: customer.id, title: customer.fantasia || customer.name });
   overlay.querySelector("#cvAccess").onclick = () => openVault(customer.id, customer.fantasia || customer.name);
   overlay.querySelector("#cvDocs").onclick = () => openCustomerDocs(customer.id, customer.fantasia || customer.name);
 }
@@ -3822,6 +3864,7 @@ function renderInboxContext(ticket) {
              ? `<button class="btn btn-sm" id="inboxVaultBtn" type="button">🔑 Acessos${ticket.customerCredentialsCount ? ` (${ticket.customerCredentialsCount})` : ""}</button>`
              : ""}
            ${ticket.customerId ? `<button class="btn btn-sm" id="inboxDocsBtn" type="button">📎 Documentos</button>` : ""}
+           ${ticket.contactId ? `<button class="btn btn-sm" id="inboxHistBtn" type="button">📚 Histórico</button>` : ""}
            ${isClosed ? "" : `<button class="btn-link-inline" type="button" onclick="inboxLinkCustomer('')" title="Desvincular">trocar/desvincular</button>`}`
         : (isClosed ? "" : `<select id="inboxCustomerSelect" class="search-input">
             <option value="">🏢 Vincular a um cliente…</option>
@@ -3911,6 +3954,9 @@ function renderInboxContext(ticket) {
   }
   document.getElementById("inboxVaultBtn")?.addEventListener("click", () => openVault(ticket.customerId, ticket.customerName));
   document.getElementById("inboxDocsBtn")?.addEventListener("click", () => openCustomerDocs(ticket.customerId, ticket.customerName));
+  document.getElementById("inboxHistBtn")?.addEventListener("click", () => ticket.customerId
+    ? openTicketHistory({ customerId: ticket.customerId, title: ticket.customerName || ticket.contactName })
+    : openTicketHistory({ contactId: ticket.contactId, title: ticket.contactName }));
   document.getElementById("inboxAssistBtn")?.addEventListener("click", inboxAssist);
   document.getElementById("inboxSpecialistBtn")?.addEventListener("click", inboxAskSpecialist);
   startInboxTimerTick(ticket);
@@ -4174,11 +4220,45 @@ async function inboxSetStatus(status) {
   await inboxAction(`/api/tickets/${state.inbox.activeId}/status`, { status }, "Status atualizado");
 }
 
+// Modal de encerramento: título/assunto + detalhamento do que foi resolvido.
+function openCloseModal(onConfirm, defaults = {}) {
+  const overlay = document.createElement("div");
+  overlay.className = "ui-dialog-overlay";
+  overlay.innerHTML = `
+    <div class="ui-dialog" style="width:min(540px,calc(100vw - 40px))">
+      <h3 class="ui-dialog-title">Encerrar atendimento</h3>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Título / assunto</label>
+      <input class="ui-dialog-input" id="closeSubject" placeholder="Ex.: Rejeição 539 na NF-e — resolvido" value="${escapeHtml(defaults.subject || "")}">
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Detalhamento do que foi visto e resolvido</label>
+      <textarea class="ui-dialog-input" id="closeNote" rows="5" placeholder="Descreva o problema relatado e a solução aplicada...">${escapeHtml(defaults.note || "")}</textarea>
+      <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">Desfecho</label>
+      <select class="ui-dialog-input" id="closeOutcome">
+        <option value="closed">✅ Resolvido (encerra o atendimento)</option>
+        <option value="waiting_customer">⏳ Aguardando o cliente</option>
+        <option value="waiting_analyst">👤 Aguardando o analista</option>
+      </select>
+      <div class="ui-dialog-actions">
+        <button class="btn btn-secondary" id="closeCancel" type="button">Cancelar</button>
+        <button class="btn btn-primary" id="closeConfirm" type="button">Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#closeCancel").onclick = () => overlay.remove();
+  overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector("#closeConfirm").onclick = () => {
+    const closureSubject = overlay.querySelector("#closeSubject").value.trim();
+    const closureNote = overlay.querySelector("#closeNote").value.trim();
+    const outcome = overlay.querySelector("#closeOutcome").value;
+    overlay.remove();
+    onConfirm({ closureSubject, closureNote, outcome });
+  };
+  setTimeout(() => overlay.querySelector("#closeSubject").focus(), 30);
+}
+
 async function inboxClose() {
   if (!state.inbox.activeId) return;
-  const note = await uiPrompt("Nota de encerramento (opcional):", "", { title: "Encerrar atendimento", okText: "Encerrar" });
-  if (note === null) return;
-  await inboxAction(`/api/tickets/${state.inbox.activeId}/close`, { closureNote: note }, "Atendimento encerrado");
+  const ticket = state.inbox.activeTicket;
+  openCloseModal((data) => inboxAction(`/api/tickets/${state.inbox.activeId}/close`, data, "Atendimento encerrado"), { subject: ticket?.subject || "" });
 }
 
 // ===== Refresh automático da Central =====
