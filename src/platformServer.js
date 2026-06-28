@@ -2259,6 +2259,17 @@ async function _tryHandleMenuChoice(conversation, message, store, ticketService,
   const ticket = store.findOne("tickets", (t) => t.conversationId === conversation.id && t.status !== "closed");
   if (!ticket || !ticket.awaitingMenuChoice || !Array.isArray(ticket.menuOptions) || !ticket.menuOptions.length) return false;
 
+  // Se um analista já assumiu o atendimento OU já respondeu manualmente ao
+  // cliente, o bot para de cobrar o menu e deixa a conversa fluir para o humano
+  // (evita o loop de "Não entendi sua escolha" durante o atendimento humano).
+  const humanReplied = store.findOne("messages", (m) =>
+    m.conversationId === conversation.id && m.direction === "outbound" && m.actor && m.actor !== "bot");
+  if (ticket.assignedAnalystId || humanReplied) {
+    store.update("tickets", ticket.id, { awaitingMenuChoice: false, menuOptions: [], menuRetries: 0 });
+    store.save();
+    return false;
+  }
+
   const text = String(message.body || "").trim();
   const num = parseInt((text.match(/\d+/) || [])[0] || "", 10);
   let chosen = null;
@@ -2268,10 +2279,22 @@ async function _tryHandleMenuChoice(conversation, message, store, ticketService,
     chosen = ticket.menuOptions.find((o) => low && (low.includes(o.toLowerCase()) || o.toLowerCase().includes(low))) || null;
   }
   if (!chosen) {
-    await conversationService.sendText(conversation.id, `Não entendi sua escolha. 😅\nPor favor, responda com o número da opção (1 a ${ticket.menuOptions.length}).`, "bot", conversation.tenantId, null).catch(() => {});
+    // Não insiste para sempre: após a 1ª tentativa falha, encaminha para um
+    // analista em vez de repetir "Não entendi" indefinidamente.
+    const retries = (ticket.menuRetries || 0) + 1;
+    if (retries >= 2) {
+      store.update("tickets", ticket.id, { awaitingMenuChoice: false, menuOptions: [], menuRetries: 0, status: "waiting_analyst" });
+      ticketService.addLog(ticket.id, conversation.tenantId, { type: "queue", note: "Cliente não escolheu opção; encaminhado para análise", actor: "bot" });
+      store.save();
+      await conversationService.sendText(conversation.id, "Sem problemas! Já vou te encaminhar para um de nossos analistas. 🙂", "bot", conversation.tenantId, null).catch(() => {});
+      return true;
+    }
+    store.update("tickets", ticket.id, { menuRetries: retries });
+    store.save();
+    await conversationService.sendText(conversation.id, `Não entendi sua escolha. 😅\nResponda com o número da opção (1 a ${ticket.menuOptions.length}) — ou aguarde que um analista já vai te atender.`, "bot", conversation.tenantId, null).catch(() => {});
     return true;
   }
-  store.update("tickets", ticket.id, { queue: chosen, awaitingMenuChoice: false, menuOptions: [], status: "waiting_analyst" });
+  store.update("tickets", ticket.id, { queue: chosen, awaitingMenuChoice: false, menuOptions: [], menuRetries: 0, status: "waiting_analyst" });
   ticketService.addLog(ticket.id, conversation.tenantId, { type: "queue", note: `Cliente escolheu a fila: ${chosen}`, actor: "bot" });
   store.save();
   await conversationService.sendText(conversation.id, `Perfeito! Estou te encaminhando para *${chosen}*. 📋\nUm de nossos analistas vai te atender em instantes. 🙂`, "bot", conversation.tenantId, null).catch(() => {});
