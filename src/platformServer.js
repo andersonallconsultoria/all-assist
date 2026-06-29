@@ -166,14 +166,10 @@ export function startPlatformServer({ config, logger, store, conversationService
           menuOptions: Array.isArray(body.menuOptions)
             ? body.menuOptions.map((o) => String(o || "").trim()).filter(Boolean).slice(0, 10)
             : [],
-          // Horário de atendimento: fora dele, responde com aviso e marca o
-          // atendimento como pendente para o próximo dia útil.
+          // Horário de atendimento por dia da semana (sáb pode ser só de manhã):
+          // fora dele, responde com aviso e marca o atendimento como pendente.
           businessHoursEnabled: Boolean(body.businessHoursEnabled),
-          businessDays: Array.isArray(body.businessDays)
-            ? body.businessDays.map((d) => Number(d)).filter((d) => d >= 0 && d <= 6)
-            : [1, 2, 3, 4, 5],
-          businessStart: /^\d{2}:\d{2}$/.test(body.businessStart) ? body.businessStart : "08:00",
-          businessEnd: /^\d{2}:\d{2}$/.test(body.businessEnd) ? body.businessEnd : "18:00",
+          businessSchedule: normalizeSchedule(body.businessSchedule),
           outOfHoursMessage: String(body.outOfHoursMessage || "").trim()
         };
         store.update("tenants", tenant.id, { botConfig });
@@ -2286,12 +2282,37 @@ function _hhmmToMin(s) {
   const [h, m] = String(s || "").split(":").map(Number);
   return (h || 0) * 60 + (m || 0);
 }
+// Normaliza a agenda semanal: { "0".."6": { enabled, start, end } }. Default
+// seg-sex 08-18, sábado 08-12 (só manhã), domingo fechado.
+function normalizeSchedule(raw) {
+  const defaults = {
+    0: { enabled: false, start: "08:00", end: "12:00" },
+    1: { enabled: true, start: "08:00", end: "18:00" },
+    2: { enabled: true, start: "08:00", end: "18:00" },
+    3: { enabled: true, start: "08:00", end: "18:00" },
+    4: { enabled: true, start: "08:00", end: "18:00" },
+    5: { enabled: true, start: "08:00", end: "18:00" },
+    6: { enabled: true, start: "08:00", end: "12:00" }
+  };
+  if (!raw || typeof raw !== "object") return defaults;
+  const out = {};
+  for (let d = 0; d <= 6; d++) {
+    const v = raw[d] || raw[String(d)] || {};
+    out[d] = {
+      enabled: Boolean(v.enabled),
+      start: /^\d{2}:\d{2}$/.test(v.start) ? v.start : "08:00",
+      end: /^\d{2}:\d{2}$/.test(v.end) ? v.end : "18:00"
+    };
+  }
+  return out;
+}
 function isOutOfBusinessHours(botConfig) {
   if (!botConfig?.businessHoursEnabled) return false;
-  const days = (Array.isArray(botConfig.businessDays) && botConfig.businessDays.length) ? botConfig.businessDays : [1, 2, 3, 4, 5];
+  const sched = normalizeSchedule(botConfig.businessSchedule);
   const { day, minutes } = _spNow();
-  if (!days.includes(day)) return true;
-  return minutes < _hhmmToMin(botConfig.businessStart || "08:00") || minutes >= _hhmmToMin(botConfig.businessEnd || "18:00");
+  const today = sched[day];
+  if (!today || !today.enabled) return true;
+  return minutes < _hhmmToMin(today.start) || minutes >= _hhmmToMin(today.end);
 }
 
 // Mensagem recebida fora do horário de atendimento: garante um ticket, avisa o

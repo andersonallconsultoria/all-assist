@@ -854,20 +854,8 @@
                 <span style="font-size:14px;font-weight:600">Responder fora do horário de atendimento</span>
               </label>
               <p style="font-size:12px;color:var(--muted);margin:0">Fora do horário, o cliente recebe um aviso e o atendimento fica <strong>pendente</strong> para o próximo dia útil.</p>
-              <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
-                Dias de atendimento
-                <div id="botBusinessDays" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-              </label>
-              <div style="display:flex;gap:14px;flex-wrap:wrap">
-                <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
-                  Início
-                  <input type="time" id="botBusinessStart" class="search-input" style="width:130px" value="08:00">
-                </label>
-                <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
-                  Fim
-                  <input type="time" id="botBusinessEnd" class="search-input" style="width:130px" value="18:00">
-                </label>
-              </div>
+              <label style="display:block;font-size:12px;color:var(--muted)">Horário por dia da semana</label>
+              <div id="botSchedule" style="display:flex;flex-direction:column;gap:6px;max-width:420px"></div>
               <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)">
                 Mensagem fora do horário
                 <textarea id="botOutOfHoursMsg" rows="3" class="search-input" style="resize:vertical" placeholder="Olá! No momento estamos fora do horário de atendimento. 🌙&#10;Sua mensagem foi registrada e retornaremos no próximo dia útil. 🙂"></textarea>

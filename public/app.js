@@ -1906,27 +1906,54 @@ async function renderAutomations() {
     document.getElementById("botMenuIntro").value = cfg.menuIntro || "";
     document.getElementById("botMenuOptions").value = (cfg.menuOptions || []).join("\n");
     document.getElementById("botHoursEnabled").checked = Boolean(cfg.businessHoursEnabled);
-    document.getElementById("botBusinessStart").value = cfg.businessStart || "08:00";
-    document.getElementById("botBusinessEnd").value = cfg.businessEnd || "18:00";
     document.getElementById("botOutOfHoursMsg").value = cfg.outOfHoursMessage || "";
-    renderBusinessDays(Array.isArray(cfg.businessDays) ? cfg.businessDays : [1, 2, 3, 4, 5]);
+    renderSchedule(cfg.businessSchedule);
     document.getElementById("botStatus").textContent = cfg.enabled ? "Bot ativo: responde a primeira mensagem automaticamente." : "Bot desativado.";
   } catch (e) {
     document.getElementById("botStatus").textContent = "Erro ao carregar: " + e.message;
   }
 }
 
-// Dias de atendimento: botões toggle (Dom-Sáb), guardados em data-day.
+// Agenda por dia da semana: cada linha tem trabalha?/início/fim. Default
+// seg-sex 08-18, sábado 08-12, domingo fechado.
 const DOW_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-function renderBusinessDays(active) {
-  const box = document.getElementById("botBusinessDays");
+const DEFAULT_SCHEDULE = {
+  0: { enabled: false, start: "08:00", end: "12:00" },
+  1: { enabled: true, start: "08:00", end: "18:00" }, 2: { enabled: true, start: "08:00", end: "18:00" },
+  3: { enabled: true, start: "08:00", end: "18:00" }, 4: { enabled: true, start: "08:00", end: "18:00" },
+  5: { enabled: true, start: "08:00", end: "18:00" }, 6: { enabled: true, start: "08:00", end: "12:00" }
+};
+function renderSchedule(sched) {
+  const box = document.getElementById("botSchedule");
   if (!box) return;
-  const set = new Set(active);
-  box.innerHTML = DOW_LABELS.map((lbl, i) => `<button type="button" class="dow-btn${set.has(i) ? " dow-active" : ""}" data-day="${i}">${lbl}</button>`).join("");
-  box.querySelectorAll(".dow-btn").forEach((b) => b.addEventListener("click", () => b.classList.toggle("dow-active")));
+  const s = sched && typeof sched === "object" ? sched : DEFAULT_SCHEDULE;
+  box.innerHTML = DOW_LABELS.map((lbl, i) => {
+    const d = s[i] || s[String(i)] || DEFAULT_SCHEDULE[i];
+    return `<div class="sched-row" data-day="${i}">
+      <label class="sched-day"><input type="checkbox" class="sched-on" ${d.enabled ? "checked" : ""}> ${lbl}</label>
+      <input type="time" class="search-input sched-start" value="${d.start || "08:00"}" ${d.enabled ? "" : "disabled"}>
+      <span style="color:var(--muted);font-size:12px">até</span>
+      <input type="time" class="search-input sched-end" value="${d.end || "18:00"}" ${d.enabled ? "" : "disabled"}>
+    </div>`;
+  }).join("");
+  box.querySelectorAll(".sched-row").forEach((row) => {
+    const on = row.querySelector(".sched-on");
+    on.addEventListener("change", () => {
+      row.querySelector(".sched-start").disabled = !on.checked;
+      row.querySelector(".sched-end").disabled = !on.checked;
+    });
+  });
 }
-function selectedBusinessDays() {
-  return [...document.querySelectorAll("#botBusinessDays .dow-btn.dow-active")].map((b) => Number(b.dataset.day));
+function collectSchedule() {
+  const out = {};
+  document.querySelectorAll("#botSchedule .sched-row").forEach((row) => {
+    out[row.dataset.day] = {
+      enabled: row.querySelector(".sched-on").checked,
+      start: row.querySelector(".sched-start").value || "08:00",
+      end: row.querySelector(".sched-end").value || "18:00"
+    };
+  });
+  return out;
 }
 
 document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
@@ -1941,9 +1968,7 @@ document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
     menuIntro: document.getElementById("botMenuIntro").value.trim(),
     menuOptions: document.getElementById("botMenuOptions").value.split("\n").map((s) => s.trim()).filter(Boolean),
     businessHoursEnabled: document.getElementById("botHoursEnabled").checked,
-    businessDays: selectedBusinessDays(),
-    businessStart: document.getElementById("botBusinessStart").value || "08:00",
-    businessEnd: document.getElementById("botBusinessEnd").value || "18:00",
+    businessSchedule: collectSchedule(),
     outOfHoursMessage: document.getElementById("botOutOfHoursMsg").value.trim()
   };
   try {

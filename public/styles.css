@@ -4272,6 +4272,9 @@ nav a.active::after {
 .hist-session small { display:block; opacity:0.6; font-size:11px; margin-bottom:2px; }
 .hist-session div { margin-top:2px; white-space:pre-wrap; }
 
-/* Dias de atendimento (toggle) */
-.dow-btn { border: 1px solid var(--line); background: var(--panel-alt); color: var(--muted); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
-.dow-btn.dow-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Agenda de atendimento por dia da semana */
+.sched-row { display: flex; align-items: center; gap: 10px; }
+.sched-day { display: flex; align-items: center; gap: 6px; width: 70px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sched-day input { width: 16px; height: 16px; }
+.sched-row .sched-start, .sched-row .sched-end { width: 120px; }
+.sched-row input:disabled { opacity: 0.45; }
