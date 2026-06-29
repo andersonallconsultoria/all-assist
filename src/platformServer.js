@@ -165,7 +165,16 @@ export function startPlatformServer({ config, logger, store, conversationService
           menuIntro: String(body.menuIntro || "").trim(),
           menuOptions: Array.isArray(body.menuOptions)
             ? body.menuOptions.map((o) => String(o || "").trim()).filter(Boolean).slice(0, 10)
-            : []
+            : [],
+          // Horário de atendimento: fora dele, responde com aviso e marca o
+          // atendimento como pendente para o próximo dia útil.
+          businessHoursEnabled: Boolean(body.businessHoursEnabled),
+          businessDays: Array.isArray(body.businessDays)
+            ? body.businessDays.map((d) => Number(d)).filter((d) => d >= 0 && d <= 6)
+            : [1, 2, 3, 4, 5],
+          businessStart: /^\d{2}:\d{2}$/.test(body.businessStart) ? body.businessStart : "08:00",
+          businessEnd: /^\d{2}:\d{2}$/.test(body.businessEnd) ? body.businessEnd : "18:00",
+          outOfHoursMessage: String(body.outOfHoursMessage || "").trim()
         };
         store.update("tenants", tenant.id, { botConfig });
         store.save();
@@ -1203,17 +1212,21 @@ export function startPlatformServer({ config, logger, store, conversationService
         // Criar tickets para mensagens inbound novas
         for (const item of saved) {
           if (item.message.direction === "inbound" && ticketService) {
-            await _createTicketForConversation(
-              item.conversation,
-              item.message,
-              item.contact,
-              ticketService,
-              classifierAgent,
-              store,
-              logger,
-              botAgent,
-              conversationService
-            );
+            const tnt = store.findById("tenants", item.conversation.tenantId);
+            const outOfHours = await _handleOutOfHours(item.conversation, item.message, item.contact, tnt, store, ticketService, classifierAgent, conversationService, logger);
+            if (!outOfHours) {
+              await _createTicketForConversation(
+                item.conversation,
+                item.message,
+                item.contact,
+                ticketService,
+                classifierAgent,
+                store,
+                logger,
+                botAgent,
+                conversationService
+              );
+            }
           }
         }
 
@@ -1283,19 +1296,23 @@ export function startPlatformServer({ config, logger, store, conversationService
           if (result) {
             // Criar ticket para mensagem inbound (ou processar escolha de menu)
             if (result.message.direction === "inbound" && ticketService) {
-              const handledChoice = await _tryHandleMenuChoice(result.conversation, result.message, store, ticketService, conversationService, logger);
-              if (!handledChoice) {
-                await _createTicketForConversation(
-                  result.conversation,
-                  result.message,
-                  result.contact,
-                  ticketService,
-                  classifierAgent,
-                  store,
-                  logger,
-                  botAgent,
-                  conversationService
-                );
+              const tnt = store.findById("tenants", result.conversation.tenantId);
+              const outOfHours = await _handleOutOfHours(result.conversation, result.message, result.contact, tnt, store, ticketService, classifierAgent, conversationService, logger);
+              if (!outOfHours) {
+                const handledChoice = await _tryHandleMenuChoice(result.conversation, result.message, store, ticketService, conversationService, logger);
+                if (!handledChoice) {
+                  await _createTicketForConversation(
+                    result.conversation,
+                    result.message,
+                    result.contact,
+                    ticketService,
+                    classifierAgent,
+                    store,
+                    logger,
+                    botAgent,
+                    conversationService
+                  );
+                }
               }
             }
             store.save();
@@ -2255,6 +2272,64 @@ async function _sendTicketLearnToAllHub(tenant, ticket, store, conversationServi
 // Quando o cliente responde ao menu inicial, direciona o ticket para a fila
 // escolhida (pelo número da opção) e avisa que está sendo encaminhado.
 // Retorna true se tratou a escolha (e então não cria um novo ticket).
+// Hora atual no fuso de São Paulo: { day: 0-6 (dom-sáb), minutes: desde 00h }.
+function _spNow() {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const wdMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const get = (t) => parts.find((p) => p.type === t)?.value;
+  const day = wdMap[get("weekday")] ?? new Date().getDay();
+  let hour = Number(get("hour") || 0);
+  if (hour === 24) hour = 0;
+  return { day, minutes: hour * 60 + Number(get("minute") || 0) };
+}
+function _hhmmToMin(s) {
+  const [h, m] = String(s || "").split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+function isOutOfBusinessHours(botConfig) {
+  if (!botConfig?.businessHoursEnabled) return false;
+  const days = (Array.isArray(botConfig.businessDays) && botConfig.businessDays.length) ? botConfig.businessDays : [1, 2, 3, 4, 5];
+  const { day, minutes } = _spNow();
+  if (!days.includes(day)) return true;
+  return minutes < _hhmmToMin(botConfig.businessStart || "08:00") || minutes >= _hhmmToMin(botConfig.businessEnd || "18:00");
+}
+
+// Mensagem recebida fora do horário de atendimento: garante um ticket, avisa o
+// cliente (no máx. 1x a cada 6h) e deixa o atendimento como pendente para o
+// próximo dia útil. Retorna true se tratou (pula o fluxo normal de bot/menu).
+async function _handleOutOfHours(conversation, message, contact, tenant, store, ticketService, classifierAgent, conversationService, logger) {
+  const botConfig = tenant?.botConfig || {};
+  if (!isOutOfBusinessHours(botConfig) || contact.isGroup) return false;
+  try {
+    let ticket = store.findOne("tickets", (t) => t.conversationId === conversation.id && t.status !== "closed");
+    if (!ticket) {
+      const classification = classifierAgent
+        ? await classifierAgent.classify({ contactName: contact.name || contact.phone, firstMessage: message.body || "[mensagem de mídia]", conversationHistory: [] })
+        : null;
+      ticket = ticketService.createTicket({
+        tenantId: conversation.tenantId, contactId: contact.id, conversationId: conversation.id,
+        firstMessage: message.body || "[mensagem de mídia]", contactName: contact.name || contact.phone, aiClassification: classification
+      });
+    }
+    // Pendente para o próximo dia útil (sem cobrar menu).
+    store.update("tickets", ticket.id, { status: "waiting_analyst", awaitingMenuChoice: false, menuOptions: [] });
+    const last = ticket.outOfHoursNotifiedAt ? new Date(ticket.outOfHoursNotifiedAt).getTime() : 0;
+    if (Date.now() - last > 6 * 3600 * 1000) {
+      const customer = contact.customerId ? store.findById("customers", contact.customerId) : null;
+      const msg = botConfig.outOfHoursMessage || "Olá! No momento estamos fora do horário de atendimento. 🌙\nSua mensagem foi registrada e retornaremos no próximo dia útil. 🙂";
+      await conversationService.sendText(conversation.id, applyVarsServer(msg, contact, customer), "bot", conversation.tenantId, null).catch(() => {});
+      store.update("tickets", ticket.id, { outOfHoursNotifiedAt: new Date().toISOString() });
+      ticketService.addLog(ticket.id, conversation.tenantId, { type: "out_of_hours", note: "Mensagem fora do horário; cliente avisado e atendimento deixado como pendente", actor: "bot" });
+    }
+    store.save();
+    logger.info("out_of_hours_handled", { ticketId: ticket.id });
+    return true;
+  } catch (error) {
+    logger.warn("out_of_hours_failed", { error: error.message });
+    return false;
+  }
+}
+
 async function _tryHandleMenuChoice(conversation, message, store, ticketService, conversationService, logger) {
   const ticket = store.findOne("tickets", (t) => t.conversationId === conversation.id && t.status !== "closed");
   if (!ticket || !ticket.awaitingMenuChoice || !Array.isArray(ticket.menuOptions) || !ticket.menuOptions.length) return false;

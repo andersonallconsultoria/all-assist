@@ -411,8 +411,7 @@ export class ConversationService {
         const providerId = upd?.key?.id || upd?.keyId || upd?.messageId || upd?.id;
         const rawStatus = upd?.update?.status ?? upd?.status;
         const status = EVO_STATUS_MAP[rawStatus] || null;
-        const result = providerId && status ? this.updateMessageStatus(providerId, status) : null;
-        this.logger?.warn?.("evo_status_update", { providerId: providerId ? String(providerId).slice(0, 22) : null, rawStatus, mapped: status, matched: Boolean(result) });
+        if (providerId && status) this.updateMessageStatus(providerId, status);
       }
       this.store.save();
       return { type: "status_update" };

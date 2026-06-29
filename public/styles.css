@@ -4271,3 +4271,7 @@ nav a.active::after {
 .hist-session { font-size:13px; padding:6px 0; border-top:1px dashed var(--border); }
 .hist-session small { display:block; opacity:0.6; font-size:11px; margin-bottom:2px; }
 .hist-session div { margin-top:2px; white-space:pre-wrap; }
+
+/* Dias de atendimento (toggle) */
+.dow-btn { border: 1px solid var(--line); background: var(--panel-alt); color: var(--muted); font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+.dow-btn.dow-active { background: var(--accent); color: #fff; border-color: var(--accent); }

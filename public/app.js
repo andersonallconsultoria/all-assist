@@ -1905,10 +1905,28 @@ async function renderAutomations() {
     document.getElementById("botMenuMode").value = cfg.menuMode === "poll" ? "poll" : "text";
     document.getElementById("botMenuIntro").value = cfg.menuIntro || "";
     document.getElementById("botMenuOptions").value = (cfg.menuOptions || []).join("\n");
+    document.getElementById("botHoursEnabled").checked = Boolean(cfg.businessHoursEnabled);
+    document.getElementById("botBusinessStart").value = cfg.businessStart || "08:00";
+    document.getElementById("botBusinessEnd").value = cfg.businessEnd || "18:00";
+    document.getElementById("botOutOfHoursMsg").value = cfg.outOfHoursMessage || "";
+    renderBusinessDays(Array.isArray(cfg.businessDays) ? cfg.businessDays : [1, 2, 3, 4, 5]);
     document.getElementById("botStatus").textContent = cfg.enabled ? "Bot ativo: responde a primeira mensagem automaticamente." : "Bot desativado.";
   } catch (e) {
     document.getElementById("botStatus").textContent = "Erro ao carregar: " + e.message;
   }
+}
+
+// Dias de atendimento: botões toggle (Dom-Sáb), guardados em data-day.
+const DOW_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+function renderBusinessDays(active) {
+  const box = document.getElementById("botBusinessDays");
+  if (!box) return;
+  const set = new Set(active);
+  box.innerHTML = DOW_LABELS.map((lbl, i) => `<button type="button" class="dow-btn${set.has(i) ? " dow-active" : ""}" data-day="${i}">${lbl}</button>`).join("");
+  box.querySelectorAll(".dow-btn").forEach((b) => b.addEventListener("click", () => b.classList.toggle("dow-active")));
+}
+function selectedBusinessDays() {
+  return [...document.querySelectorAll("#botBusinessDays .dow-btn.dow-active")].map((b) => Number(b.dataset.day));
 }
 
 document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
@@ -1921,7 +1939,12 @@ document.getElementById("botSaveBtn")?.addEventListener("click", async () => {
     menuEnabled: document.getElementById("botMenuEnabled").checked,
     menuMode: document.getElementById("botMenuMode").value,
     menuIntro: document.getElementById("botMenuIntro").value.trim(),
-    menuOptions: document.getElementById("botMenuOptions").value.split("\n").map((s) => s.trim()).filter(Boolean)
+    menuOptions: document.getElementById("botMenuOptions").value.split("\n").map((s) => s.trim()).filter(Boolean),
+    businessHoursEnabled: document.getElementById("botHoursEnabled").checked,
+    businessDays: selectedBusinessDays(),
+    businessStart: document.getElementById("botBusinessStart").value || "08:00",
+    businessEnd: document.getElementById("botBusinessEnd").value || "18:00",
+    outOfHoursMessage: document.getElementById("botOutOfHoursMsg").value.trim()
   };
   try {
     await api("/api/bot/config", { method: "PUT", body: JSON.stringify(payload) });
